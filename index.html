@@ -73,8 +73,8 @@
       </nav>
       <div id="content">
 
-      <!-- ARENA TAB -->
-      <div class="tabpane active" id="tab-arena">
+      <!-- SHARED FIGHT VIEW (used by Arena / Gauntlet / PVP) -->
+      <div id="fight-view">
         <div class="arena-grid">
           <div class="panel arena-stage-panel">
             <div id="arena-stage">
@@ -86,19 +86,25 @@
               <div id="fx-layer" class="fx-layer"></div>
               <div id="arena-overlay" class="arena-overlay hidden"></div>
             </div>
-            <div class="arena-controls">
-              <button id="btn-fight" class="primary-btn">⚔️ FIND A FIGHT <span class="cost">1⚡</span></button>
-              <label class="toggle">
-                <input type="checkbox" id="auto-fight" /> <span>AUTO</span>
-              </label>
-              <label class="toggle">
-                <input type="checkbox" id="fast-fight" /> <span>FAST</span>
-              </label>
-            </div>
           </div>
           <div class="panel combat-log-panel">
             <h3>COMBAT LOG</h3>
             <div id="combat-log"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ARENA TAB (controls for the shared stage) -->
+      <div class="tabpane active" id="tab-arena">
+        <div class="panel">
+          <div class="arena-controls">
+            <button id="btn-fight" class="primary-btn">⚔️ FIND A FIGHT <span class="cost">1⚡</span></button>
+            <label class="toggle">
+              <input type="checkbox" id="auto-fight" /> <span>AUTO</span>
+            </label>
+            <label class="toggle">
+              <input type="checkbox" id="fast-fight" /> <span>FAST</span>
+            </label>
           </div>
         </div>
         <div class="panel idle-panel">

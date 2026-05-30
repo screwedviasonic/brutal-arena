@@ -167,16 +167,14 @@
       setBusy(false); return;
     }
 
-    // animate the (authoritative) fight, then show the result
+    // animate the (authoritative) fight in the shared stage (already visible on the PVP tab)
     const oppName = opponent.handle;
-    Game().activateTab('arena');
     try { await UI().replayBattle(result, me, opponent.defense, Game().fast()); } catch (e) {}
     UI().showOutcome(attackerWon,
       `<div>${attackerWon ? '🏆 PVP VICTORY' : '☠️ PVP DEFEAT'}<br>vs ${oppName}</div>`);
     await loadMe();
     opponent = null;
     setBusy(false);
-    Game().activateTab('pvp');
     render();
   }
 

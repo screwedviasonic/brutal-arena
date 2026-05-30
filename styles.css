@@ -633,3 +633,6 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--ink); border-radius: 5px; }
 ::-webkit-scrollbar-track { background: var(--paper2); }
+
+/* shared fight stage (Arena/Gauntlet/PVP) */
+#fight-view { margin-bottom: 18px; }

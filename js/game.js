@@ -461,7 +461,6 @@
     if (fightInProgress) return;
     if (pendingLevels > 0) { processLevelUps(() => {}); return; }
     fightInProgress = true;
-    activateTab('arena');
     const floor = state.gauntlet.floor;
     const mut = mutatorForFloor(floor);
     const opp = C.generateGauntletOpponent(floor, new RNG(randomSeed()));
@@ -517,6 +516,7 @@
     document.querySelectorAll('.tabpane').forEach(p => p.classList.remove('active'));
     const pane = document.getElementById('tab-' + name);
     if (pane) pane.classList.add('active');
+    if (UI.updateFightView) UI.updateFightView(name);
   }
 
   /* ---------------- offline / tick progression ---------------- */

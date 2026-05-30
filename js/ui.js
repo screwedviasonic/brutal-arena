@@ -53,6 +53,12 @@
     $$('.screen').forEach(s => s.classList.add('hidden'));
     $('#' + id).classList.remove('hidden');
   }
+  const FIGHT_TABS = ['arena', 'gauntlet', 'pvp'];
+  // the shared fight stage is visible only on the fighting tabs
+  function updateFightView(tabName) {
+    const fv = $('#fight-view');
+    if (fv) fv.classList.toggle('hidden', FIGHT_TABS.indexOf(tabName) < 0);
+  }
   function initTabs() {
     $$('.tab').forEach(tab => {
       tab.addEventListener('click', () => {
@@ -60,8 +66,11 @@
         $$('.tabpane').forEach(p => p.classList.remove('active'));
         tab.classList.add('active');
         $('#tab-' + tab.dataset.tab).classList.add('active');
+        updateFightView(tab.dataset.tab);
       });
     });
+    const active = document.querySelector('.tab.active');
+    updateFightView(active ? active.dataset.tab : 'arena');
   }
 
   /* ---------------- avatars ---------------- */
@@ -844,7 +853,7 @@
   function round(n) { return Math.round(n); }
 
   global.UI = {
-    toast, renderTopbar, showScreen, initTabs,
+    toast, renderTopbar, showScreen, initTabs, updateFightView,
     renderCreatePreview, renderBruteTab, renderShop, shopCost,
     renderLegacy, legacyPayout, renderIdle,
     renderForge, renderCraft, renderGauntlet, renderBounties, renderCollection, renderLifetime, setMeta,
