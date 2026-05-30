@@ -44,6 +44,8 @@
       catDmg: bonuses.catDmg || null,
       catHits: { blade: 0, blunt: 0, axe: 0, spear: 0, fist: 0 },
       dmgDealt: 0,
+      dmgTaken: 0,
+      healed: 0,
       immobilized: 0,
       nextTime: 0,
       alive: true,
@@ -83,6 +85,8 @@
         skills: [],
         actives: [],
         petSpeedMod: pet.speed,
+        dmgDealt: 0,
+        dmgTaken: 0,
         immobilized: 0,
         nextTime: 0,
         alive: true,
@@ -131,7 +135,7 @@
     opts = opts || {};
     _uid = 0;
     const rng = new global.RNG(seed);
-    const units = [...buildUnits(left, 'left', opts.leftBonuses || {}), ...buildUnits(right, 'right', {})];
+    const units = [...buildUnits(left, 'left', opts.leftBonuses || {}), ...buildUnits(right, 'right', opts.rightBonuses || {})];
     const events = [];
     let time = 0;
     let actionCount = 0;
@@ -198,6 +202,7 @@
       if (potion && actor.hp < actor.maxHp * 0.35) {
         const healed = Math.round(actor.maxHp * potion.frac);
         actor.hp = Math.min(actor.maxHp, actor.hp + healed);
+        if (actor.healed != null) actor.healed += healed;
         potion.used++;
         E('skill', { skill: 'potion', icon: '🧪', source: actor.id, hp: actor.hp,
           text: `${actor.name} gulps a Tragic Potion and recovers ${healed} HP!` });
@@ -221,6 +226,8 @@
         for (const foe of aliveEnemies(units, actor.team)) {
           const dmg = Math.round(bomb.dmg * (1 - foe.eff.dmgReduction));
           foe.hp -= dmg;
+          if (actor.dmgDealt != null) actor.dmgDealt += dmg;
+          if (foe.dmgTaken != null) foe.dmgTaken += dmg;
           E('hit', { source: actor.id, target: foe.id, dmg, hp: Math.max(0, foe.hp),
             crit: false, kind: 'bomb', text: `💥 ${foe.name} takes ${dmg} blast damage.` });
           checkDeath(foe, events, time);
@@ -266,10 +273,21 @@
     E('end', { winner, snapshot: snapshot(units) });
 
     const playerBrute = units.find(u => u.team === 'left' && u.type === 'brute');
+    const playerPets = units.filter(u => u.team === 'left' && u.type !== 'brute');
+    const playerStats = playerBrute ? {
+      catHits: playerBrute.catHits,
+      dmgDealt: playerBrute.dmgDealt,
+      dmgTaken: playerBrute.dmgTaken,
+      healed: playerBrute.healed,
+      petDmgDealt: playerPets.reduce((a, p) => a + (p.dmgDealt || 0), 0),
+      petDmgTaken: playerPets.reduce((a, p) => a + (p.dmgTaken || 0), 0),
+      kills: units.filter(u => u.team === 'right' && !u.alive).length,
+      petDeaths: playerPets.filter(p => !p.alive).length,
+    } : null;
     return {
       winner, events, seed: rng.seed,
       playerBruteId: playerBrute ? playerBrute.id : null,
-      playerStats: playerBrute ? { catHits: playerBrute.catHits, dmgDealt: playerBrute.dmgDealt } : null,
+      playerStats,
     };
   }
 
@@ -328,12 +346,14 @@
     target.hp -= dmg;
     actor.catHits && (actor.catHits[weapon.cat] = (actor.catHits[weapon.cat] || 0) + 1);
     if (actor.dmgDealt != null) actor.dmgDealt += dmg;
+    if (target.dmgTaken != null) target.dmgTaken += dmg;
 
     // lifesteal
     let lifeheal = 0;
     if (weapon.lifesteal > 0 && actor.alive) {
       lifeheal = Math.max(1, Math.round(dmg * weapon.lifesteal));
       actor.hp = Math.min(actor.maxHp, actor.hp + lifeheal);
+      if (actor.healed != null) actor.healed += lifeheal;
     }
 
     E('hit', {
@@ -366,6 +386,8 @@
     if (target.alive && target.eff.reflect > 0 && target.hp > 0) {
       const rdmg = Math.max(1, Math.round(dmg * target.eff.reflect));
       actor.hp -= rdmg;
+      if (actor.dmgTaken != null) actor.dmgTaken += rdmg;
+      if (target.dmgDealt != null) target.dmgDealt += rdmg;
       E('hit', { source: target.id, target: actor.id, dmg: rdmg, crit: false, kind: 'reflect',
         hp: Math.max(0, actor.hp), text: `${target.name} reflects ${rdmg} damage back!` });
       checkDeath(actor, events, time);
@@ -394,6 +416,8 @@
     cdmg *= defender.dmgMul || 1;
     let dmg = Math.max(1, Math.round(cdmg * (1 - attacker.eff.dmgReduction * (1 - (weapon.armorPen || 0)))));
     attacker.hp -= dmg;
+    if (defender.dmgDealt != null) defender.dmgDealt += dmg;
+    if (attacker.dmgTaken != null) attacker.dmgTaken += dmg;
     E('counter', { source: defender.id, target: attacker.id, dmg, hp: Math.max(0, attacker.hp),
       text: `${defender.name} counter-attacks for ${dmg}!` });
     checkDeath(attacker, events, time);

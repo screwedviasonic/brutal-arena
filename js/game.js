@@ -34,9 +34,13 @@
       lastTick: now(),
       staminaProgress: 0,      // seconds accumulated toward next stamina point
       dust: 0,
+      shards: 0,
+      craftTarget: null,
       shop: {},
       legacyPerks: {},
       gauntlet: { floor: 1, best: 0, checkpoint: 1 },
+      lifetime: emptyStats(),   // account-wide tally across every brute
+      bounties: null,   // lazily seeded by ensureBounties()
       collection: { weapons: {}, skills: {}, pets: {} },
       masteries: { blade: 0, blunt: 0, axe: 0, spear: 0 },
       brute: null,
@@ -48,6 +52,10 @@
   function migrate(s) {
     if (!s) return s;
     if (s.dust == null) s.dust = 0;
+    if (s.shards == null) s.shards = 0;
+    if (s.craftTarget === undefined) s.craftTarget = null;
+    s.lifetime = fillStats(s.lifetime);
+    if (s.brute) s.brute.career = fillStats(s.brute.career);
     if (!s.gauntlet) s.gauntlet = { floor: 1, best: 0, checkpoint: 1 };
     if (!s.collection) s.collection = { weapons: {}, skills: {}, pets: {} };
     if (!s.masteries) s.masteries = { blade: 0, blunt: 0, axe: 0, spear: 0 };
@@ -136,6 +144,55 @@
     }
   }
 
+  /* ---------------- stats (career + lifetime) ---------------- */
+  function emptyStats() {
+    const o = {};
+    D.STAT_DEFS.forEach(d => o[d.key] = 0);
+    return o;
+  }
+  // ensure every canonical key exists on a (possibly older/missing) stats object
+  function fillStats(o) {
+    o = o || {};
+    D.STAT_DEFS.forEach(d => { if (typeof o[d.key] !== 'number') o[d.key] = 0; });
+    return o;
+  }
+  function ensureStats() {
+    state.lifetime = fillStats(state.lifetime);
+    if (state.brute) state.brute.career = fillStats(state.brute.career);
+  }
+  function addInto(target, delta) { for (const k in delta) target[k] = (target[k] || 0) + delta[k]; }
+  function accumulateStats(delta) {
+    ensureStats();
+    addInto(state.lifetime, delta);
+    if (state.brute) addInto(state.brute.career, delta);
+  }
+  // turn a finished fight into a stat delta
+  function extractFightStats(result, won, isGauntlet, earned) {
+    const ps = (result && result.playerStats) || {};
+    earned = earned || {};
+    let crits = 0;
+    for (const e of (result && result.events) || []) {
+      if ((e.type === 'hit' || e.type === 'counter') && e.crit && e.source && String(e.source)[0] === 'L') crits++;
+    }
+    return {
+      dmgDealt: Math.round(ps.dmgDealt || 0),
+      dmgTaken: Math.round(ps.dmgTaken || 0),
+      healed: Math.round(ps.healed || 0),
+      petDmgDealt: Math.round(ps.petDmgDealt || 0),
+      petDmgTaken: Math.round(ps.petDmgTaken || 0),
+      crits,
+      kills: ps.kills || 0,
+      petDeaths: ps.petDeaths || 0,
+      wins: won ? 1 : 0,
+      losses: won ? 0 : 1,
+      arenaFights: isGauntlet ? 0 : 1,
+      gauntletFights: isGauntlet ? 1 : 0,
+      goldEarned: Math.round(earned.gold || 0),
+      dustEarned: Math.round(earned.dust || 0),
+      xpEarned: Math.round(earned.xp || 0),
+    };
+  }
+
   /* ---------------- loot ---------------- */
   function addWeaponToBrute(item) {
     state.brute.weapons.push(item);
@@ -146,6 +203,7 @@
       if (wi >= 0) {
         const weak = state.brute.weapons[wi];
         state.dust += global.Items.disenchantValue(weak);
+        state.shards += global.Items.shardValue(weak);
         state.brute.weapons.splice(wi, 1);
       }
     }
@@ -159,6 +217,90 @@
   }
   function lootBadge(item) {
     return `<b style="color:${global.Items.color(item)}">${global.Items.displayName(item)}</b>`;
+  }
+
+  /* ---------------- bounties ---------------- */
+  function rollBounty() {
+    const rng = new RNG(randomSeed());
+    const tpl = rng.weighted(D.BOUNTIES.templates.map(t => ({ item: t, weight: t.weight })));
+    const made = tpl.make(rng, state.gauntlet.best || 1);
+    return Object.assign({ type: tpl.id, icon: tpl.icon, progress: 0, done: false }, made);
+  }
+  function ensureBounties() {
+    if (!state.bounties) state.bounties = { list: [], lastRefresh: now() };
+    while (state.bounties.list.length < D.BOUNTIES.slots) state.bounties.list.push(rollBounty());
+  }
+  function refreshBountiesIfDue() {
+    ensureBounties();
+    const due = state.bounties.lastRefresh + D.BOUNTIES.refreshHours * 3600 * 1000;
+    if (now() >= due) {
+      // rotate only the un-completed bounties; never wipe a claimable reward
+      state.bounties.list = state.bounties.list.map(b => (b && b.done) ? b : rollBounty());
+      state.bounties.lastRefresh = now();
+      save(); renderAll();
+    }
+  }
+  // build the per-fight context bounties measure against
+  function fightContext(won, isGauntlet, result, floorReached) {
+    let crits = 0;
+    const evs = (result && result.events) || [];
+    for (const e of evs) {
+      if ((e.type === 'hit' || e.type === 'counter') && e.crit && e.source && String(e.source)[0] === 'L') crits++;
+    }
+    return {
+      won,
+      arenaWin: won && !isGauntlet,
+      gauntletWin: won && isGauntlet,
+      crits,
+      catHits: (result && result.playerStats && result.playerStats.catHits) || {},
+      floorReached: floorReached != null ? floorReached : null,
+    };
+  }
+  function progressBounties(ctx) {
+    ensureBounties();
+    let changed = false;
+    for (const b of state.bounties.list) {
+      if (!b || b.done) continue;
+      const before = b.progress;
+      switch (b.type) {
+        case 'gauntletClear': if (ctx.gauntletWin) b.progress++; break;
+        case 'arenaWin':      if (ctx.arenaWin) b.progress++; break;
+        case 'anyWin':        if (ctx.won) b.progress++; break;
+        case 'crits':         b.progress += ctx.crits; break;
+        case 'catHits':       b.progress += (ctx.catHits[b.cat] || 0); break;
+        case 'reachFloor':    if (ctx.floorReached != null) b.progress = Math.max(b.progress, ctx.floorReached); break;
+      }
+      if (b.progress > b.target) b.progress = b.target;
+      if (b.progress !== before) changed = true;
+      if (b.progress >= b.target && !b.done) { b.done = true; changed = true; UI.toast(`📜 Bounty ready to claim: ${b.desc}`, 'good'); }
+    }
+    if (changed) save();
+  }
+  function claimBounty(idx) {
+    ensureBounties();
+    const b = state.bounties.list[idx];
+    if (!b || !b.done) return;
+    const r = b.reward || {};
+    if (r.gold) state.gold += r.gold;
+    if (r.dust) state.dust += r.dust;
+    if (r.legacy) state.legacy += r.legacy;
+    const parts = [];
+    if (r.gold) parts.push(`🪙${UI.fmt(r.gold)}`);
+    if (r.dust) parts.push(`✦${r.dust}`);
+    if (r.legacy) parts.push(`🏆${r.legacy}`);
+    UI.toast(`📜 Claimed: ${parts.join(' • ')}`, 'good');
+    state.bounties.list[idx] = rollBounty();
+    save(); renderAll();
+  }
+  function rerollBounty(idx) {
+    ensureBounties();
+    const b = state.bounties.list[idx];
+    if (!b || b.done) return;
+    const cost = D.BOUNTIES.rerollCost;
+    if (state.dust < cost) { UI.toast('Not enough dust to reroll.', 'bad'); return; }
+    state.dust -= cost;
+    state.bounties.list[idx] = rollBounty();
+    save(); renderAll();
   }
 
   /* ---------------- forge ---------------- */
@@ -182,9 +324,10 @@
     const it = findWeapon(uid); if (!it) return;
     if (state.brute.weapons.length <= 1) { UI.toast('Cannot disenchant your last weapon.', 'bad'); return; }
     const d = global.Items.disenchantValue(it);
-    state.dust += d;
+    const sh = global.Items.shardValue(it);
+    state.dust += d; state.shards += sh;
     state.brute.weapons = state.brute.weapons.filter(w => w.uid !== uid);
-    UI.toast(`♻️ Disenchanted (+${d} dust)`, 'good'); save(); renderAll();
+    UI.toast(`♻️ Scrapped (+${d} dust • +${sh} shards)`, 'good'); save(); renderAll();
   }
   function forgeFuse(uid) {
     const it = findWeapon(uid); if (!it) return;
@@ -199,39 +342,91 @@
     UI.toast(`✨ Fused into ${global.Items.rarityName(fused)} ${global.Items.displayName(fused)}!`, 'good');
     save(); renderAll();
   }
+  // shards needed to craft a given weapon base (scales with its tier)
+  function craftCost(base) {
+    const w = D.WEAPONS[base];
+    const tier = (w && w.tier) || 1;
+    return D.CRAFT.shardBase + tier * D.CRAFT.shardPerTier;
+  }
+  function setCraftTarget(base) {
+    state.craftTarget = base || null;
+    save(); renderAll();
+  }
+  function forgeCraft() {
+    const base = state.craftTarget;
+    if (!base || !D.WEAPONS[base]) { UI.toast('Pick a weapon to craft first.', 'bad'); return; }
+    const cost = craftCost(base);
+    if (state.shards < cost) { UI.toast('Not enough shards.', 'bad'); return; }
+    state.shards -= cost;
+    const rng = new RNG(randomSeed());
+    let item = global.Items.generateWeapon(base, rng, { luck: D.CRAFT.luck });
+    // guarantee at least the configured minimum rarity
+    if (global.Items.rarityRank(item.rarity) < global.Items.rarityRank(D.CRAFT.minRarity)) {
+      item = global.Items.generateWeapon(base, rng, { rarity: D.CRAFT.minRarity });
+    }
+    addWeaponToBrute(item);
+    UI.toast(`⚒️ Crafted ${global.Items.rarityName(item)} ${global.Items.displayName(item)}!`, 'good');
+    save(); renderAll();
+  }
 
   /* ---------------- gauntlet ---------------- */
+  // Roll the mutator for a floor. Deterministic by floor number so a retry of
+  // the same floor always faces the same modifier. Boss floors are exempt.
+  function mutatorForFloor(floor) {
+    if (floor % D.GAUNTLET.bossEvery === 0) return null;
+    const rng = new RNG((Math.imul(floor, 2654435761) ^ 0x9e3779b9) >>> 0);
+    const m = rng.weighted(D.GAUNTLET.mutators.map(x => ({ item: x, weight: x.weight })));
+    return (m.id === 'calm') ? null : m;
+  }
+  // Multiply numeric bonus fields together; copy non-numeric (e.g. catDmg) as-is.
+  function mergeBonuses(a, b) {
+    const out = Object.assign({}, a);
+    if (b) for (const k in b) {
+      out[k] = (typeof b[k] === 'number' && typeof out[k] === 'number') ? out[k] * b[k] : b[k];
+    }
+    return out;
+  }
   function climbGauntlet() {
     if (fightInProgress) return;
     if (pendingLevels > 0) { processLevelUps(() => {}); return; }
     fightInProgress = true;
     activateTab('arena');
     const floor = state.gauntlet.floor;
+    const mut = mutatorForFloor(floor);
     const opp = C.generateGauntletOpponent(floor, new RNG(randomSeed()));
-    const result = global.Combat.simulateBattle(state.brute, opp, randomSeed(), { leftBonuses: metaBonuses() });
+    const result = global.Combat.simulateBattle(state.brute, opp, randomSeed(), {
+      leftBonuses: mergeBonuses(metaBonuses(), mut && mut.left),
+      rightBonuses: (mut && mut.right) || {},
+    });
     const won = result.winner === 'left';
     renderAll();
     UI.replayBattle(result, state.brute, opp, state.settings.fastFight).then((finished) => {
       if (!finished) { fightInProgress = false; return; }
-      resolveGauntlet(won, floor, result);
+      resolveGauntlet(won, floor, result, mut);
     });
   }
-  function resolveGauntlet(won, floor, result) {
+  function resolveGauntlet(won, floor, result, mut) {
     const isBoss = floor % D.GAUNTLET.bossEvery === 0;
+    const isMilestone = floor % D.GAUNTLET.milestoneEvery === 0;
+    const rMul = (mut && mut.rewardMul) || {};
+    const earned = { gold: 0, dust: 0, xp: 0 };
     awardMastery(result.playerStats);
     syncCollection(state.brute);
     if (won) {
-      const xp = Math.round((20 + floor * 6) * xpMul());
-      const gold = Math.round((15 + floor * 7) * goldMul());
-      const dust = Math.round(3 + floor * 1.2) + (isBoss ? 20 : 0);
+      const xp = Math.round((20 + floor * 6) * xpMul() * (rMul.xp || 1));
+      const gold = Math.round((15 + floor * 7) * goldMul() * (rMul.gold || 1));
+      let dust = Math.round((3 + floor * 1.2) * (rMul.dust || 1)) + (isBoss ? 20 : 0) + (isMilestone ? 40 : 0);
       state.gold += gold; state.dust += dust;
+      earned.gold = gold; earned.dust = dust; earned.xp = xp;
       let dropTxt = '';
-      if (isBoss) { dropTxt = ' • ' + lootBadge(dropItem(Math.min(0.95, 0.3 + floor * 0.04))); }
-      else if (Math.random() < 0.28) { dropTxt = ' • ' + lootBadge(dropItem(Math.min(0.9, 0.1 + floor * 0.03))); }
+      const wantDrop = isBoss || (mut && mut.bonusDrop) || Math.random() < 0.28;
+      if (wantDrop) { dropTxt = ' • ' + lootBadge(dropItem(Math.min(0.95, (isBoss ? 0.3 : 0.1) + floor * 0.04))); }
+      if (isMilestone) { state.legacy += 1; dropTxt += ' • 🏆+1'; }
       state.gauntlet.floor = floor + 1;
       if (floor > state.gauntlet.best) state.gauntlet.best = floor;
       if (isBoss) state.gauntlet.checkpoint = floor + 1;
-      UI.showOutcome(true, `<div>FLOOR ${floor} CLEARED${isBoss ? ' 👑' : ''}<br>+${UI.fmt(xp)} XP • +🪙${UI.fmt(gold)} • +✦${dust}${dropTxt}</div>`);
+      const tag = isMilestone ? ' 🏆' : (isBoss ? ' 👑' : '');
+      UI.showOutcome(true, `<div>FLOOR ${floor} CLEARED${tag}<br>+${UI.fmt(xp)} XP • +🪙${UI.fmt(gold)} • +✦${dust}${dropTxt}</div>`);
       grantXp(xp, true);
     } else {
       state.brute.losses++;
@@ -239,7 +434,10 @@
       state.gauntlet.floor = back;
       UI.showOutcome(false, `<div>FELL ON FLOOR ${floor}<br>Back to floor ${back}</div>`);
     }
-    save(); renderAll(); fightInProgress = false;
+    progressBounties(fightContext(won, true, result, won ? state.gauntlet.floor : null));
+    accumulateStats(extractFightStats(result, won, true, earned));
+    fightInProgress = false;
+    save(); renderAll();
     processLevelUps(() => {});
   }
 
@@ -357,9 +555,11 @@
     UI.showOutcome(playerWon, rewardHtml);
 
     grantXp(xp, true);
+    progressBounties(fightContext(playerWon, false, result, null));
+    accumulateStats(extractFightStats(result, playerWon, false, { gold, dust, xp }));
+    fightInProgress = false;
     save();
     renderAll();
-    fightInProgress = false;
 
     // resolve any level-ups, then optionally auto-continue
     processLevelUps(() => {
@@ -450,13 +650,19 @@
   function renderAll() {
     renderTopbarOnly();
     if (!state.brute) return;
+    ensureStats();
     UI.setMeta(metaBonuses());
     UI.renderBruteTab(state.brute);
     UI.renderForge(state.brute, state.dust, state.gold, {
       upgrade: forgeUpgrade, reroll: forgeReroll, disenchant: forgeDisenchant, fuse: forgeFuse,
     });
-    UI.renderGauntlet(state.gauntlet, climbGauntlet, !fightInProgress);
+    UI.renderCraft(state.shards, state.craftTarget, state.craftTarget ? craftCost(state.craftTarget) : 0,
+      { setTarget: setCraftTarget, craft: forgeCraft });
+    UI.renderGauntlet(state.gauntlet, climbGauntlet, !fightInProgress, mutatorForFloor(state.gauntlet.floor));
+    ensureBounties();
+    UI.renderBounties(state.bounties, { claim: claimBounty, reroll: rerollBounty, rerollDust: state.dust });
     UI.renderCollection(state, masteryLevels());
+    UI.renderLifetime(state.lifetime, state.gauntlet.best);
     UI.renderShop(stateForShop(), buyShop);
     UI.renderLegacy(state, state.brute, retireBrute, buyLegacyPerk);
     UI.renderIdle(idleXpRate());
@@ -475,6 +681,7 @@
     if (btn) btn.disabled = state.stamina < 1 || fightInProgress;
     // resolve queued level-ups if player is just sitting there
     if (!fightInProgress && pendingLevels > 0 && !UI.isModalOpen()) processLevelUps(() => {});
+    refreshBountiesIfDue();
     save();
   }
 

@@ -130,8 +130,83 @@
   /* ---------------- GAUNTLET (endless tower) ---------------- */
   const GAUNTLET = {
     bossEvery: 5,                 // every Nth floor is a boss
+    milestoneEvery: 10,           // every Nth floor grants a Legacy milestone reward
     bossTitles: ['the Gatekeeper', 'the Bonelord', 'the Executioner', 'the Devourer', 'the Warlord', 'the Undying', 'the Titan', 'the Ruin'],
-    // reward helpers are computed in game.js from floor number
+    // Floor mutators: a non-boss floor rolls one of these (deterministically by
+    // floor number, so re-attempts are fair). They tweak the fight and/or rewards.
+    //   right     : stat bonuses applied to the ENEMY side
+    //   left      : extra stat bonuses applied to YOU (stacked on meta bonuses)
+    //   rewardMul : multipliers on { gold, dust, xp }
+    //   bonusDrop : guarantee a weapon drop this floor
+    mutators: [
+      { id: 'calm',     weight: 5 },
+      { id: 'frenzy',   weight: 2, icon: '🔥', label: 'Frenzy',       desc: 'Enemies hit +30% harder — but a drop is guaranteed', right: { dmgMul: 1.30 }, bonusDrop: true },
+      { id: 'golden',   weight: 2, icon: '💰', label: 'Golden Floor', desc: '+150% gold from this floor',                       rewardMul: { gold: 2.5 } },
+      { id: 'treasure', weight: 2, icon: '💎', label: 'Treasure',     desc: 'Guaranteed weapon drop • +100% dust',              bonusDrop: true, rewardMul: { dust: 2 } },
+      { id: 'overload', weight: 1, icon: '⚡', label: 'Overload',     desc: 'Everyone deals +25% damage • +75% XP',             right: { dmgMul: 1.25 }, left: { dmgMul: 1.25 }, rewardMul: { xp: 1.75 } },
+      { id: 'brittle',  weight: 2, icon: '🩸', label: 'Brittle Foes', desc: 'Enemies have 25% less HP',                         right: { hpMul: 0.75 } },
+    ],
+  };
+
+  /* ---------------- BOUNTIES (rotating goals) ----------------
+   * Directed objectives to chase between stamina refills. Many are
+   * completable in the stamina-free Gauntlet. Each template's make()
+   * is handed an RNG and the player's best gauntlet floor and returns
+   * the concrete goal: { target, desc, reward, cat? }.
+   * progress is measured in game.js from fight results.
+   */
+  const BOUNTIES = {
+    slots: 3,            // active bounties at once
+    refreshHours: 4,     // un-completed bounties auto-rotate after this long
+    rerollCost: 35,      // dust to manually reroll one bounty
+    templates: [
+      { id: 'gauntletClear', icon: '🗼', weight: 3,
+        make: (r) => { const n = r.int(3, 6);  return { target: n, desc: `Clear ${n} Gauntlet floors`, reward: { gold: 60 + n * 18 } }; } },
+      { id: 'arenaWin', icon: '🏟️', weight: 3,
+        make: (r) => { const n = r.int(3, 6);  return { target: n, desc: `Win ${n} Arena fights`, reward: { gold: 50 + n * 14 } }; } },
+      { id: 'anyWin', icon: '🥊', weight: 2,
+        make: (r) => { const n = r.int(5, 10); return { target: n, desc: `Win ${n} fights (any mode)`, reward: { gold: 40 + n * 10, dust: 6 } }; } },
+      { id: 'crits', icon: '💥', weight: 2,
+        make: (r) => { const n = r.int(6, 14); return { target: n, desc: `Land ${n} critical hits`, reward: { dust: 12 + n } }; } },
+      { id: 'catHits', icon: '⚔️', weight: 2,
+        make: (r) => { const cat = r.pick(WEAPON_CATS); const n = r.int(8, 16); return { target: n, cat, desc: `Land ${n} hits with ${CAT_NAMES[cat]}`, reward: { dust: 10 + n } }; } },
+      { id: 'reachFloor', icon: '🏔️', weight: 1,
+        make: (r, best) => { const n = (best || 1) + r.int(2, 5); return { target: n, desc: `Reach Gauntlet floor ${n}`, reward: { legacy: 1, gold: 90 } }; } },
+    ],
+  };
+
+  /* ---------------- STATS ----------------
+   * Canonical tally fields, tracked per-brute (career) and account-wide
+   * (lifetime). Order here is the display order on the stats screens.
+   */
+  const STAT_DEFS = [
+    { key: 'dmgDealt',       icon: '⚔️', label: 'Damage Dealt' },
+    { key: 'dmgTaken',       icon: '🛡️', label: 'Damage Taken' },
+    { key: 'healed',         icon: '💚', label: 'HP Healed' },
+    { key: 'petDmgDealt',    icon: '🐾', label: 'Pet Damage' },
+    { key: 'petDmgTaken',    icon: '🩹', label: 'Pet Damage Taken' },
+    { key: 'crits',          icon: '💥', label: 'Crits Landed' },
+    { key: 'kills',          icon: '💀', label: 'Enemies Felled' },
+    { key: 'petDeaths',      icon: '⚰️', label: 'Pets Lost' },
+    { key: 'arenaFights',    icon: '🏟️', label: 'Arena Fights' },
+    { key: 'gauntletFights', icon: '🗼', label: 'Gauntlet Fights' },
+    { key: 'wins',           icon: '🏅', label: 'Wins' },
+    { key: 'losses',         icon: '☠️', label: 'Losses' },
+    { key: 'goldEarned',     icon: '🪙', label: 'Gold Earned' },
+    { key: 'dustEarned',     icon: '✦', label: 'Dust Earned' },
+    { key: 'xpEarned',       icon: '✨', label: 'XP Earned' },
+  ];
+
+  /* ---------------- FORGE CRAFTING ----------------
+   * Bank shards (from scrapping weapons) toward a chosen target weapon.
+   * cost = shardBase + tier * shardPerTier. A craft yields the target at
+   * minRarity or better.
+   */
+  const CRAFT = {
+    shardBase: 10,
+    shardPerTier: 6,
+    minRarity: 'rare',
+    luck: 0.7,
   };
 
   /* ---------------- MASTERIES (per weapon category) ---------------- */
@@ -158,6 +233,6 @@
     NAME_PREFIX, NAME_SUFFIX, NAME_TITLE,
     SKIN_COLORS, OUTFIT_COLORS,
     SHOP_ITEMS, LEGACY_PERKS,
-    GAUNTLET, MASTERY, COLLECTION,
+    GAUNTLET, MASTERY, COLLECTION, BOUNTIES, CRAFT, STAT_DEFS,
   };
 })(window);

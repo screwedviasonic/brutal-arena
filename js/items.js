@@ -171,10 +171,14 @@
   function disenchantValue(item) {
     return Math.floor((rarityRank(item.rarity) + 1) * 6 + (item.level || 0) * 4);
   }
+  // shards yielded when a weapon is scrapped — feeds the Forge's target crafting
+  function shardValue(item) {
+    return 2 * (rarityRank(item.rarity) + 1) + (item.level || 0);
+  }
 
   global.Items = {
     RARITIES, RARITY, AFFIXES,
     generateWeapon, stats, fistStats, displayName, affixLines, color, rarityName, rarityRank,
-    upgradeCost, rerollCost, fuseDustCost, upgrade, reroll, canFuse, fuse, disenchantValue,
+    upgradeCost, rerollCost, fuseDustCost, upgrade, reroll, canFuse, fuse, disenchantValue, shardValue,
   };
 })(window);

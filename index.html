@@ -59,9 +59,11 @@
       <nav id="tabs">
         <button class="tab active" data-tab="arena">🏟️ ARENA</button>
         <button class="tab" data-tab="gauntlet">🗼 GAUNTLET</button>
+        <button class="tab" data-tab="bounties">📜 BOUNTIES</button>
         <button class="tab" data-tab="brute">🧍 BRUTE</button>
         <button class="tab" data-tab="forge">⚒️ FORGE</button>
         <button class="tab" data-tab="collection">📖 COLLECTION</button>
+        <button class="tab" data-tab="stats">📊 STATS</button>
         <button class="tab" data-tab="shop">🛒 SHOP</button>
         <button class="tab" data-tab="legacy">🏆 LEGACY</button>
       </nav>
@@ -109,8 +111,20 @@
         </div>
       </div>
 
+      <!-- BOUNTIES TAB -->
+      <div class="tabpane" id="tab-bounties">
+        <div class="panel">
+          <h3>BOUNTIES <span class="muted small">— rotating goals, no stamina needed</span> <span id="bounty-timer" class="forge-dust-tag"></span></h3>
+          <div id="bounties-content"></div>
+        </div>
+      </div>
+
       <!-- FORGE TAB -->
       <div class="tabpane" id="tab-forge">
+        <div class="panel">
+          <h3>TARGET CRAFTING <span class="muted small">— bank shards from scrapping, craft the weapon you want</span> <span class="forge-dust-tag">🧩 <span id="forge-shards">0</span> shards</span></h3>
+          <div id="forge-craft" class="forge-craft"></div>
+        </div>
         <div class="panel">
           <h3>THE FORGE <span class="muted small">— upgrade, reroll, fuse &amp; scrap weapons</span> <span class="forge-dust-tag">✦ <span id="forge-dust">0</span> dust</span></h3>
           <div id="forge-list" class="forge-list"></div>
@@ -130,6 +144,14 @@
         <div class="brute-grid">
           <div class="panel" id="brute-card-panel"></div>
           <div class="panel" id="brute-inventory-panel"></div>
+        </div>
+      </div>
+
+      <!-- STATS TAB -->
+      <div class="tabpane" id="tab-stats">
+        <div class="panel">
+          <h3>LIFETIME STATS <span class="muted small">— account-wide, all brutes</span></h3>
+          <div id="stats-content"></div>
         </div>
       </div>
 

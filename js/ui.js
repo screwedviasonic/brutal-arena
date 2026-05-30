@@ -105,6 +105,26 @@
   }
   function chip(icon, name) { return `<span class="chip" title="${name}">${icon} ${name}</span>`; }
 
+  /* ---------------- stats grid (shared) ---------------- */
+  function statsGridHtml(stats) {
+    stats = stats || {};
+    const total = (stats.wins || 0) + (stats.losses || 0);
+    const winRate = total ? Math.round((stats.wins / total) * 100) : 0;
+    const cells = D.STAT_DEFS.map(d =>
+      `<div class="stat-cell"><span class="stat-ico">${d.icon}</span>
+        <span class="stat-num">${fmt(stats[d.key] || 0)}</span>
+        <span class="stat-key">${d.label}</span></div>`).join('');
+    return `<div class="stat-cells">${cells}</div>
+      <div class="stat-extra">Total fights: <b>${fmt(total)}</b> • Win rate: <b>${winRate}%</b></div>`;
+  }
+  function renderLifetime(lifetime, gauntletBest) {
+    const el = $('#stats-content');
+    if (!el) return;
+    el.innerHTML = `<p class="muted small">Totals across every brute you've ever fielded — these never reset, even when you retire.</p>
+      <div class="stat-banner">🏔️ Highest Gauntlet floor reached: <b>${gauntletBest || 0}</b></div>
+      ${statsGridHtml(lifetime)}`;
+  }
+
   /* ---------------- brute tab ---------------- */
   function renderBruteTab(brute) {
     const e = C.effectiveStats(brute, curMeta);
@@ -134,7 +154,9 @@
         ${derived('Crit', e.crit)} ${derived('Evasion', e.evasion)}
         ${derived('Block', e.block)} ${derived('Counter', e.counter)}
         ${derived('Combo', e.combo)} ${derived('Dmg Reduce', e.dmgReduction)}
-      </div>`;
+      </div>
+      <h3 class="run-stats-head">📋 THIS BRUTE'S RECORD</h3>
+      ${statsGridHtml(brute.career)}`;
 
     const weaponsHtml = brute.weapons.length
       ? brute.weapons.map(itemRow).join('')
@@ -235,6 +257,40 @@
       : `<span class="muted">Hire Trainers in the Shop to earn idle XP.</span>`;
   }
 
+  /* ---------------- forge: target crafting ---------------- */
+  function renderCraft(shards, target, cost, h) {
+    const el = $('#forge-craft');
+    if (!el) return;
+    const sd = $('#forge-shards'); if (sd) sd.textContent = fmt(shards);
+    // weapon picker, grouped/sorted by tier
+    const opts = D.DROPPABLE_WEAPONS.slice().sort((a, b) => a.tier - b.tier)
+      .map(w => `<option value="${w.id}" ${w.id === target ? 'selected' : ''}>${w.icon} ${w.name} (T${w.tier})</option>`).join('');
+    let body;
+    if (!target) {
+      body = '<p class="muted small">Choose a weapon above to start banking shards toward it.</p>';
+    } else {
+      const w = D.WEAPONS[target];
+      const pct = Math.min(100, (shards / cost) * 100);
+      const ready = shards >= cost;
+      body = `<div class="craft-target">
+          <span class="craft-ico">${w.icon}</span>
+          <div class="craft-info">
+            <div class="craft-name">${w.name}</div>
+            <div class="muted small">Crafts at ${I.RARITY[D.CRAFT.minRarity].name}+ quality</div>
+          </div>
+        </div>
+        <div class="bounty-bar"><div class="bounty-fill craft-fill" style="width:${pct}%"></div>
+          <span class="bounty-count">🧩 ${fmt(Math.min(shards, cost))} / ${cost}</span></div>
+        <button id="btn-craft" class="primary-btn" ${ready ? '' : 'disabled'}>⚒️ CRAFT ${w.name.toUpperCase()}</button>`;
+    }
+    el.innerHTML = `<label class="craft-pick"><span>TARGET</span>
+        <select id="craft-select"><option value="">— none —</option>${opts}</select></label>${body}`;
+    const sel = $('#craft-select');
+    if (sel) sel.addEventListener('change', () => h.setTarget(sel.value));
+    const cb = $('#btn-craft');
+    if (cb && shards >= cost) cb.addEventListener('click', h.craft);
+  }
+
   /* ---------------- forge ---------------- */
   function renderForge(brute, dust, gold, h) {
     const el = $('#forge-list');
@@ -263,21 +319,75 @@
   }
 
   /* ---------------- gauntlet ---------------- */
-  function renderGauntlet(g, onClimb, enabled) {
+  function renderGauntlet(g, onClimb, enabled, mutator) {
     const el = $('#gauntlet-content');
     if (!el) return;
     const nextBoss = (g.floor % D.GAUNTLET.bossEvery) === 0;
+    const isMilestone = (g.floor % D.GAUNTLET.milestoneEvery) === 0;
     const toBoss = D.GAUNTLET.bossEvery - ((g.floor - 1) % D.GAUNTLET.bossEvery);
+    const toMilestone = D.GAUNTLET.milestoneEvery - ((g.floor - 1) % D.GAUNTLET.milestoneEvery);
+    const bannerCls = isMilestone ? 'milestone' : (nextBoss ? 'boss' : '');
+    const bannerTxt = isMilestone ? '🏆 MILESTONE FLOOR — bonus Legacy + loot + dust'
+      : nextBoss ? '👑 BOSS FLOOR — guaranteed rare loot'
+      : 'Next boss in ' + toBoss + ' floor' + (toBoss > 1 ? 's' : '') + ' • 🏆 milestone in ' + toMilestone;
+    const mutHtml = mutator
+      ? `<div class="gaunt-mut"><span class="gaunt-mut-ico">${mutator.icon}</span><b>${mutator.label}:</b> ${mutator.desc}</div>`
+      : '';
     el.innerHTML = `
       <div class="gaunt-top">
         <div class="gaunt-floor">FLOOR <b>${g.floor}</b></div>
         <div class="gaunt-best">🏔️ Best ${g.best} &nbsp; 🚩 Checkpoint ${g.checkpoint || 1}</div>
       </div>
-      <div class="gaunt-next ${nextBoss ? 'boss' : ''}">${nextBoss ? '👑 BOSS FLOOR — guaranteed rare loot' : 'Next boss in ' + toBoss + ' floor' + (toBoss > 1 ? 's' : '')}</div>
+      <div class="gaunt-next ${bannerCls}">${bannerTxt}</div>
+      ${mutHtml}
       <p class="muted small">The Gauntlet scales forever. Win to climb; fall and you drop to your last boss checkpoint. Costs no stamina — your power is the only gate.</p>
       <button id="btn-climb" class="primary-btn" ${enabled ? '' : 'disabled'}>${nextBoss ? '⚔️ FIGHT THE BOSS' : '⬆️ CLIMB FLOOR ' + g.floor}</button>`;
     const btn = $('#btn-climb');
     if (btn && enabled) btn.addEventListener('click', onClimb);
+  }
+
+  /* ---------------- bounties ---------------- */
+  function rewardText(r) {
+    const parts = [];
+    if (r.gold) parts.push(`🪙 ${fmt(r.gold)}`);
+    if (r.dust) parts.push(`✦ ${r.dust}`);
+    if (r.legacy) parts.push(`🏆 ${r.legacy}`);
+    return parts.join(' • ');
+  }
+  function renderBounties(bounties, h) {
+    const el = $('#bounties-content');
+    if (!el) return;
+    const timer = $('#bounty-timer');
+    if (timer && bounties) {
+      const ms = (bounties.lastRefresh + D.BOUNTIES.refreshHours * 3600000) - Date.now();
+      if (ms > 0) {
+        const hrs = Math.floor(ms / 3600000), mins = Math.floor((ms % 3600000) / 60000);
+        timer.textContent = `↻ rotates in ${hrs > 0 ? hrs + 'h ' : ''}${mins}m`;
+      } else timer.textContent = '↻ rotating…';
+    }
+    if (!bounties || !bounties.list.length) { el.innerHTML = '<p class="muted">No bounties yet.</p>'; return; }
+    el.innerHTML = bounties.list.map((b, i) => {
+      if (!b) return '';
+      const pct = Math.min(100, (b.progress / b.target) * 100);
+      const canReroll = !b.done && h.rerollDust >= D.BOUNTIES.rerollCost;
+      return `<div class="bounty ${b.done ? 'done' : ''}">
+        <div class="bounty-head">
+          <span class="bounty-ico">${b.icon}</span>
+          <div class="bounty-body">
+            <div class="bounty-desc">${b.desc}</div>
+            <div class="bounty-reward muted small">Reward: ${rewardText(b.reward)}</div>
+          </div>
+        </div>
+        <div class="bounty-bar"><div class="bounty-fill" style="width:${pct}%"></div>
+          <span class="bounty-count">${Math.min(b.progress, b.target)} / ${b.target}</span></div>
+        <div class="bounty-btns">
+          ${b.done
+            ? `<button class="primary-btn bounty-claim" data-idx="${i}">✅ CLAIM</button>`
+            : `<button class="forge-btn" data-act="reroll" data-idx="${i}" ${canReroll ? '' : 'disabled'}>🎲 Reroll<small>✦${D.BOUNTIES.rerollCost}</small></button>`}
+        </div></div>`;
+    }).join('');
+    el.querySelectorAll('.bounty-claim').forEach(b => b.addEventListener('click', () => h.claim(+b.dataset.idx)));
+    el.querySelectorAll('[data-act="reroll"]').forEach(b => { if (!b.disabled) b.addEventListener('click', () => h.reroll(+b.dataset.idx)); });
   }
 
   /* ---------------- collection + masteries ---------------- */
@@ -686,7 +796,7 @@
     toast, renderTopbar, showScreen, initTabs,
     renderCreatePreview, renderBruteTab, renderShop, shopCost,
     renderLegacy, legacyPayout, renderIdle,
-    renderForge, renderGauntlet, renderCollection, setMeta,
+    renderForge, renderCraft, renderGauntlet, renderBounties, renderCollection, renderLifetime, setMeta,
     showLevelUp, isModalOpen,
     replayBattle, showOutcome, cancelReplay,
     bruteSummaryHtml, fmt,
