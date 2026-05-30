@@ -16,11 +16,11 @@
   const cfg = global.PVP_CONFIG;
   const $ = (s) => document.querySelector(s);
 
-  let sb = null; // supabase client
-  let user = null; // auth user
-  let handle = null; // my display name
-  let myRow = null; // my ladder row (rating/wins/losses)
-  let opponent = null; // currently matched opponent row
+  let sb = null;        // supabase client
+  let user = null;      // auth user
+  let handle = null;    // my display name
+  let myRow = null;     // my ladder row (rating/wins/losses)
+  let opponent = null;  // currently matched opponent row
   let busy = false;
 
   const UI = () => global.UI;
@@ -33,8 +33,8 @@
   async function init() {
     if (inited) return;
     inited = true;
-    render(); // always paint something immediately
-    if (!configured()) return; // render() shows the right "why" message
+    render();                       // always paint something immediately
+    if (!configured()) return;      // render() shows the right "why" message
     try {
       sb = global.supabase.createClient(cfg.url, cfg.key, {
         auth: { persistSession: true, autoRefreshToken: true },
@@ -80,7 +80,7 @@
       }
       await publishDefense(true);
       await loadMe();
-      toast(' Welcome to the ladder, ' + handle + '!', 'good');
+      toast('⚔️ Welcome to the ladder, ' + handle + '!', 'good');
     } catch (e) {
       toast('Sign-in failed: ' + (e.message || e), 'bad');
     } finally {
@@ -99,7 +99,7 @@
     if (!user) return;
     const b = Game().brute();
     if (!b) return;
-    const snapshot = JSON.parse(JSON.stringify(b)); // freeze current brute
+    const snapshot = JSON.parse(JSON.stringify(b));     // freeze current brute
     const bonuses = Game().metaBonuses();
     const power = global.Character.powerRating(b, bonuses);
     const row = {
@@ -109,7 +109,7 @@
     // rating/wins/losses intentionally omitted — the DB guard owns those
     const { error } = await sb.from('ladder').upsert(row, { onConflict: 'user_id' });
     if (error) { toast('Publish failed: ' + error.message, 'bad'); return; }
-    if (!silent) toast(' Defense brute published (Power ' + power + ').', 'good');
+    if (!silent) toast('🛡️ Defense brute published (Power ' + power + ').', 'good');
     await loadMe();
     render();
   }
@@ -119,7 +119,7 @@
     if (!user) return;
     setBusy(true);
     try {
-      const myRating = myRow? myRow.rating : 1000;
+      const myRating = myRow ? myRow.rating : 1000;
       let pool = [];
       const near = await sb.from('ladder').select('*')
         .neq('user_id', user.id)
@@ -167,14 +167,16 @@
       setBusy(false); return;
     }
 
-    // animate the (authoritative) fight in the shared battle stage, then show the result
+    // animate the (authoritative) fight, then show the result
     const oppName = opponent.handle;
+    Game().activateTab('arena');
     try { await UI().replayBattle(result, me, opponent.defense, Game().fast()); } catch (e) {}
     UI().showOutcome(attackerWon,
-      `<div>${attackerWon? 'PVP VICTORY' : 'PVP DEFEAT'}<br>vs ${oppName}</div>`);
+      `<div>${attackerWon ? '🏆 PVP VICTORY' : '☠️ PVP DEFEAT'}<br>vs ${oppName}</div>`);
     await loadMe();
     opponent = null;
     setBusy(false);
+    Game().activateTab('pvp');
     render();
   }
 
@@ -185,7 +187,7 @@
     const el = $('#pvp-content');
     if (!el) return;
 
-    if (!cfg ||!cfg.url ||!cfg.key) {
+    if (!cfg || !cfg.url || !cfg.key) {
       el.innerHTML = `<p class="muted">PvP isn't configured. Add your Supabase URL + key in <code>js/pvp-config.js</code>.</p>`;
       return;
     }
@@ -198,40 +200,40 @@
         <p class="muted small">Sign in to publish your brute and battle other players' brutes for ladder rating. Anonymous — no email needed.</p>
         <label class="field"><span>HANDLE (your ladder name)</span>
           <input id="pvp-handle" type="text" maxlength="16" placeholder="e.g. Skullcrusher" /></label>
-        <button id="pvp-signin" class="primary-btn" ${busy? 'disabled' : ''}> ENTER THE PVP ARENA</button>`;
+        <button id="pvp-signin" class="primary-btn" ${busy ? 'disabled' : ''}>⚔️ ENTER THE PVP ARENA</button>`;
       $('#pvp-signin').addEventListener('click', signIn);
       renderLeaderboard();
       return;
     }
 
     const r = myRow || { rating: 1000, wins: 0, losses: 0, power: 0 };
-    const oppHtml = opponent? `
+    const oppHtml = opponent ? `
       <div class="pvp-opp">
-        <div class="pvp-opp-head">OPPONENT: <b>${opponent.handle}</b> <span class="muted small"> ${opponent.rating} • ${opponent.power}</span></div>
+        <div class="pvp-opp-head">OPPONENT: <b>${opponent.handle}</b> <span class="muted small">★ ${opponent.rating} • ⚡${opponent.power}</span></div>
         <div class="pvp-opp-card">${opponentSummary(opponent.defense)}</div>
         <div class="pvp-fight-btns">
-          <button id="pvp-attack" class="primary-btn" ${busy? 'disabled' : ''}> ATTACK</button>
-          <button id="pvp-skip" class="secondary-btn" ${busy? 'disabled' : ''}> Another</button>
+          <button id="pvp-attack" class="primary-btn" ${busy ? 'disabled' : ''}>⚔️ ATTACK</button>
+          <button id="pvp-skip" class="secondary-btn" ${busy ? 'disabled' : ''}>↻ Another</button>
         </div>
       </div>` : `
-      <button id="pvp-find" class="primary-btn" ${busy? 'disabled' : ''}> FIND OPPONENT</button>`;
+      <button id="pvp-find" class="primary-btn" ${busy ? 'disabled' : ''}>🔍 FIND OPPONENT</button>`;
 
     el.innerHTML = `
       <div class="pvp-me">
-        <div class="pvp-rating"> <b>${r.rating}</b><span class="muted small"> rating</span></div>
-        <div class="muted">${handle} &nbsp;•&nbsp; ${r.wins}W / ${r.losses}L &nbsp;•&nbsp; Power ${r.power}</div>
+        <div class="pvp-rating">★ <b>${r.rating}</b><span class="muted small"> rating</span></div>
+        <div class="muted">${handle} &nbsp;•&nbsp; 🏅 ${r.wins}W / ${r.losses}L &nbsp;•&nbsp; ⚡ Power ${r.power}</div>
       </div>
       <div class="pvp-actions">
         ${oppHtml}
       </div>
       <div class="pvp-tools">
-        <button id="pvp-publish" class="secondary-btn" ${busy? 'disabled' : ''}> Update my defense brute</button>
+        <button id="pvp-publish" class="secondary-btn" ${busy ? 'disabled' : ''}>🛡️ Update my defense brute</button>
         <button id="pvp-signout" class="ghost-btn">Sign out</button>
       </div>
       <p class="muted small">Your "defense brute" is a frozen snapshot others fight while you're away. Update it after you upgrade.</p>
       <div id="pvp-leaderboard"></div>`;
 
-    const bind = (id, fn) => { const b = $(id); if (b &&!b.disabled) b.addEventListener('click', fn); };
+    const bind = (id, fn) => { const b = $(id); if (b && !b.disabled) b.addEventListener('click', fn); };
     bind('#pvp-find', findOpponent);
     bind('#pvp-attack', attack);
     bind('#pvp-skip', findOpponent);
@@ -245,28 +247,28 @@
     const D = global.GAMEDATA;
     // tolerate instances (new) and legacy id-strings (old defense snapshots)
     const eq = b.equipped || null;
-    const wList = eq && eq.weapon? (b.weapons || []).filter(w => w.uid === eq.weapon) : (b.weapons || []).slice(0, 1);
-    const sList = eq && eq.skills? (b.skills || []).filter(s => eq.skills.includes(s.uid)) : (b.skills || []);
-    const pList = eq && eq.pet? (b.pets || []).filter(p => p.uid === eq.pet) : (b.pets || []).slice(0, 1);
+    const wList = eq && eq.weapon ? (b.weapons || []).filter(w => w.uid === eq.weapon) : (b.weapons || []).slice(0, 1);
+    const sList = eq && eq.skills ? (b.skills || []).filter(s => eq.skills.includes(s.uid)) : (b.skills || []);
+    const pList = eq && eq.pet ? (b.pets || []).filter(p => p.uid === eq.pet) : (b.pets || []).slice(0, 1);
     const baseIcon = (x, dict, fb) => (dict[(x && x.base) || x] || {}).icon || fb;
-    const wpns = wList.map(w => baseIcon(w, D.WEAPONS, '')).join(' ');
-    const skills = sList.map(s => baseIcon(s, D.SKILLS, '')).join(' ');
-    const pets = pList.map(p => baseIcon(p, D.PETS, '')).join(' ');
-    return `<div class="pvp-opp-line">LV ${b.level} • ${b.stats.hp} ${b.stats.strength} ${b.stats.agility} ${b.stats.speed}</div>
-      <div class="pvp-opp-line">${wpns || ''} ${skills} ${pets}</div>`;
+    const wpns = wList.map(w => baseIcon(w, D.WEAPONS, '🗡️')).join(' ');
+    const skills = sList.map(s => baseIcon(s, D.SKILLS, '✨')).join(' ');
+    const pets = pList.map(p => baseIcon(p, D.PETS, '🐾')).join(' ');
+    return `<div class="pvp-opp-line">LV ${b.level} • ❤️${b.stats.hp} 💪${b.stats.strength} 🤸${b.stats.agility} 💨${b.stats.speed}</div>
+      <div class="pvp-opp-line">${wpns || '👊'} ${skills} ${pets}</div>`;
   }
 
   async function renderLeaderboard() {
     const box = $('#pvp-leaderboard') || $('#pvp-content');
-    if (!box ||!sb) return;
+    if (!box || !sb) return;
     const { data } = await sb.from('ladder').select('handle,rating,wins,losses,power').order('rating', { ascending: false }).limit(15);
     const rows = (data || []).map((row, i) => `
-      <tr class="${user && row.handle === handle? 'me' : ''}">
-        <td>${i + 1}</td><td>${row.handle}</td><td> ${row.rating}</td>
-        <td>${row.wins}/${row.losses}</td><td>${row.power}</td></tr>`).join('');
+      <tr class="${user && row.handle === handle ? 'me' : ''}">
+        <td>${i + 1}</td><td>${row.handle}</td><td>★ ${row.rating}</td>
+        <td>${row.wins}/${row.losses}</td><td>⚡${row.power}</td></tr>`).join('');
     const target = $('#pvp-leaderboard');
     if (target) target.innerHTML = `
-      <h3 class="pvp-lb-head"> LEADERBOARD</h3>
+      <h3 class="pvp-lb-head">🏆 LEADERBOARD</h3>
       <table class="pvp-lb"><thead><tr><th>#</th><th>Brute</th><th>Rating</th><th>W/L</th><th>Power</th></tr></thead>
       <tbody>${rows || '<tr><td colspan="5" class="muted">No fighters yet.</td></tr>'}</tbody></table>`;
   }

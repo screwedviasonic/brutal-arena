@@ -76,10 +76,10 @@
       { item: 'speed', weight: 22 },
     ]);
     const map = {
-      hp: { label: 'Max HP', icon: '', amount: rng.int(8, 18) },
-      strength: { label: 'Strength', icon: '', amount: rng.int(2, 5) },
-      agility: { label: 'Agility', icon: '', amount: rng.int(2, 5) },
-      speed: { label: 'Speed', icon: '', amount: rng.int(2, 5) },
+      hp: { label: 'Max HP', icon: '❤️', amount: rng.int(8, 18) },
+      strength: { label: 'Strength', icon: '💪', amount: rng.int(2, 5) },
+      agility: { label: 'Agility', icon: '🤸', amount: rng.int(2, 5) },
+      speed: { label: 'Speed', icon: '💨', amount: rng.int(2, 5) },
     };
     const m = map[which];
     return {
@@ -87,7 +87,7 @@
       kind: 'stat', stat: which, amount: m.amount,
       icon: m.icon, title: `+${m.amount} ${m.label}`,
       desc: `Permanently increase ${m.label}.`,
-      rarity: m.amount > (which === 'hp'? 14 : 4)? 'rare' : 'common',
+      rarity: m.amount > (which === 'hp' ? 14 : 4) ? 'rare' : 'common',
     };
   }
 
@@ -105,7 +105,7 @@
     return {
       key: 'weapon:' + item.uid, kind: 'weapon', item: item,
       icon: w.icon, title: global.Items.displayName(item),
-      desc: `${Math.round(s.dmg)} dmg` + (affixTxt? ' — ' + affixTxt : ''),
+      desc: `${Math.round(s.dmg)} dmg` + (affixTxt ? ' — ' + affixTxt : ''),
       rarity: item.rarity,
     };
   }
@@ -117,7 +117,7 @@
     return {
       key: 'skill:' + item.uid, kind: 'skill', item: item,
       icon: base.icon, title: global.Items.rarityName(item) + ' ' + base.name,
-      desc: base.desc + (base.kind === 'active'? ' (active)' : ''),
+      desc: base.desc + (base.kind === 'active' ? ' (active)' : ''),
       rarity: item.rarity,
     };
   }

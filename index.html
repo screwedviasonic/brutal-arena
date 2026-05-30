@@ -18,17 +18,17 @@
     <header id="topbar">
       <div class="brand"><span class="brand-ink">BRUTAL</span><span class="brand-pop">ARENA</span></div>
       <div class="resources">
-        <div class="res" id="res-gold-box" title="Gold: spend it in the Shop and Forge">
-          <span class="res-ico">GOLD</span><span id="res-gold">0</span>
+        <div class="res" id="res-gold-box" title="Gold — spend it in the Shop and Forge">
+          <span class="res-ico">🪙</span><span id="res-gold">0</span>
         </div>
-        <div class="res" id="res-dust-box" title="Dust: from loot and scrapping. Used at the Forge.">
-          <span class="res-ico">DUST</span><span id="res-dust">0</span>
+        <div class="res" id="res-dust-box" title="Dust — from loot & scrapping. Used at the Forge.">
+          <span class="res-ico">✦</span><span id="res-dust">0</span>
         </div>
-        <div class="res" title="Stamina: each arena fight costs 1. Regenerates over time.">
-          <span class="res-ico">STA</span><span id="res-stamina">0</span><span class="res-sub">/<span id="res-stamina-max">0</span></span>
+        <div class="res" title="Stamina — each arena fight costs 1. Regenerates over time.">
+          <span class="res-ico">⚡</span><span id="res-stamina">0</span><span class="res-sub">/<span id="res-stamina-max">0</span></span>
         </div>
-        <div class="res" title="Legacy: earned by retiring brutes. Boosts every future brute.">
-          <span class="res-ico">LEG</span><span id="res-legacy">0</span>
+        <div class="res" title="Legacy — earned by retiring brutes. Boosts every future brute.">
+          <span class="res-ico">🏆</span><span id="res-legacy">0</span>
         </div>
       </div>
       <button id="btn-reset" class="ghost-btn" title="Wipe all progress">RESET</button>
@@ -47,8 +47,8 @@
           <input id="create-name" type="text" maxlength="16" placeholder="Brute name" />
         </label>
         <div class="create-actions">
-          <button id="btn-reroll" class="secondary-btn">REROLL</button>
-          <button id="btn-begin" class="primary-btn">ENTER THE ARENA</button>
+          <button id="btn-reroll" class="secondary-btn">🎲 REROLL</button>
+          <button id="btn-begin" class="primary-btn">ENTER THE ARENA ▶</button>
         </div>
         <p class="legacy-note" id="create-legacy-note"></p>
       </div>
@@ -57,18 +57,20 @@
     <!-- ============ MAIN GAME ============ -->
     <section id="screen-game" class="screen hidden">
       <nav id="tabs">
-        <button class="tab active" data-tab="battle">BATTLE</button>
-        <button class="tab" data-tab="brute">BRUTE</button>
-        <button class="tab" data-tab="progress">PROGRESS</button>
+        <button class="tab active" data-tab="arena">🏟️ ARENA</button>
+        <button class="tab" data-tab="gauntlet">🗼 GAUNTLET</button>
+        <button class="tab" data-tab="pvp">⚔️ PVP</button>
+        <button class="tab" data-tab="bounties">📜 BOUNTIES</button>
+        <button class="tab" data-tab="brute">🧍 BRUTE</button>
+        <button class="tab" data-tab="forge">⚒️ FORGE</button>
+        <button class="tab" data-tab="collection">📖 COLLECTION</button>
+        <button class="tab" data-tab="stats">📊 STATS</button>
+        <button class="tab" data-tab="shop">🛒 SHOP</button>
+        <button class="tab" data-tab="legacy">🏆 LEGACY</button>
       </nav>
 
-      <!-- ============ BATTLE (Arena / Gauntlet / PVP share one stage) ============ -->
-      <div class="tabpane active" id="tab-battle">
-        <div class="submode" data-group="battle">
-          <button class="submode-btn active" data-mode="arena">ARENA</button>
-          <button class="submode-btn" data-mode="gauntlet">GAUNTLET</button>
-          <button class="submode-btn" data-mode="pvp">PVP</button>
-        </div>
+      <!-- ARENA TAB -->
+      <div class="tabpane active" id="tab-arena">
         <div class="arena-grid">
           <div class="panel arena-stage-panel">
             <div id="arena-stage">
@@ -80,20 +82,14 @@
               <div id="fx-layer" class="fx-layer"></div>
               <div id="arena-overlay" class="arena-overlay hidden"></div>
             </div>
-            <div class="battle-controls">
-              <div class="mode-pane active" data-modepane="arena" data-group="battle">
-                <div class="arena-controls">
-                  <button id="btn-fight" class="primary-btn">FIND A FIGHT <span class="cost">1 STA</span></button>
-                  <label class="toggle"><input type="checkbox" id="auto-fight" /> <span>AUTO</span></label>
-                  <label class="toggle"><input type="checkbox" id="fast-fight" /> <span>FAST</span></label>
-                </div>
-              </div>
-              <div class="mode-pane" data-modepane="gauntlet" data-group="battle">
-                <div id="gauntlet-content"></div>
-              </div>
-              <div class="mode-pane" data-modepane="pvp" data-group="battle">
-                <div id="pvp-content"></div>
-              </div>
+            <div class="arena-controls">
+              <button id="btn-fight" class="primary-btn">⚔️ FIND A FIGHT <span class="cost">1⚡</span></button>
+              <label class="toggle">
+                <input type="checkbox" id="auto-fight" /> <span>AUTO</span>
+              </label>
+              <label class="toggle">
+                <input type="checkbox" id="fast-fight" /> <span>FAST</span>
+              </label>
             </div>
           </div>
           <div class="panel combat-log-panel">
@@ -108,68 +104,79 @@
         </div>
       </div>
 
-      <!-- ============ BRUTE (Profile / Forge / Collection / Stats) ============ -->
-      <div class="tabpane" id="tab-brute">
-        <div class="submode" data-group="brute">
-          <button class="submode-btn active" data-mode="profile">BRUTE</button>
-          <button class="submode-btn" data-mode="forge">FORGE</button>
-          <button class="submode-btn" data-mode="collection">COLLECTION</button>
-          <button class="submode-btn" data-mode="stats">STATS</button>
-        </div>
-        <div class="mode-pane active" data-modepane="profile" data-group="brute">
-          <div class="brute-grid">
-            <div class="panel" id="brute-card-panel"></div>
-            <div class="panel" id="brute-inventory-panel"></div>
-          </div>
-        </div>
-        <div class="mode-pane" data-modepane="forge" data-group="brute">
-          <div class="panel">
-            <h3>TARGET CRAFTING <span class="muted small">bank shards from scrapping, craft the weapon you want</span> <span class="forge-dust-tag"><span id="forge-shards">0</span> shards</span></h3>
-            <div id="forge-craft" class="forge-craft"></div>
-          </div>
-          <div class="panel">
-            <h3>THE FORGE <span class="muted small">equip, upgrade, reroll, fuse and scrap your gear</span> <span class="forge-dust-tag"><span id="forge-dust">0</span> dust</span></h3>
-            <div id="forge-list"></div>
-          </div>
-        </div>
-        <div class="mode-pane" data-modepane="collection" data-group="brute">
-          <div class="panel">
-            <h3>COLLECTION <span class="muted small">permanent account-wide bonuses</span></h3>
-            <div id="collection-content"></div>
-          </div>
-        </div>
-        <div class="mode-pane" data-modepane="stats" data-group="brute">
-          <div class="panel">
-            <h3>LIFETIME STATS <span class="muted small">account-wide, all brutes</span></h3>
-            <div id="stats-content"></div>
-          </div>
+      <!-- GAUNTLET TAB -->
+      <div class="tabpane" id="tab-gauntlet">
+        <div class="panel">
+          <h3>THE GAUNTLET <span class="muted small">— endless tower</span></h3>
+          <div id="gauntlet-content"></div>
         </div>
       </div>
 
-      <!-- ============ PROGRESS (Shop / Bounties / Legacy) ============ -->
-      <div class="tabpane" id="tab-progress">
-        <div class="submode" data-group="progress">
-          <button class="submode-btn active" data-mode="shop">SHOP</button>
-          <button class="submode-btn" data-mode="bounties">BOUNTIES</button>
-          <button class="submode-btn" data-mode="legacy">LEGACY</button>
+      <!-- PVP TAB -->
+      <div class="tabpane" id="tab-pvp">
+        <div class="panel">
+          <h3>PVP LADDER <span class="muted small">— fight other players' brutes for rating</span></h3>
+          <div id="pvp-content"></div>
         </div>
-        <div class="mode-pane active" data-modepane="shop" data-group="progress">
-          <div class="panel">
-            <h3>SHOP <span class="muted small">spend gold on permanent upgrades</span></h3>
-            <div id="shop-list" class="shop-list"></div>
-          </div>
+      </div>
+
+      <!-- BOUNTIES TAB -->
+      <div class="tabpane" id="tab-bounties">
+        <div class="panel">
+          <h3>BOUNTIES <span class="muted small">— rotating goals, no stamina needed</span> <span id="bounty-timer" class="forge-dust-tag"></span></h3>
+          <div id="bounties-content"></div>
         </div>
-        <div class="mode-pane" data-modepane="bounties" data-group="progress">
-          <div class="panel">
-            <h3>BOUNTIES <span class="muted small">rotating goals, no stamina needed</span> <span id="bounty-timer" class="forge-dust-tag"></span></h3>
-            <div id="bounties-content"></div>
-          </div>
+      </div>
+
+      <!-- FORGE TAB -->
+      <div class="tabpane" id="tab-forge">
+        <div class="panel">
+          <h3>TARGET CRAFTING <span class="muted small">— bank shards from scrapping, craft the weapon you want</span> <span class="forge-dust-tag">🧩 <span id="forge-shards">0</span> shards</span></h3>
+          <div id="forge-craft" class="forge-craft"></div>
         </div>
-        <div class="mode-pane" data-modepane="legacy" data-group="progress">
-          <div class="panel">
-            <h3>LEGACY AND PRESTIGE</h3>
-            <div id="legacy-content"></div>
-          </div>
+        <div class="panel">
+          <h3>THE FORGE <span class="muted small">— equip, upgrade, reroll, fuse &amp; scrap your gear</span> <span class="forge-dust-tag">✦ <span id="forge-dust">0</span> dust</span></h3>
+          <div id="forge-list"></div>
+        </div>
+      </div>
+
+      <!-- COLLECTION TAB -->
+      <div class="tabpane" id="tab-collection">
+        <div class="panel">
+          <h3>COLLECTION <span class="muted small">— permanent account-wide bonuses</span></h3>
+          <div id="collection-content"></div>
+        </div>
+      </div>
+
+      <!-- BRUTE TAB -->
+      <div class="tabpane" id="tab-brute">
+        <div class="brute-grid">
+          <div class="panel" id="brute-card-panel"></div>
+          <div class="panel" id="brute-inventory-panel"></div>
+        </div>
+      </div>
+
+      <!-- STATS TAB -->
+      <div class="tabpane" id="tab-stats">
+        <div class="panel">
+          <h3>LIFETIME STATS <span class="muted small">— account-wide, all brutes</span></h3>
+          <div id="stats-content"></div>
+        </div>
+      </div>
+
+      <!-- SHOP TAB -->
+      <div class="tabpane" id="tab-shop">
+        <div class="panel">
+          <h3>SHOP <span class="muted small">— spend gold on permanent upgrades</span></h3>
+          <div id="shop-list" class="shop-list"></div>
+        </div>
+      </div>
+
+      <!-- LEGACY TAB -->
+      <div class="tabpane" id="tab-legacy">
+        <div class="panel">
+          <h3>LEGACY &amp; PRESTIGE</h3>
+          <div id="legacy-content"></div>
         </div>
       </div>
     </section>
