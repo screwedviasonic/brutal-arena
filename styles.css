@@ -706,3 +706,31 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 .f-svg.f-heal { filter: drop-shadow(0 0 8px var(--pop-green)) brightness(1.08); }
 .f-svg.f-tangle { animation: f-tangle .42s ease-in-out; }
 @keyframes f-tangle { 25% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } 75% { transform: rotate(-3deg); } }
+
+/* ===== combat log v2: emoji-free, consistent tags, fighter-colored ===== */
+.cl-tag {
+  display: inline-block; min-width: 50px; text-align: center; margin-right: 8px; vertical-align: 1px;
+  font-family: 'Anton', sans-serif; font-size: .62rem; letter-spacing: .5px;
+  border: 2px solid var(--ink); border-radius: 4px; color: #fff; padding: 1px 4px;
+}
+.cl-hit { background: var(--muted); }
+.cl-crit { background: var(--pop-red); }
+.cl-counter { background: var(--pop-purple); }
+.cl-block { background: var(--pop-blue); }
+.cl-bomb { background: var(--pop-orange); }
+.cl-miss { background: #b3a98f; }
+.cl-skill { background: var(--pop-orange); }
+.cl-combo { background: var(--pop-blue); }
+.cl-stun { background: var(--pop-purple); }
+.cl-ko { background: var(--ink); }
+.cl-time { background: var(--muted); }
+.cl-vs { background: var(--pop-yellow); color: var(--ink); }
+.cl-name { font-weight: 800; }
+.cl-name.you { color: var(--pop-blue); }
+.cl-name.foe { color: var(--pop-red-d); }
+.cl-dmg { font-family: 'Bangers', sans-serif; color: var(--pop-red-d); font-size: 1.08em; letter-spacing: .5px; margin-left: 2px; }
+.cl-dmg.crit { color: var(--pop-red); font-size: 1.3em; }
+.cl-note { color: var(--muted); font-style: italic; font-weight: 600; margin-left: 4px; }
+.log-line.cl-l { border-left-color: var(--pop-blue); }
+.log-line.cl-r { border-left-color: var(--pop-red); }
+.log-line.cl-start { background: #fff7d6; font-weight: 800; }

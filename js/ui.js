@@ -717,6 +717,19 @@
     const events = result.events;
     const cancelled = () => myToken !== replayToken;
 
+    /* --- combat-log builders (emoji-free, fighter-colored, punchy) --- */
+    const startEv = events.find(e => e.type === 'start');
+    const uName = {};
+    if (startEv) (startEv.left || []).concat(startEv.right || []).forEach(u => { uName[u.id] = u.name; });
+    const stripFx = s => (s || '').replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{2300}-\u{23FF}\u{FE00}-\u{FE0F}]/gu, '').replace(/\s+/g, ' ').trim();
+    const nm = uid => `<span class="cl-name ${teamOf(uid) === 'left' ? 'you' : 'foe'}">${uName[uid] || '?'}</span>`;
+    const dmgChip = (n, crit) => `<b class="cl-dmg${crit ? ' crit' : ''}">${n}</b>`;
+    // tag = the consistent comic "icon"; side colors the line by who acted
+    function clog(tag, tagCls, html, srcUid, lineCls) {
+      const side = srcUid ? (teamOf(srcUid) === 'left' ? 'cl-l' : 'cl-r') : '';
+      logLine(`<span class="cl-tag cl-${tagCls}">${tag}</span>${html}`, [lineCls || '', side].join(' ').trim());
+    }
+
     /* --- pet (non-rig) motion --- */
     function petAttack(uid, onContact) {
       const el = unitEls[uid];
@@ -751,7 +764,12 @@
     // handle one event: trigger visuals, return the unscaled ms until the next event
     function handle(ev) {
       switch (ev.type) {
-        case 'start': return 320;
+        case 'start': {
+          const lb = (ev.left || []).find(u => u.type === 'brute');
+          const rb = (ev.right || []).find(u => u.type === 'brute');
+          if (lb && rb) clog('VS', 'vs', `${nm(lb.id)} vs ${nm(rb.id)}`, null, 'cl-start');
+          return 320;
+        }
 
         case 'hit':
         case 'counter': {
@@ -778,7 +796,15 @@
             }
             react(ev.target, ev.blocked ? 'block' : 'hurt');
           });
-          logLine(logIcon(ev) + ev.text, ev.crit ? 'crit' : ev.type === 'counter' ? 'counter' : '');
+          let tag = 'HIT', tcls = 'hit', verb = 'hits', line = '';
+          if (ev.crit) { tag = 'CRIT'; tcls = 'crit'; verb = 'crits'; line = 'crit'; }
+          else if (ev.type === 'counter') { tag = 'CTR'; tcls = 'counter'; verb = 'counters'; line = 'counter'; }
+          else if (ev.kind === 'reflect') { tag = 'RFLCT'; tcls = 'counter'; verb = 'reflects onto'; }
+          else if (ev.kind === 'bomb') { tag = 'BOOM'; tcls = 'bomb'; verb = 'blasts'; }
+          else if (ev.blocked) { tag = 'BLOCK'; tcls = 'block'; }
+          clog(tag, tcls,
+            `${nm(ev.source)} ${verb} ${nm(ev.target)} ${dmgChip(ev.dmg, ev.crit)}${ev.blocked ? ' <span class="cl-note">blocked</span>' : ''}`,
+            ev.source, line);
           let d = isF ? (willDraw(ev.source, cat) ? 760 : 540) : 360;
           if (ev.crit) d += 120;
           return d;
@@ -787,7 +813,7 @@
         case 'miss': {
           const cat = catOf(ev.weapon);
           attackerAct(ev.source, cat, () => { if (!cancelled()) spawnImpact(unitEls, ev.source, 'WHIFF!', 'miss'); });
-          logLine(`<span class="muted">${ev.text}</span>`);
+          clog('MISS', 'miss', `${nm(ev.source)} misses`, ev.source);
           return fighters[ev.source] ? (willDraw(ev.source, cat) ? 700 : 480) : 340;
         }
 
@@ -798,12 +824,18 @@
             spawnImpact(unitEls, ev.target, 'DODGE!', 'miss');
             react(ev.target, 'dodge');
           });
-          logLine(`<span class="muted">${ev.text}</span>`);
+          clog('DODGE', 'miss', `${nm(ev.target)} dodges ${nm(ev.source)}`, ev.target);
           return fighters[ev.source] ? (willDraw(ev.source, cat) ? 700 : 480) : 340;
         }
 
         case 'skill': {
-          logLine(`<span class="log-skill">${ev.icon || '✨'} ${ev.text}</span>`, 'skill');
+          const s = ev.source, t = ev.target;
+          const phrase = {
+            bomb: `${nm(s)} hurls a bomb`, fierce: `${nm(s)} enters a rage`, hammer: `${nm(s)} readies a hammer`,
+            net: `${nm(s)} nets ${nm(t)}`, potion: `${nm(s)} drinks a potion`, sabotage: `${nm(s)} sabotages ${nm(t)}`,
+            thief: `${nm(s)} steals from ${nm(t)}`, disarm: `${nm(s)} disarms ${nm(t)}`,
+          }[ev.skill] || stripFx(ev.text);
+          clog('SKILL', 'skill', phrase, s);
           const f = fighters[ev.source];
           switch (ev.skill) {
             case 'bomb':
@@ -849,13 +881,16 @@
         }
 
         case 'combo':
-          logLine(`<span class="log-combo">🔁 ${ev.text}</span>`);
+          clog('COMBO', 'combo', `${nm(ev.source)} chains another strike`, ev.source);
           return 110;
 
         case 'stun':
+          spawnImpact(unitEls, ev.source || ev.target, 'STUN!', 'counter');
+          clog('STUN', 'stun', ev.target ? `${nm(ev.source)} stuns ${nm(ev.target)}` : `${nm(ev.source)} is stunned`, ev.source || ev.target);
+          return 220;
         case 'immobilized':
           spawnImpact(unitEls, ev.source || ev.target, 'STUN!', 'counter');
-          logLine(`<span class="muted">${ev.text}</span>`);
+          clog('NET', 'stun', `${nm(ev.source)} is immobilized`, ev.source);
           return 220;
 
         case 'death': {
@@ -865,12 +900,12 @@
           shakeStage(true);
           spawnSpecks(unitEls, ev.source, 12);
           spawnImpact(unitEls, ev.source, 'K.O.!', 'ko');
-          logLine(`<span>${ev.text}</span>`, 'death');
+          clog('K.O.', 'ko', `${nm(ev.source)} is DOWN`, ev.source, 'death');
           return 520;
         }
 
         case 'timeout':
-          logLine(`<span class="muted">${ev.text}</span>`);
+          clog('TIME', 'time', stripFx(ev.text), null);
           return 160;
         case 'end': return 0;
       }
@@ -888,13 +923,6 @@
       }
       step();
     });
-  }
-
-  function logIcon(ev) {
-    if (ev.type === 'counter') return '↩️ ';
-    if (ev.kind === 'reflect') return '🪞 ';
-    if (ev.kind === 'bomb') return '💥 ';
-    return (ev.icon || '👊') + ' ';
   }
 
   function findUnitMax(result, uid) {
