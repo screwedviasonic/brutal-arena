@@ -738,7 +738,19 @@
     }
 
     tickTimer = setInterval(tick, 1000);
+
+    // PvP client reads live state through this bridge
+    if (global.PVP) global.PVP.init();
   }
+
+  /* Minimal surface the PvP module needs (game.js owns all state). */
+  global.Game = {
+    state: () => state,
+    brute: () => state && state.brute,
+    metaBonuses: () => metaBonuses(),
+    fast: () => !!(state && state.settings && state.settings.fastFight),
+    activateTab: activateTab,
+  };
 
   function formatDuration(sec) {
     sec = Math.floor(sec);

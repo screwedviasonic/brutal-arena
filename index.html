@@ -59,6 +59,7 @@
       <nav id="tabs">
         <button class="tab active" data-tab="arena">🏟️ ARENA</button>
         <button class="tab" data-tab="gauntlet">🗼 GAUNTLET</button>
+        <button class="tab" data-tab="pvp">⚔️ PVP</button>
         <button class="tab" data-tab="bounties">📜 BOUNTIES</button>
         <button class="tab" data-tab="brute">🧍 BRUTE</button>
         <button class="tab" data-tab="forge">⚒️ FORGE</button>
@@ -108,6 +109,14 @@
         <div class="panel">
           <h3>THE GAUNTLET <span class="muted small">— endless tower</span></h3>
           <div id="gauntlet-content"></div>
+        </div>
+      </div>
+
+      <!-- PVP TAB -->
+      <div class="tabpane" id="tab-pvp">
+        <div class="panel">
+          <h3>PVP LADDER <span class="muted small">— fight other players' brutes for rating</span></h3>
+          <div id="pvp-content"></div>
         </div>
       </div>
 
@@ -196,5 +205,10 @@
   <script src="js/progression.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/game.js"></script>
+
+  <!-- PvP (Supabase) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/pvp-config.js"></script>
+  <script src="js/pvp.js"></script>
 </body>
 </html>

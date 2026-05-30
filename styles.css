@@ -569,6 +569,27 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 .stat-banner { background: var(--ink); color: var(--paper2); border-radius: 8px; padding: 10px 14px; font-weight: 700; margin: 10px 0 14px; }
 .stat-banner b { color: var(--pop-yellow); font-family: 'Bangers', sans-serif; font-size: 1.2rem; letter-spacing: 1px; }
 
+/* ============ PVP ============ */
+.pvp-me { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; background: var(--ink); color: var(--paper2); border-radius: 8px; padding: 10px 16px; margin-bottom: 14px; }
+.pvp-rating { font-family: 'Bangers', sans-serif; font-size: 1.8rem; letter-spacing: 1px; color: var(--pop-yellow); -webkit-text-stroke: .5px var(--ink); }
+.pvp-rating b { color: var(--pop-yellow); }
+.pvp-actions { margin-bottom: 14px; }
+.pvp-actions .primary-btn { width: 100%; }
+.pvp-opp { border: 4px dashed var(--ink); border-radius: 10px; padding: 12px 14px; background: #fff7d6; }
+.pvp-opp-head { font-family: 'Anton', sans-serif; letter-spacing: .5px; font-size: 1.1rem; margin-bottom: 8px; }
+.pvp-opp-card { margin-bottom: 10px; }
+.pvp-opp-line { font-weight: 700; margin: 2px 0; }
+.pvp-fight-btns { display: flex; gap: 10px; }
+.pvp-fight-btns .primary-btn { flex: 2; }
+.pvp-fight-btns .secondary-btn { flex: 1; }
+.pvp-tools { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.pvp-lb-head { margin-top: 18px; }
+.pvp-lb { width: 100%; border-collapse: collapse; margin-top: 8px; }
+.pvp-lb th, .pvp-lb td { text-align: left; padding: 7px 10px; border-bottom: 2px solid var(--ink); }
+.pvp-lb th { font-family: 'Anton', sans-serif; letter-spacing: .5px; font-size: .8rem; text-transform: uppercase; }
+.pvp-lb tr.me { background: var(--pop-yellow); }
+.pvp-lb tr.me td { font-weight: 800; }
+
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--ink); border-radius: 5px; }
 ::-webkit-scrollbar-track { background: var(--paper2); }
