@@ -19,16 +19,16 @@
       <div class="brand"><span class="brand-ink">BRUTAL</span><span class="brand-pop">ARENA</span></div>
       <div class="resources">
         <div class="res" id="res-gold-box" title="Gold — spend it in the Shop and Forge">
-          <span class="res-ico">🪙</span><span id="res-gold">0</span>
+          <img class="res-ico" src="assets/ui/gold.png" alt="Gold" /><span id="res-gold">0</span>
         </div>
         <div class="res" id="res-dust-box" title="Dust — from loot & scrapping. Used at the Forge.">
-          <span class="res-ico">✦</span><span id="res-dust">0</span>
+          <img class="res-ico" src="assets/ui/dust.png" alt="Dust" /><span id="res-dust">0</span>
         </div>
         <div class="res" title="Stamina — each arena fight costs 1. Regenerates over time.">
-          <span class="res-ico">⚡</span><span id="res-stamina">0</span><span class="res-sub">/<span id="res-stamina-max">0</span></span>
+          <img class="res-ico" src="assets/ui/stamina.png" alt="Stamina" /><span id="res-stamina">0</span><span class="res-sub">/<span id="res-stamina-max">0</span></span>
         </div>
         <div class="res" title="Legacy — earned by retiring brutes. Boosts every future brute.">
-          <span class="res-ico">🏆</span><span id="res-legacy">0</span>
+          <img class="res-ico" src="assets/ui/legacy.png" alt="Legacy" /><span id="res-legacy">0</span>
         </div>
       </div>
       <button id="btn-reset" class="ghost-btn" title="Wipe all progress">RESET</button>
@@ -57,17 +57,21 @@
     <!-- ============ MAIN GAME ============ -->
     <section id="screen-game" class="screen hidden">
       <nav id="tabs">
-        <button class="tab active" data-tab="arena">🏟️ ARENA</button>
-        <button class="tab" data-tab="gauntlet">🗼 GAUNTLET</button>
-        <button class="tab" data-tab="pvp">⚔️ PVP</button>
-        <button class="tab" data-tab="bounties">📜 BOUNTIES</button>
-        <button class="tab" data-tab="brute">🧍 BRUTE</button>
-        <button class="tab" data-tab="forge">⚒️ FORGE</button>
-        <button class="tab" data-tab="collection">📖 COLLECTION</button>
-        <button class="tab" data-tab="stats">📊 STATS</button>
-        <button class="tab" data-tab="shop">🛒 SHOP</button>
-        <button class="tab" data-tab="legacy">🏆 LEGACY</button>
+        <div class="navgroup">FIGHT</div>
+        <button class="tab active" data-tab="arena"><img class="tab-ico" src="assets/ui/nav/arena.png" alt="" /><span>ARENA</span></button>
+        <button class="tab" data-tab="gauntlet"><img class="tab-ico" src="assets/ui/nav/gauntlet.png" alt="" /><span>GAUNTLET</span></button>
+        <button class="tab" data-tab="pvp"><img class="tab-ico" src="assets/ui/nav/pvp.png" alt="" /><span>PVP</span></button>
+        <div class="navgroup">BRUTE</div>
+        <button class="tab" data-tab="brute"><img class="tab-ico" src="assets/ui/nav/brute.png" alt="" /><span>BRUTE</span></button>
+        <button class="tab" data-tab="forge"><img class="tab-ico" src="assets/ui/nav/forge.png" alt="" /><span>FORGE</span></button>
+        <button class="tab" data-tab="collection"><img class="tab-ico" src="assets/ui/nav/collection.png" alt="" /><span>COLLECTION</span></button>
+        <button class="tab" data-tab="stats"><img class="tab-ico" src="assets/ui/nav/stats.png" alt="" /><span>STATS</span></button>
+        <div class="navgroup">PROGRESS</div>
+        <button class="tab" data-tab="bounties"><img class="tab-ico" src="assets/ui/nav/bounties.png" alt="" /><span>BOUNTIES</span></button>
+        <button class="tab" data-tab="shop"><img class="tab-ico" src="assets/ui/nav/shop.png" alt="" /><span>SHOP</span></button>
+        <button class="tab" data-tab="legacy"><img class="tab-ico" src="assets/ui/legacy.png" alt="" /><span>LEGACY</span></button>
       </nav>
+      <div id="content">
 
       <!-- ARENA TAB -->
       <div class="tabpane active" id="tab-arena">
@@ -179,6 +183,7 @@
           <div id="legacy-content"></div>
         </div>
       </div>
+      </div><!-- /#content -->
     </section>
   </div>
 

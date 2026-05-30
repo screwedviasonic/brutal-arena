@@ -101,7 +101,7 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
   background: var(--panel); border: 3px solid var(--ink); box-shadow: var(--shadow-sm);
   padding: 6px 13px; border-radius: 4px; font-variant-numeric: tabular-nums;
 }
-.res-ico { font-size: 1rem; }
+.res-ico { width: 26px; height: 26px; object-fit: contain; display: block; image-rendering: auto; filter: drop-shadow(1.5px 1.5px 0 var(--ink)); }
 .res-sub { color: var(--muted); }
 .res.flash { animation: resflash .5s; }
 @keyframes resflash { 0%,100% { background: var(--panel); } 40% { background: var(--pop-yellow); transform: scale(1.08) rotate(-2deg); } }
@@ -190,19 +190,42 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 .chip { background: var(--ink); color: var(--paper2); border-radius: 4px; padding: 3px 9px; font-size: .78rem; font-weight: 700; white-space: nowrap; transform: rotate(-1deg); }
 .chip:nth-child(even) { transform: rotate(1deg); }
 
-/* ============ TABS ============ */
-#tabs { display: flex; gap: 8px; margin: 6px 0 20px; flex-wrap: wrap; }
-.tab {
-  background: var(--panel); color: var(--ink); border: 3px solid var(--ink); box-shadow: var(--shadow-sm);
-  padding: 10px 18px; border-radius: 6px; cursor: pointer; font-size: 1.05rem;
-  transition: transform .08s, box-shadow .08s, background .15s; transform: rotate(-1deg);
+/* ============ LEFT-SIDEBAR NAV ============ */
+#screen-game { display: flex; align-items: flex-start; gap: 18px; }
+#content { flex: 1; min-width: 0; }
+
+#tabs {
+  flex: 0 0 210px; display: flex; flex-direction: column; gap: 4px;
+  position: sticky; top: 12px; align-self: flex-start;
 }
-.tab:nth-child(even) { transform: rotate(1deg); }
-.tab:hover { background: var(--pop-yellow); }
-.tab.active { background: var(--pop-red); color: #fff; transform: translateY(-3px) rotate(-1deg); box-shadow: var(--shadow); }
+.navgroup {
+  font-family: 'Anton', sans-serif; letter-spacing: 1.5px; font-size: .72rem; color: var(--muted);
+  text-transform: uppercase; margin: 12px 0 2px 6px;
+}
+.navgroup:first-child { margin-top: 0; }
+.tab {
+  display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
+  background: var(--panel); color: var(--ink); border: 3px solid var(--ink); box-shadow: var(--shadow-sm);
+  padding: 8px 12px; border-radius: 8px; cursor: pointer;
+  font-family: 'Anton', sans-serif; letter-spacing: .5px; font-size: 1rem;
+  transition: transform .08s, box-shadow .08s, background .15s;
+}
+.tab-ico { width: 30px; height: 30px; object-fit: contain; flex-shrink: 0; filter: drop-shadow(1.5px 1.5px 0 var(--ink)); }
+.tab:hover { background: var(--pop-yellow); transform: translateX(2px); }
+.tab.active { background: var(--pop-red); color: #fff; box-shadow: var(--shadow); }
+
 .tabpane { display: none; }
 .tabpane.active { display: block; animation: slamin .3s cubic-bezier(.2,1.3,.4,1); }
 @keyframes slamin { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
+
+/* stack the nav on top on narrow screens */
+@media (max-width: 720px) {
+  #screen-game { flex-direction: column; }
+  #tabs { flex: none; width: 100%; flex-direction: row; flex-wrap: wrap; position: static; }
+  .navgroup { width: 100%; margin: 6px 0 0; }
+  .tab { width: auto; }
+  .tab span { display: none; }   /* icons-only row when stacked */
+}
 
 /* ============ ARENA ============ */
 .arena-grid { display: grid; grid-template-columns: 1.45fr 1fr; gap: 18px; }
