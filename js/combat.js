@@ -113,12 +113,11 @@
   }
 
   function pickWeapon(unit, rng) {
+    // pets and unarmed brutes punch; otherwise always swing the equipped weapon
     if (unit.type === 'pet' || unit.weapons.length === 0) return global.Items.fistStats();
-    // mostly draw a real weapon, weighted by its power, else fall back to fists
-    if (rng.chance(0.82)) {
-      return rng.weighted(unit.weapons.map(w => ({ item: w, weight: 12 + (w.power || 0) })));
-    }
-    return global.Items.fistStats();
+    return unit.weapons.length === 1
+      ? unit.weapons[0]
+      : rng.weighted(unit.weapons.map(w => ({ item: w, weight: 12 + (w.power || 0) })));
   }
 
   function aliveEnemies(units, team) {

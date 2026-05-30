@@ -237,11 +237,17 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
     linear-gradient(180deg, #ffe9a8 0%, #ffd6a0 55%, #f0b27a 56%, #d98e52 100%);
   display: flex; align-items: flex-end; justify-content: space-between; padding: 18px 14px 0;
 }
-/* sunburst behind fighters */
+/* soft arena spotlight (no spinning rays) */
 #arena-stage::before {
-  content: ''; position: absolute; inset: -40% -10% auto; height: 180%; top: -40%; left: 50%; transform: translateX(-50%);
-  background: repeating-conic-gradient(from 0deg at 50% 30%, rgba(255,255,255,.55) 0deg 6deg, transparent 6deg 12deg);
-  opacity: .35; pointer-events: none;
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(130% 70% at 50% 2%, rgba(255,255,255,.5), rgba(255,255,255,0) 55%),
+    radial-gradient(60% 40% at 50% 60%, rgba(0,0,0,.10), transparent 70%);
+}
+/* crowd silhouette band across the back wall */
+#arena-stage::after {
+  content: ''; position: absolute; left: -2%; right: -2%; top: 40%; height: 30px; pointer-events: none; opacity: .16; z-index: 0;
+  background: radial-gradient(circle at 11px 16px, var(--ink) 10px, transparent 11px) 0 0 / 26px 26px repeat-x;
 }
 .stage-floor {
   position: absolute; left: 0; right: 0; bottom: 0; height: 44%; pointer-events: none;
@@ -682,3 +688,21 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 /* Bangers runs large/airy — give the main action buttons a touch more line height */
 .primary-btn, .secondary-btn, .danger-btn { line-height: 1.1; }
 .cost { letter-spacing: 1px; }
+
+/* power badge under each fighter's name */
+.unit-power {
+  font-family: 'Bangers', sans-serif; letter-spacing: 1px; font-size: .9rem; color: var(--pop-red-d);
+  -webkit-text-stroke: .4px var(--ink); text-align: center; line-height: 1; margin-top: -2px;
+}
+
+/* skill FX: explosion burst + fighter auras */
+.fx-burst {
+  position: absolute; width: 26px; height: 26px; margin: -13px 0 0 -13px; border-radius: 50%;
+  border: 5px solid var(--pop-orange); box-shadow: 0 0 0 3px var(--ink); pointer-events: none; z-index: 9;
+  animation: fxburst .5s ease-out forwards;
+}
+@keyframes fxburst { from { transform: scale(.25); opacity: 1; } to { transform: scale(5.5); opacity: 0; } }
+.f-svg.f-rage { filter: drop-shadow(0 0 7px var(--pop-red)) saturate(1.7) brightness(1.08); }
+.f-svg.f-heal { filter: drop-shadow(0 0 8px var(--pop-green)) brightness(1.08); }
+.f-svg.f-tangle { animation: f-tangle .42s ease-in-out; }
+@keyframes f-tangle { 25% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } 75% { transform: rotate(-3deg); } }

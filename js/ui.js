@@ -526,6 +526,9 @@
     $('#slot-right').innerHTML = renderTeam(start.right);
     const unitEls = {};
     $$('#arena-stage .unit').forEach(el => { unitEls[el.dataset.uid] = el; });
+    // power badges under each brute (player uses meta bonuses; opponent doesn't)
+    addPowerBadge('#slot-left', leftBrute, curMeta);
+    addPowerBadge('#slot-right', rightBrute, null);
     // mount articulated fighters for the brutes
     fighters = {};
     start.left.forEach(u => mountFighter(u, leftBrute, 'right'));
@@ -533,11 +536,22 @@
     return unitEls;
   }
 
+  function addPowerBadge(slotSel, brute, bonuses) {
+    if (!brute || !C.powerRating) return;
+    const u = document.querySelector(slotSel + ' .is-brute');
+    const name = u && u.querySelector('.unit-name');
+    if (!name) return;
+    const p = C.powerRating(brute, bonuses || {});
+    name.insertAdjacentHTML('afterend', `<div class="unit-power">PWR ${fmt(p)}</div>`);
+  }
+
   function mountFighter(u, brute, facing) {
     const rig = document.querySelector('[data-rig="' + u.id + '"]');
     if (!rig) return;
     if (u.type === 'brute') {
-      if (global.Fighter) fighters[u.id] = new global.Fighter(rig, brute, facing);
+      const lo = C.loadout ? C.loadout(brute) : null;
+      const wcat = (lo && lo.weapon) ? catOf(lo.weapon.base) : 'fist';
+      if (global.Fighter) fighters[u.id] = new global.Fighter(rig, brute, facing, wcat);
     } else if (global.PetFighter) {
       fighters[u.id] = new global.PetFighter(rig, u.petId, facing);
     }
@@ -638,6 +652,25 @@
       layer.appendChild(sp);
       setTimeout(() => sp.remove(), 600);
     }
+  }
+
+  // expanding explosion ring at a unit (bombs, big skills)
+  function spawnBurst(unitEls, uid) {
+    const p = unitPoint(unitEls, uid);
+    if (!p) return;
+    const b = document.createElement('div');
+    b.className = 'fx-burst';
+    b.style.left = p.x + 'px';
+    b.style.top = p.y + 'px';
+    $('#fx-layer').appendChild(b);
+    setTimeout(() => b.remove(), 520);
+  }
+  // briefly flash a fighter's body (rage/heal/tangle auras)
+  function fighterFlash(uid, cls, ms) {
+    const f = fighters[uid];
+    if (!f || !f.svg) return;
+    f.svg.classList.add(cls);
+    setTimeout(() => { if (f.svg) f.svg.classList.remove(cls); }, ms || 500);
   }
 
   function speedlinesAt(unitEls, uid) {
@@ -772,22 +805,46 @@
         case 'skill': {
           logLine(`<span class="log-skill">${ev.icon || '✨'} ${ev.text}</span>`, 'skill');
           const f = fighters[ev.source];
-          if (ev.skill === 'bomb') {
-            if (f) f.throwGesture();
-            setTimeout(() => { if (cancelled()) return; shakeStage(true); if (ev.source) spawnImpact(unitEls, ev.source, 'KABOOM!', 'bomb'); }, 200 * ts);
-            return 560;
-          } else if (ev.skill === 'net') {
-            if (f) f.throwGesture();
-            setTimeout(() => { if (!cancelled() && ev.target) spawnImpact(unitEls, ev.target, 'NET!', 'counter'); }, 200 * ts);
-            return 520;
-          } else if (ev.hp != null && ev.source) {
-            updateHp(unitEls, ev.source, ev.hp, findUnitMax(result, ev.source));
-            spawnImpact(unitEls, ev.source, 'GULP!', 'heal');
-            spawnNumber(unitEls, ev.source, 'HEAL', 'heal');
-            return 360;
-          } else {
-            if (ev.target) spawnSpecks(unitEls, ev.target, 4);
-            return 220;
+          switch (ev.skill) {
+            case 'bomb':
+              if (f && f.throwGesture) f.throwGesture();
+              setTimeout(() => {
+                if (cancelled() || !ev.source) return;
+                shakeStage(true); spawnBurst(unitEls, ev.source); spawnSpecks(unitEls, ev.source, 8);
+                spawnImpact(unitEls, ev.source, 'KABOOM!', 'bomb');
+              }, 200 * ts);
+              return 560;
+            case 'fierce':
+              fighterFlash(ev.source, 'f-rage', 650 * ts);
+              if (ev.source) { speedlinesAt(unitEls, ev.source); spawnImpact(unitEls, ev.source, 'RAGE!', 'crit'); }
+              return 380;
+            case 'hammer':
+              if (ev.source) spawnImpact(unitEls, ev.source, 'SMASH!', 'bomb');
+              return 320;
+            case 'net':
+              if (f && f.throwGesture) f.throwGesture();
+              setTimeout(() => {
+                if (cancelled() || !ev.target) return;
+                spawnImpact(unitEls, ev.target, 'NET!', 'counter'); fighterFlash(ev.target, 'f-tangle', 480 * ts);
+              }, 200 * ts);
+              return 520;
+            case 'potion':
+              if (ev.hp != null && ev.source) updateHp(unitEls, ev.source, ev.hp, findUnitMax(result, ev.source));
+              fighterFlash(ev.source, 'f-heal', 650 * ts);
+              if (ev.source) { spawnImpact(unitEls, ev.source, 'GULP!', 'heal'); spawnNumber(unitEls, ev.source, 'HEAL', 'heal'); }
+              return 380;
+            case 'sabotage':
+              if (ev.target) { spawnImpact(unitEls, ev.target, 'SABOTAGE!', 'counter'); spawnSpecks(unitEls, ev.target, 5); }
+              return 320;
+            case 'thief':
+              if (ev.target) spawnImpact(unitEls, ev.target, 'SWIPE!', 'counter');
+              return 300;
+            case 'disarm':
+              if (ev.target) { spawnImpact(unitEls, ev.target, 'DISARMED!', 'counter'); spawnSpecks(unitEls, ev.target, 4); }
+              return 260;
+            default:
+              if (ev.target) spawnSpecks(unitEls, ev.target, 4);
+              return 220;
           }
         }
 

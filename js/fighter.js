@@ -49,7 +49,7 @@
   }
 
   class Fighter {
-    constructor(mount, brute, facing) {
+    constructor(mount, brute, facing, weaponCat) {
       this.brute = brute;
       this.facing = facing || 'right';
       this.dead = false;
@@ -75,7 +75,8 @@
       // baseline rest poses
       this.frontArm.style.transform = `rotate(${this.armRest}deg)`;
       this.backArm.style.transform = `rotate(${this.backRest}deg)`;
-      this.weapon.style.display = 'none';
+      // hold the equipped weapon from the start (so the fighter visibly wields it)
+      this.setWeaponNow(weaponCat || 'fist');
 
       this._idle();
     }
