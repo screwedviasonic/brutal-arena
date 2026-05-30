@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BRUTAL ARENA — Ink & Fury</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Anton&family=Archivo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="paper-bg"></div>
+  <div class="halftone-bg"></div>
+
+  <div id="app">
+    <!-- ============ TOP BAR ============ -->
+    <header id="topbar">
+      <div class="brand"><span class="brand-ink">BRUTAL</span><span class="brand-pop">ARENA</span></div>
+      <div class="resources">
+        <div class="res" id="res-gold-box" title="Gold — spend it in the Shop and Forge">
+          <span class="res-ico">🪙</span><span id="res-gold">0</span>
+        </div>
+        <div class="res" id="res-dust-box" title="Dust — from loot & scrapping. Used at the Forge.">
+          <span class="res-ico">✦</span><span id="res-dust">0</span>
+        </div>
+        <div class="res" title="Stamina — each arena fight costs 1. Regenerates over time.">
+          <span class="res-ico">⚡</span><span id="res-stamina">0</span><span class="res-sub">/<span id="res-stamina-max">0</span></span>
+        </div>
+        <div class="res" title="Legacy — earned by retiring brutes. Boosts every future brute.">
+          <span class="res-ico">🏆</span><span id="res-legacy">0</span>
+        </div>
+      </div>
+      <button id="btn-reset" class="ghost-btn" title="Wipe all progress">RESET</button>
+    </header>
+
+    <!-- ============ CREATION SCREEN ============ -->
+    <section id="screen-create" class="screen">
+      <div class="create-card">
+        <div class="card-tape tape-tl"></div>
+        <div class="card-tape tape-br"></div>
+        <h1 class="title-pop">FORGE YOUR BRUTE</h1>
+        <p class="muted">Every brute is born with random stats and a random starting weapon or skill. Roll until destiny gives you a monster worth fighting for.</p>
+        <div id="create-preview"></div>
+        <label class="field">
+          <span>NAME</span>
+          <input id="create-name" type="text" maxlength="16" placeholder="Brute name" />
+        </label>
+        <div class="create-actions">
+          <button id="btn-reroll" class="secondary-btn">🎲 REROLL</button>
+          <button id="btn-begin" class="primary-btn">ENTER THE ARENA ▶</button>
+        </div>
+        <p class="legacy-note" id="create-legacy-note"></p>
+      </div>
+    </section>
+
+    <!-- ============ MAIN GAME ============ -->
+    <section id="screen-game" class="screen hidden">
+      <nav id="tabs">
+        <button class="tab active" data-tab="arena">🏟️ ARENA</button>
+        <button class="tab" data-tab="gauntlet">🗼 GAUNTLET</button>
+        <button class="tab" data-tab="brute">🧍 BRUTE</button>
+        <button class="tab" data-tab="forge">⚒️ FORGE</button>
+        <button class="tab" data-tab="collection">📖 COLLECTION</button>
+        <button class="tab" data-tab="shop">🛒 SHOP</button>
+        <button class="tab" data-tab="legacy">🏆 LEGACY</button>
+      </nav>
+
+      <!-- ARENA TAB -->
+      <div class="tabpane active" id="tab-arena">
+        <div class="arena-grid">
+          <div class="panel arena-stage-panel">
+            <div id="arena-stage">
+              <div class="speedlines" id="speedlines"></div>
+              <div class="stage-floor"></div>
+              <div class="fighter-slot" id="slot-left"></div>
+              <div class="vs-badge">VS</div>
+              <div class="fighter-slot right" id="slot-right"></div>
+              <div id="fx-layer" class="fx-layer"></div>
+              <div id="arena-overlay" class="arena-overlay hidden"></div>
+            </div>
+            <div class="arena-controls">
+              <button id="btn-fight" class="primary-btn">⚔️ FIND A FIGHT <span class="cost">1⚡</span></button>
+              <label class="toggle">
+                <input type="checkbox" id="auto-fight" /> <span>AUTO</span>
+              </label>
+              <label class="toggle">
+                <input type="checkbox" id="fast-fight" /> <span>FAST</span>
+              </label>
+            </div>
+          </div>
+          <div class="panel combat-log-panel">
+            <h3>COMBAT LOG</h3>
+            <div id="combat-log"></div>
+          </div>
+        </div>
+        <div class="panel idle-panel">
+          <h3>TRAINING GROUNDS <span class="muted small">(idle XP)</span></h3>
+          <p class="muted small">Your brute trains while you're away, earning a trickle of XP. Hire Trainers in the Shop to speed it up.</p>
+          <div id="idle-rate" class="idle-rate"></div>
+        </div>
+      </div>
+
+      <!-- GAUNTLET TAB -->
+      <div class="tabpane" id="tab-gauntlet">
+        <div class="panel">
+          <h3>THE GAUNTLET <span class="muted small">— endless tower</span></h3>
+          <div id="gauntlet-content"></div>
+        </div>
+      </div>
+
+      <!-- FORGE TAB -->
+      <div class="tabpane" id="tab-forge">
+        <div class="panel">
+          <h3>THE FORGE <span class="muted small">— upgrade, reroll, fuse &amp; scrap weapons</span> <span class="forge-dust-tag">✦ <span id="forge-dust">0</span> dust</span></h3>
+          <div id="forge-list" class="forge-list"></div>
+        </div>
+      </div>
+
+      <!-- COLLECTION TAB -->
+      <div class="tabpane" id="tab-collection">
+        <div class="panel">
+          <h3>COLLECTION <span class="muted small">— permanent account-wide bonuses</span></h3>
+          <div id="collection-content"></div>
+        </div>
+      </div>
+
+      <!-- BRUTE TAB -->
+      <div class="tabpane" id="tab-brute">
+        <div class="brute-grid">
+          <div class="panel" id="brute-card-panel"></div>
+          <div class="panel" id="brute-inventory-panel"></div>
+        </div>
+      </div>
+
+      <!-- SHOP TAB -->
+      <div class="tabpane" id="tab-shop">
+        <div class="panel">
+          <h3>SHOP <span class="muted small">— spend gold on permanent upgrades</span></h3>
+          <div id="shop-list" class="shop-list"></div>
+        </div>
+      </div>
+
+      <!-- LEGACY TAB -->
+      <div class="tabpane" id="tab-legacy">
+        <div class="panel">
+          <h3>LEGACY &amp; PRESTIGE</h3>
+          <div id="legacy-content"></div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ============ LEVEL-UP MODAL ============ -->
+  <div id="levelup-modal" class="modal hidden">
+    <div class="modal-card">
+      <div class="modal-burst"></div>
+      <h2 id="levelup-title" class="title-pop">LEVEL UP!</h2>
+      <p class="muted">Choose your reward:</p>
+      <div id="levelup-choices" class="choices"></div>
+    </div>
+  </div>
+
+  <!-- ============ TOAST ============ -->
+  <div id="toast-stack"></div>
+
+  <script src="js/rng.js"></script>
+  <script src="js/avatar.js"></script>
+  <script src="js/fighter.js"></script>
+  <script src="js/data.js"></script>
+  <script src="js/items.js"></script>
+  <script src="js/character.js"></script>
+  <script src="js/combat.js"></script>
+  <script src="js/progression.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
