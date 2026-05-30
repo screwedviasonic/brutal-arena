@@ -610,3 +610,38 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--ink); border-radius: 5px; }
 ::-webkit-scrollbar-track { background: var(--paper2); }
+
+/* ============ EMOJI-FREE GLYPHS + NAV/SUBMODE ============ */
+/* former emoji resource icons -> small text labels */
+.res-ico { font-family: 'Anton', sans-serif; font-size: .6rem; letter-spacing: .5px; color: var(--muted); margin-right: 5px; }
+
+/* item "icons" are now short ASCII codes (KNF, WLF, HER...) shown as ink badges */
+.ii-ico, .si-ico, .craft-ico, .lo-ico, .lo-skill, .choice-ico {
+  font-family: 'Archivo', sans-serif; font-weight: 800; font-size: .72rem; letter-spacing: .5px;
+  background: var(--ink); color: var(--paper2); border-radius: 5px; padding: 0; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center; min-width: 2.3em; height: 2.3em;
+}
+.fi-head .ii-ico { font-size: .74rem; }
+.choice-ico { font-size: 1rem; min-width: 3em; height: 3em; margin-bottom: 8px; }
+.lo-skill { min-width: 2em; height: 2em; font-size: .64rem; }
+.lo-skills { display: flex; gap: 4px; flex-wrap: wrap; }
+
+/* decorative emoji spans that are now empty: collapse them */
+.sp-ico, .bs-ico { display: none; }
+.ii-ico:empty, .si-ico:empty, .craft-ico:empty, .lo-ico:empty, .choice-ico:empty { display: none; }
+
+/* sub-mode switch (Arena/Gauntlet/PVP, Brute/Forge/..., Shop/Bounties/Legacy) */
+.submode { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+.submode-btn {
+  background: var(--panel); color: var(--ink); border: 3px solid var(--ink); box-shadow: var(--shadow-sm);
+  padding: 7px 16px; border-radius: 6px; cursor: pointer; font-family: 'Anton', sans-serif; letter-spacing: .5px; font-size: .92rem;
+  transition: transform .07s, box-shadow .07s, background .15s;
+}
+.submode-btn:hover { background: var(--pop-yellow); }
+.submode-btn.active { background: var(--ink); color: var(--paper2); }
+.mode-pane { display: none; }
+.mode-pane.active { display: block; }
+.battle-controls { margin-top: 16px; }
+
+/* slightly larger top tabs now that there are only three */
+#tabs .tab { font-family: 'Anton', sans-serif; letter-spacing: 1px; font-size: 1.1rem; padding: 11px 26px; }

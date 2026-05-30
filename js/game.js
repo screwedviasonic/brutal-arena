@@ -11,18 +11,18 @@
   const P = global.Progression;
   const SAVE_KEY = 'brutal_arena_save_v1';
   const STAMINA_BASE = 6;
-  const STAMINA_REGEN_BASE = 45;   // seconds per point at 0 upgrades
+  const STAMINA_REGEN_BASE = 45; // seconds per point at 0 upgrades
   const OFFLINE_CAP_SEC = 8 * 3600;
-  const WEAPON_CAP = 12;           // max weapons a brute holds (extras auto-disenchant)
+  const WEAPON_CAP = 12; // max weapons a brute holds (extras auto-disenchant)
   const MASTERY_XP_PER_HIT = 3;
 
   let state = null;
-  let candidate = null;       // brute being rolled on the create screen
-  let pendingLevels = 0;      // level-ups awaiting player choice
+  let candidate = null; // brute being rolled on the create screen
+  let pendingLevels = 0; // level-ups awaiting player choice
   let fightInProgress = false;
   let idleXpAccum = 0;
-  let tickTimer = null;       // the 1s game loop
-  let wiped = false;          // set on reset so nothing re-saves before reload
+  let tickTimer = null; // the 1s game loop
+  let wiped = false; // set on reset so nothing re-saves before reload
 
   /* ---------------- state ---------------- */
   function defaultState() {
@@ -32,15 +32,15 @@
       legacy: 0,
       stamina: STAMINA_BASE,
       lastTick: now(),
-      staminaProgress: 0,      // seconds accumulated toward next stamina point
+      staminaProgress: 0, // seconds accumulated toward next stamina point
       dust: 0,
       shards: 0,
       craftTarget: null,
       shop: {},
       legacyPerks: {},
       gauntlet: { floor: 1, best: 0, checkpoint: 1 },
-      lifetime: emptyStats(),   // account-wide tally across every brute
-      bounties: null,   // lazily seeded by ensureBounties()
+      lifetime: emptyStats(), // account-wide tally across every brute
+      bounties: null, // lazily seeded by ensureBounties()
       collection: { weapons: {}, skills: {}, pets: {} },
       masteries: { blade: 0, blunt: 0, axe: 0, spear: 0 },
       brute: null,
@@ -80,7 +80,7 @@
         ? global.Items.generatePet(p, rng(), { rarity: 'common' }) : p);
     }
     if (!b.equipped) b.equipped = { weapon: null, pet: null, skills: [] };
-    C.autoEquip(b, slots);   // equip best weapon / first pet / up to N skills
+    C.autoEquip(b, slots); // equip best weapon / first pet / up to N skills
     return b;
   }
   // skill slots: base 3, +1 per 'skillSlots' legacy perk level
@@ -154,14 +154,14 @@
     brute.pets.forEach(p => state.collection.pets[p.base || p] = true);
   }
   function awardMastery(playerStats) {
-    if (!playerStats || !playerStats.catHits) return;
+    if (!playerStats ||!playerStats.catHits) return;
     for (const cat of D.WEAPON_CATS) {
       const hits = playerStats.catHits[cat] || 0;
       if (hits <= 0) continue;
       const before = masteryLevel(cat);
       state.masteries[cat] = (state.masteries[cat] || 0) + hits * MASTERY_XP_PER_HIT;
       const after = masteryLevel(cat);
-      if (after > before) UI.toast(`🎖️ ${D.CAT_NAMES[cat]} Mastery Lv ${after}!`, 'good');
+      if (after > before) UI.toast(` ${D.CAT_NAMES[cat]} Mastery Lv ${after}!`, 'good');
     }
   }
 
@@ -174,7 +174,7 @@
   // ensure every canonical key exists on a (possibly older/missing) stats object
   function fillStats(o) {
     o = o || {};
-    D.STAT_DEFS.forEach(d => { if (typeof o[d.key] !== 'number') o[d.key] = 0; });
+    D.STAT_DEFS.forEach(d => { if (typeof o[d.key]!== 'number') o[d.key] = 0; });
     return o;
   }
   function ensureStats() {
@@ -204,10 +204,10 @@
       crits,
       kills: ps.kills || 0,
       petDeaths: ps.petDeaths || 0,
-      wins: won ? 1 : 0,
-      losses: won ? 0 : 1,
-      arenaFights: isGauntlet ? 0 : 1,
-      gauntletFights: isGauntlet ? 1 : 0,
+      wins: won? 1 : 0,
+      losses: won? 0 : 1,
+      arenaFights: isGauntlet? 0 : 1,
+      gauntletFights: isGauntlet? 1 : 0,
       goldEarned: Math.round(earned.gold || 0),
       dustEarned: Math.round(earned.dust || 0),
       xpEarned: Math.round(earned.xp || 0),
@@ -222,7 +222,7 @@
       const equippedUid = state.brute.equipped && state.brute.equipped.weapon;
       let wi = -1, wp = Infinity;
       state.brute.weapons.forEach((w, i) => {
-        if (w.uid === equippedUid) return;           // never auto-scrap the equipped weapon
+        if (w.uid === equippedUid) return; // never auto-scrap the equipped weapon
         const p = global.Items.stats(w).power;
         if (p < wp) { wp = p; wi = i; }
       });
@@ -261,7 +261,7 @@
     const due = state.bounties.lastRefresh + D.BOUNTIES.refreshHours * 3600 * 1000;
     if (now() >= due) {
       // rotate only the un-completed bounties; never wipe a claimable reward
-      state.bounties.list = state.bounties.list.map(b => (b && b.done) ? b : rollBounty());
+      state.bounties.list = state.bounties.list.map(b => (b && b.done)? b : rollBounty());
       state.bounties.lastRefresh = now();
       save(); renderAll();
     }
@@ -275,11 +275,11 @@
     }
     return {
       won,
-      arenaWin: won && !isGauntlet,
+      arenaWin: won &&!isGauntlet,
       gauntletWin: won && isGauntlet,
       crits,
       catHits: (result && result.playerStats && result.playerStats.catHits) || {},
-      floorReached: floorReached != null ? floorReached : null,
+      floorReached: floorReached!= null? floorReached : null,
     };
   }
   function progressBounties(ctx) {
@@ -290,31 +290,31 @@
       const before = b.progress;
       switch (b.type) {
         case 'gauntletClear': if (ctx.gauntletWin) b.progress++; break;
-        case 'arenaWin':      if (ctx.arenaWin) b.progress++; break;
-        case 'anyWin':        if (ctx.won) b.progress++; break;
-        case 'crits':         b.progress += ctx.crits; break;
-        case 'catHits':       b.progress += (ctx.catHits[b.cat] || 0); break;
-        case 'reachFloor':    if (ctx.floorReached != null) b.progress = Math.max(b.progress, ctx.floorReached); break;
+        case 'arenaWin': if (ctx.arenaWin) b.progress++; break;
+        case 'anyWin': if (ctx.won) b.progress++; break;
+        case 'crits': b.progress += ctx.crits; break;
+        case 'catHits': b.progress += (ctx.catHits[b.cat] || 0); break;
+        case 'reachFloor': if (ctx.floorReached!= null) b.progress = Math.max(b.progress, ctx.floorReached); break;
       }
       if (b.progress > b.target) b.progress = b.target;
-      if (b.progress !== before) changed = true;
-      if (b.progress >= b.target && !b.done) { b.done = true; changed = true; UI.toast(`📜 Bounty ready to claim: ${b.desc}`, 'good'); }
+      if (b.progress!== before) changed = true;
+      if (b.progress >= b.target &&!b.done) { b.done = true; changed = true; UI.toast(` Bounty ready to claim: ${b.desc}`, 'good'); }
     }
     if (changed) save();
   }
   function claimBounty(idx) {
     ensureBounties();
     const b = state.bounties.list[idx];
-    if (!b || !b.done) return;
+    if (!b ||!b.done) return;
     const r = b.reward || {};
     if (r.gold) state.gold += r.gold;
     if (r.dust) state.dust += r.dust;
     if (r.legacy) state.legacy += r.legacy;
     const parts = [];
-    if (r.gold) parts.push(`🪙${UI.fmt(r.gold)}`);
-    if (r.dust) parts.push(`✦${r.dust}`);
-    if (r.legacy) parts.push(`🏆${r.legacy}`);
-    UI.toast(`📜 Claimed: ${parts.join(' • ')}`, 'good');
+    if (r.gold) parts.push(`g${UI.fmt(r.gold)}`);
+    if (r.dust) parts.push(`d${r.dust}`);
+    if (r.legacy) parts.push(`${r.legacy}`);
+    UI.toast(` Claimed: ${parts.join(' • ')}`, 'good');
     state.bounties.list[idx] = rollBounty();
     save(); renderAll();
   }
@@ -339,7 +339,7 @@
     state.brute.equipped.weapon = uid; save(); renderAll();
   }
   function equipPet(uid) {
-    if (uid && !state.brute.pets.some(p => p.uid === uid)) return;
+    if (uid &&!state.brute.pets.some(p => p.uid === uid)) return;
     state.brute.equipped.pet = uid || null; save(); renderAll();
   }
   function toggleSkill(uid) {
@@ -361,14 +361,14 @@
   }
   function inventoryOf(inst) {
     const k = global.Items.kindOf(inst);
-    return k === 'pet' ? state.brute.pets : k === 'skill' ? state.brute.skills : state.brute.weapons;
+    return k === 'pet'? state.brute.pets : k === 'skill'? state.brute.skills : state.brute.weapons;
   }
   function forgeUpgrade(uid) {
     const it = findInstance(uid); if (!it) return;
     const cost = global.Items.upgradeCost(it);
     if (state.gold < cost) { UI.toast('Not enough gold.', 'bad'); return; }
     state.gold -= cost; global.Items.upgrade(it);
-    UI.toast(`⚒️ Upgraded to +${it.level}`, 'good'); save(); renderAll();
+    UI.toast(` Upgraded to +${it.level}`, 'good'); save(); renderAll();
   }
   function forgeReroll(uid) {
     const it = findInstance(uid); if (!it) return;
@@ -376,7 +376,7 @@
     const cost = global.Items.rerollCost(it);
     if (state.dust < cost) { UI.toast('Not enough dust.', 'bad'); return; }
     state.dust -= cost; global.Items.reroll(it, new RNG(randomSeed()));
-    UI.toast(global.Items.kindOf(it) === 'skill' ? '🎲 Potency rerolled' : '🎲 Affixes rerolled', 'good');
+    UI.toast(global.Items.kindOf(it) === 'skill'? ' Potency rerolled' : ' Affixes rerolled', 'good');
     save(); renderAll();
   }
   function forgeDisenchant(uid) {
@@ -388,7 +388,7 @@
     const sh = global.Items.shardValue(it);
     state.dust += d; state.shards += sh;
     const i = inv.findIndex(x => x.uid === uid); if (i >= 0) inv.splice(i, 1);
-    UI.toast(`♻️ Scrapped (+${d} dust • +${sh} shards)`, 'good'); save(); renderAll();
+    UI.toast(` Scrapped (+${d} dust • +${sh} shards)`, 'good'); save(); renderAll();
   }
   function forgeFuse(uid) {
     const it = findInstance(uid); if (!it) return;
@@ -400,17 +400,17 @@
     state.dust -= cost;
     const wasEquipped = isEquipped(it.uid) || isEquipped(partner.uid);
     const fused = global.Items.fuse(it, partner, new RNG(randomSeed()));
-    const keep = inv.filter(w => w.uid !== it.uid && w.uid !== partner.uid);
+    const keep = inv.filter(w => w.uid!== it.uid && w.uid!== partner.uid);
     keep.push(fused);
     inv.length = 0; inv.push(...keep);
-    collectWeapon(fused.base);                 // collection is keyed by base id for all kinds
+    collectWeapon(fused.base); // collection is keyed by base id for all kinds
     if (state.collection) {
       const k = global.Items.kindOf(fused);
       if (k === 'skill') state.collection.skills[fused.base] = true;
       else if (k === 'pet') state.collection.pets[fused.base] = true;
     }
     if (wasEquipped) C.autoEquip(state.brute, skillSlots());
-    UI.toast(`✨ Fused into ${global.Items.rarityName(fused)} ${global.Items.displayName(fused)}!`, 'good');
+    UI.toast(` Fused into ${global.Items.rarityName(fused)} ${global.Items.displayName(fused)}!`, 'good');
     save(); renderAll();
   }
   // shards needed to craft a given weapon base (scales with its tier)
@@ -425,7 +425,7 @@
   }
   function forgeCraft() {
     const base = state.craftTarget;
-    if (!base || !D.WEAPONS[base]) { UI.toast('Pick a weapon to craft first.', 'bad'); return; }
+    if (!base ||!D.WEAPONS[base]) { UI.toast('Pick a weapon to craft first.', 'bad'); return; }
     const cost = craftCost(base);
     if (state.shards < cost) { UI.toast('Not enough shards.', 'bad'); return; }
     state.shards -= cost;
@@ -436,7 +436,7 @@
       item = global.Items.generateWeapon(base, rng, { rarity: D.CRAFT.minRarity });
     }
     addWeaponToBrute(item);
-    UI.toast(`⚒️ Crafted ${global.Items.rarityName(item)} ${global.Items.displayName(item)}!`, 'good');
+    UI.toast(` Crafted ${global.Items.rarityName(item)} ${global.Items.displayName(item)}!`, 'good');
     save(); renderAll();
   }
 
@@ -447,13 +447,13 @@
     if (floor % D.GAUNTLET.bossEvery === 0) return null;
     const rng = new RNG((Math.imul(floor, 2654435761) ^ 0x9e3779b9) >>> 0);
     const m = rng.weighted(D.GAUNTLET.mutators.map(x => ({ item: x, weight: x.weight })));
-    return (m.id === 'calm') ? null : m;
+    return (m.id === 'calm')? null : m;
   }
   // Multiply numeric bonus fields together; copy non-numeric (e.g. catDmg) as-is.
   function mergeBonuses(a, b) {
     const out = Object.assign({}, a);
     if (b) for (const k in b) {
-      out[k] = (typeof b[k] === 'number' && typeof out[k] === 'number') ? out[k] * b[k] : b[k];
+      out[k] = (typeof b[k] === 'number' && typeof out[k] === 'number')? out[k] * b[k] : b[k];
     }
     return out;
   }
@@ -461,7 +461,6 @@
     if (fightInProgress) return;
     if (pendingLevels > 0) { processLevelUps(() => {}); return; }
     fightInProgress = true;
-    activateTab('arena');
     const floor = state.gauntlet.floor;
     const mut = mutatorForFloor(floor);
     const opp = C.generateGauntletOpponent(floor, new RNG(randomSeed()));
@@ -486,18 +485,18 @@
     if (won) {
       const xp = Math.round((20 + floor * 6) * xpMul() * (rMul.xp || 1));
       const gold = Math.round((15 + floor * 7) * goldMul() * (rMul.gold || 1));
-      let dust = Math.round((3 + floor * 1.2) * (rMul.dust || 1)) + (isBoss ? 20 : 0) + (isMilestone ? 40 : 0);
+      let dust = Math.round((3 + floor * 1.2) * (rMul.dust || 1)) + (isBoss? 20 : 0) + (isMilestone? 40 : 0);
       state.gold += gold; state.dust += dust;
       earned.gold = gold; earned.dust = dust; earned.xp = xp;
       let dropTxt = '';
       const wantDrop = isBoss || (mut && mut.bonusDrop) || Math.random() < 0.28;
-      if (wantDrop) { dropTxt = ' • ' + lootBadge(dropItem(Math.min(0.95, (isBoss ? 0.3 : 0.1) + floor * 0.04))); }
-      if (isMilestone) { state.legacy += 1; dropTxt += ' • 🏆+1'; }
+      if (wantDrop) { dropTxt = ' • ' + lootBadge(dropItem(Math.min(0.95, (isBoss? 0.3 : 0.1) + floor * 0.04))); }
+      if (isMilestone) { state.legacy += 1; dropTxt += ' • +1'; }
       state.gauntlet.floor = floor + 1;
       if (floor > state.gauntlet.best) state.gauntlet.best = floor;
       if (isBoss) state.gauntlet.checkpoint = floor + 1;
-      const tag = isMilestone ? ' 🏆' : (isBoss ? ' 👑' : '');
-      UI.showOutcome(true, `<div>FLOOR ${floor} CLEARED${tag}<br>+${UI.fmt(xp)} XP • +🪙${UI.fmt(gold)} • +✦${dust}${dropTxt}</div>`);
+      const tag = isMilestone? ' ' : (isBoss? ' ' : '');
+      UI.showOutcome(true, `<div>FLOOR ${floor} CLEARED${tag}<br>+${UI.fmt(xp)} XP • +g${UI.fmt(gold)} • +d${dust}${dropTxt}</div>`);
       grantXp(xp, true);
     } else {
       state.brute.losses++;
@@ -505,7 +504,7 @@
       state.gauntlet.floor = back;
       UI.showOutcome(false, `<div>FELL ON FLOOR ${floor}<br>Back to floor ${back}</div>`);
     }
-    progressBounties(fightContext(won, true, result, won ? state.gauntlet.floor : null));
+    progressBounties(fightContext(won, true, result, won? state.gauntlet.floor : null));
     accumulateStats(extractFightStats(result, won, true, earned));
     fightInProgress = false;
     save(); renderAll();
@@ -556,7 +555,7 @@
     const gained = P.addXp(state.brute, Math.round(amount));
     if (gained > 0) {
       pendingLevels += gained;
-      if (!silent) UI.toast(`✨ Level up! Now level ${state.brute.level}`, 'good');
+      if (!silent) UI.toast(` Level up! Now level ${state.brute.level}`, 'good');
     }
   }
 
@@ -568,7 +567,7 @@
     const choices = P.generateChoices(state.brute, rng, dropLuck());
     UI.showLevelUp(lvl, choices, (choice) => {
       P.applyChoice(state.brute, choice);
-      C.autoEquip(state.brute, skillSlots());   // fill any empty loadout slot with the new item
+      C.autoEquip(state.brute, skillSlots()); // fill any empty loadout slot with the new item
       syncCollection(state.brute);
       pendingLevels--;
       UI.toast(`Gained ${choice.icon} ${choice.title}`, 'good');
@@ -583,7 +582,7 @@
   function doFight() {
     if (fightInProgress) return;
     if (pendingLevels > 0) { processLevelUps(() => {}); return; }
-    if (state.stamina < 1) { UI.toast('⚡ Out of stamina! It regenerates over time.', 'bad'); return; }
+    if (state.stamina < 1) { UI.toast(' Out of stamina! It regenerates over time.', 'bad'); return; }
 
     fightInProgress = true;
     state.stamina--;
@@ -604,7 +603,7 @@
 
   function resolveFight(playerWon, opponent, result) {
     const lvl = opponent.level;
-    let xp = Math.round((playerWon ? 18 : 7) * Math.pow(lvl, 1.15) * xpMul());
+    let xp = Math.round((playerWon? 18 : 7) * Math.pow(lvl, 1.15) * xpMul());
     let gold = 0, dust = 0, dropTxt = '';
     if (playerWon) {
       state.brute.wins++;
@@ -623,7 +622,7 @@
     awardMastery(result && result.playerStats);
     syncCollection(state.brute);
 
-    const rewardHtml = `<div>+${UI.fmt(xp)} XP • +🪙 ${UI.fmt(gold)}${dust ? ' • +✦ ' + dust : ''}${dropTxt}</div>`;
+    const rewardHtml = `<div>+${UI.fmt(xp)} XP • +g ${UI.fmt(gold)}${dust? ' • +d ' + dust : ''}${dropTxt}</div>`;
     UI.showOutcome(playerWon, rewardHtml);
 
     grantXp(xp, true);
@@ -636,7 +635,7 @@
     // resolve any level-ups, then optionally auto-continue
     processLevelUps(() => {
       if (state.settings.autoFight && state.stamina >= 1 && pendingLevels === 0) {
-        setTimeout(() => { if (state.settings.autoFight) doFight(); }, state.settings.fastFight ? 500 : 1400);
+        setTimeout(() => { if (state.settings.autoFight) doFight(); }, state.settings.fastFight? 500 : 1400);
       }
     });
   }
@@ -655,13 +654,13 @@
   /* ---------------- legacy / prestige ---------------- */
   function retireBrute() {
     const payout = UI.legacyPayout(state.brute);
-    if (!confirm(`Retire ${state.brute.name} (Lv ${state.brute.level}) for 🏆 ${payout} legacy? This starts a brand new brute.`)) return;
+    if (!confirm(`Retire ${state.brute.name} (Lv ${state.brute.level}) for ${payout} legacy? This starts a brand new brute.`)) return;
     state.legacy += payout;
     state.brute = null;
-    state.gauntlet.floor = 1;          // new brute starts the climb over (best is kept)
+    state.gauntlet.floor = 1; // new brute starts the climb over (best is kept)
     state.gauntlet.checkpoint = 1;
     save();
-    UI.toast(`🏆 +${payout} legacy earned!`, 'good');
+    UI.toast(` +${payout} legacy earned!`, 'good');
     startCreateScreen();
   }
 
@@ -682,7 +681,7 @@
   function rollCandidate() {
     candidate = C.createBrute(new RNG(randomSeed()), { legacy: legacyPerksForCreate() });
     const note = totalLegacyPerks() > 0
-      ? '🏆 Bloodline perks are applied to this new brute.'
+      ? ' Bloodline perks are applied to this new brute.'
       : 'Tip: win fights, level up, then retire to earn permanent bloodline perks.';
     UI.renderCreatePreview(candidate, note);
   }
@@ -729,9 +728,9 @@
       upgrade: forgeUpgrade, reroll: forgeReroll, disenchant: forgeDisenchant, fuse: forgeFuse,
       equipWeapon: equipWeapon, equipPet: equipPet, toggleSkill: toggleSkill, skillSlots: skillSlots(),
     });
-    UI.renderCraft(state.shards, state.craftTarget, state.craftTarget ? craftCost(state.craftTarget) : 0,
+    UI.renderCraft(state.shards, state.craftTarget, state.craftTarget? craftCost(state.craftTarget) : 0,
       { setTarget: setCraftTarget, craft: forgeCraft });
-    UI.renderGauntlet(state.gauntlet, climbGauntlet, !fightInProgress, mutatorForFloor(state.gauntlet.floor));
+    UI.renderGauntlet(state.gauntlet, climbGauntlet,!fightInProgress, mutatorForFloor(state.gauntlet.floor));
     ensureBounties();
     UI.renderBounties(state.bounties, { claim: claimBounty, reroll: rerollBounty, rerollDust: state.dust });
     UI.renderCollection(state, masteryLevels());
@@ -753,7 +752,7 @@
     const btn = $('#btn-fight');
     if (btn) btn.disabled = state.stamina < 1 || fightInProgress;
     // resolve queued level-ups if player is just sitting there
-    if (!fightInProgress && pendingLevels > 0 && !UI.isModalOpen()) processLevelUps(() => {});
+    if (!fightInProgress && pendingLevels > 0 &&!UI.isModalOpen()) processLevelUps(() => {});
     refreshBountiesIfDue();
     save();
   }
@@ -767,7 +766,7 @@
     $('#btn-fight').addEventListener('click', doFight);
     $('#btn-reset').addEventListener('click', () => {
       if (confirm('Wipe ALL progress (brute, gold, legacy)? This cannot be undone.')) {
-        wiped = true;                       // block any queued autosave
+        wiped = true; // block any queued autosave
         if (tickTimer) clearInterval(tickTimer);
         try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
         location.reload();
@@ -776,7 +775,7 @@
     $('#auto-fight').addEventListener('change', (e) => {
       state.settings.autoFight = e.target.checked;
       save();
-      if (e.target.checked && !fightInProgress && state.stamina >= 1 && pendingLevels === 0) doFight();
+      if (e.target.checked &&!fightInProgress && state.stamina >= 1 && pendingLevels === 0) doFight();
     });
     $('#fast-fight').addEventListener('change', (e) => {
       state.settings.fastFight = e.target.checked;
@@ -793,8 +792,8 @@
 
     state = migrate(load()) || defaultState();
     // restore settings toggles
-    $('#auto-fight').checked = !!(state.settings && state.settings.autoFight);
-    $('#fast-fight').checked = !!(state.settings && state.settings.fastFight);
+    $('#auto-fight').checked =!!(state.settings && state.settings.autoFight);
+    $('#fast-fight').checked =!!(state.settings && state.settings.fastFight);
 
     const elapsed = applyElapsed();
 
@@ -821,7 +820,7 @@
     state: () => state,
     brute: () => state && state.brute,
     metaBonuses: () => metaBonuses(),
-    fast: () => !!(state && state.settings && state.settings.fastFight),
+    fast: () =>!!(state && state.settings && state.settings.fastFight),
     activateTab: activateTab,
   };
 

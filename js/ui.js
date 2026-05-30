@@ -14,9 +14,9 @@
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
   let replayToken = 0; // increments to cancel an in-progress replay
-  let fighters = {};   // uid -> Fighter instance (brutes only)
-  let curTS = 1;       // current replay time scale
-  let curMeta = null;  // current player meta bonuses (for power display)
+  let fighters = {}; // uid -> Fighter instance (brutes only)
+  let curTS = 1; // current replay time scale
+  let curMeta = null; // current player meta bonuses (for power display)
   function setMeta(m) { curMeta = m; }
 
   const POW_WORDS = ['POW!', 'BAM!', 'WHAM!', 'BIFF!', 'SOK!', 'THWAK!', 'KRUNCH!', 'WHACK!', 'SMASH!', 'BONK!'];
@@ -39,7 +39,7 @@
   function renderTopbar(state) {
     const g = $('#res-gold'), prev = g.dataset.v;
     g.textContent = fmt(state.gold);
-    if (prev !== undefined && +prev !== state.gold) flash($('#res-gold-box'));
+    if (prev!== undefined && +prev!== state.gold) flash($('#res-gold-box'));
     g.dataset.v = state.gold;
     $('#res-stamina').textContent = Math.floor(state.stamina);
     $('#res-stamina-max').textContent = state.staminaMax;
@@ -62,6 +62,14 @@
         $('#tab-' + tab.dataset.tab).classList.add('active');
       });
     });
+    // sub-mode switches inside a group (Battle / Brute / Progress)
+    $$('.submode-btn').forEach(btn => {
+      btn.addEventListener('click', () => setSubmode(btn.dataset.group, btn.dataset.mode));
+    });
+  }
+  function setSubmode(group, mode) {
+    $$(`.submode-btn[data-group="${group}"]`).forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+    $$(`.mode-pane[data-group="${group}"]`).forEach(p => p.classList.toggle('active', p.dataset.modepane === mode));
   }
 
   /* ---------------- avatars ---------------- */
@@ -77,41 +85,41 @@
   }
 
   function weaponChip(it) {
-    return `<span class="chip wchip" style="border-color:${I.color(it)};box-shadow:2px 2px 0 ${I.color(it)}" title="${I.displayName(it)}">${D.WEAPONS[it.base].icon} ${I.displayName(it)}</span>`;
+    return `<span class="chip wchip" style="border-color:${I.color(it)};box-shadow:2px 2px 0 ${I.color(it)}" title="${I.displayName(it)}">${I.displayName(it)}</span>`;
   }
 
   function bruteSummaryHtml(brute) {
     const s = brute.stats;
     const e = C.effectiveStats(brute, curMeta);
     const weapons = brute.weapons.map(weaponChip).join('');
-    const skills = brute.skills.map(it => chip(I.icon(it), I.displayName(it))).join('');
-    const pets = brute.pets.map(it => chip(I.icon(it), I.displayName(it))).join('');
+    const skills = brute.skills.map(it => chip('', I.displayName(it))).join('');
+    const pets = brute.pets.map(it => chip('', I.displayName(it))).join('');
     return `<div class="brute-summary">
       <div class="bs-name">${brute.name} <span class="lvl">LV ${brute.level}</span></div>
       <div class="statline">
-        ${statPill('❤️', 'HP', e.maxHp)}
-        ${statPill('💪', 'STR', s.strength)}
-        ${statPill('🤸', 'AGI', s.agility)}
-        ${statPill('💨', 'SPD', s.speed)}
+        ${statPill('', 'HP', e.maxHp)}
+        ${statPill('', 'STR', s.strength)}
+        ${statPill('', 'AGI', s.agility)}
+        ${statPill('', 'SPD', s.speed)}
       </div>
-      <div class="power">⚡ POWER ${C.powerRating(brute, curMeta)}</div>
-      ${weapons ? `<div class="chips"><span class="chips-label">Weapons</span>${weapons}</div>` : ''}
-      ${skills ? `<div class="chips"><span class="chips-label">Skills</span>${skills}</div>` : ''}
-      ${pets ? `<div class="chips"><span class="chips-label">Pets</span>${pets}</div>` : ''}
+      <div class="power"> POWER ${C.powerRating(brute, curMeta)}</div>
+      ${weapons? `<div class="chips"><span class="chips-label">Weapons</span>${weapons}</div>` : ''}
+      ${skills? `<div class="chips"><span class="chips-label">Skills</span>${skills}</div>` : ''}
+      ${pets? `<div class="chips"><span class="chips-label">Pets</span>${pets}</div>` : ''}
     </div>`;
   }
   function statPill(icon, label, val) {
     return `<span class="stat-pill"><span class="sp-ico">${icon}</span><span class="sp-lbl">${label}</span><b>${val}</b></span>`;
   }
-  function chip(icon, name) { return `<span class="chip" title="${name}">${icon} ${name}</span>`; }
+  function chip(icon, name) { return `<span class="chip" title="${name}">${icon ? icon + ' ' : ''}${name}</span>`; }
 
   /* ---------------- stats grid (shared) ---------------- */
   function statsGridHtml(stats) {
     stats = stats || {};
     const total = (stats.wins || 0) + (stats.losses || 0);
-    const winRate = total ? Math.round((stats.wins / total) * 100) : 0;
+    const winRate = total? Math.round((stats.wins / total) * 100) : 0;
     const cells = D.STAT_DEFS.map(d =>
-      `<div class="stat-cell"><span class="stat-ico">${d.icon}</span>
+      `<div class="stat-cell">
         <span class="stat-num">${fmt(stats[d.key] || 0)}</span>
         <span class="stat-key">${d.label}</span></div>`).join('');
     return `<div class="stat-cells">${cells}</div>
@@ -121,7 +129,7 @@
     const el = $('#stats-content');
     if (!el) return;
     el.innerHTML = `<p class="muted small">Totals across every brute you've ever fielded — these never reset, even when you retire.</p>
-      <div class="stat-banner">🏔️ Highest Gauntlet floor reached: <b>${gauntletBest || 0}</b></div>
+      <div class="stat-banner"> Highest Gauntlet floor reached: <b>${gauntletBest || 0}</b></div>
       ${statsGridHtml(lifetime)}`;
   }
 
@@ -138,17 +146,17 @@
         <div>
           <div class="bs-name big">${brute.name}</div>
           <div class="lvl-badge">LEVEL ${brute.level}</div>
-          <div class="record">🏅 ${brute.wins}W / ${brute.losses}L</div>
-          <div class="power big">⚡ POWER ${C.powerRating(brute, curMeta)}</div>
+          <div class="record"> ${brute.wins}W / ${brute.losses}L</div>
+          <div class="power big"> POWER ${C.powerRating(brute, curMeta)}</div>
         </div>
       </div>
       <div class="xpbar"><div class="xpbar-fill" style="width:${xpPct}%"></div>
         <span class="xpbar-text">${fmt(brute.xp)} / ${fmt(need)} XP</span></div>
       <div class="statgrid">
-        ${bigStat('❤️', 'Max HP', e.maxHp, s.hp)}
-        ${bigStat('💪', 'Strength', round(e.strength), s.strength)}
-        ${bigStat('🤸', 'Agility', round(e.agility), s.agility)}
-        ${bigStat('💨', 'Speed', round(e.speed), s.speed)}
+        ${bigStat('', 'Max HP', e.maxHp, s.hp)}
+        ${bigStat('', 'Strength', round(e.strength), s.strength)}
+        ${bigStat('', 'Agility', round(e.agility), s.agility)}
+        ${bigStat('', 'Speed', round(e.speed), s.speed)}
       </div>
       <div class="derived">
         ${derived('Crit', e.crit)} ${derived('Evasion', e.evasion)}
@@ -156,7 +164,7 @@
         ${derived('Combo', e.combo)} ${derived('Dmg Reduce', e.dmgReduction)}
       </div>
       ${loadoutHtml(brute)}
-      <h3 class="run-stats-head">📋 THIS BRUTE'S RECORD</h3>
+      <h3 class="run-stats-head"> THIS BRUTE'S RECORD</h3>
       ${statsGridHtml(brute.career)}`;
 
     const eq = brute.equipped || { weapon: null, pet: null, skills: [] };
@@ -172,42 +180,42 @@
       : '<p class="muted small">No pets yet.</p>';
 
     $('#brute-inventory-panel').innerHTML = `
-      <h3>⚔️ Weapons</h3><div class="inv-list">${weaponsHtml}</div>
-      <h3>✨ Skills</h3><div class="inv-list">${skillsHtml}</div>
-      <h3>🐾 Pets</h3><div class="inv-list">${petsHtml}</div>
-      <p class="muted small">Equip and forge gear in the ⚒️ FORGE tab.</p>`;
+      <h3> Weapons</h3><div class="inv-list">${weaponsHtml}</div>
+      <h3> Skills</h3><div class="inv-list">${skillsHtml}</div>
+      <h3> Pets</h3><div class="inv-list">${petsHtml}</div>
+      <p class="muted small">Equip and forge gear in the FORGE tab.</p>`;
   }
 
   // compact "what's equipped" summary
   function loadoutHtml(brute) {
     const lo = C.loadout(brute);
     const slot = (label, inst, fallback) => {
-      const name = inst ? `<b style="color:${I.color(inst)}">${I.displayName(inst)}</b>` : `<span class="muted">${fallback}</span>`;
-      return `<div class="lo-slot"><span class="lo-ico">${inst ? I.icon(inst) : '—'}</span><div><div class="lo-lbl">${label}</div><div>${name}</div></div></div>`;
+      const name = inst? `<b style="color:${I.color(inst)}">${I.displayName(inst)}</b>` : `<span class="muted">${fallback}</span>`;
+      return `<div class="lo-slot"><span class="lo-ico">${inst? I.icon(inst) : '—'}</span><div><div class="lo-lbl">${label}</div><div>${name}</div></div></div>`;
     };
     const skills = lo.skills.length
       ? lo.skills.map(s => `<span class="lo-skill" title="${I.displayName(s)}">${I.icon(s)}</span>`).join('')
       : '<span class="muted small">none</span>';
-    return `<h3 class="run-stats-head">🎒 LOADOUT</h3>
+    return `<h3 class="run-stats-head"> LOADOUT</h3>
       <div class="loadout">
         ${slot('Weapon', lo.weapon, 'fists')}
         ${slot('Pet', lo.pet, 'none')}
-        <div class="lo-slot"><span class="lo-ico">✨</span><div><div class="lo-lbl">Skills</div><div class="lo-skills">${skills}</div></div></div>
+        <div class="lo-slot"><span class="lo-ico"></span><div><div class="lo-lbl">Skills</div><div class="lo-skills">${skills}</div></div></div>
       </div>`;
   }
   function invInstance(it, kind, equipped) {
-    const sub = kind === 'pet' ? (() => { const s = I.petStats(it); return `${Math.round(s.hp)} HP / ${Math.round(s.strength)} STR`; })()
-      : kind === 'skill' ? ((D.SKILLS[it.base] || {}).desc || '')
-      : (() => { const s = I.stats(it); return `${Math.round(s.dmg)} dmg • ⚡${s.power}`; })();
+    const sub = kind === 'pet'? (() => { const s = I.petStats(it); return `${Math.round(s.hp)} HP / ${Math.round(s.strength)} STR`; })()
+      : kind === 'skill'? ((D.SKILLS[it.base] || {}).desc || '')
+      : (() => { const s = I.stats(it); return `${Math.round(s.dmg)} dmg • ${s.power}`; })();
     const tag = `<span class="rar-tag" style="background:${I.color(it)}">${I.rarityName(it)}</span>`;
-    const eqTag = equipped ? '<span class="eq-tag">equipped</span>' : '';
-    return `<div class="inv-item ${equipped ? 'equipped' : ''}" style="border-color:${I.color(it)}"><span class="ii-ico">${I.icon(it)}</span>
+    const eqTag = equipped? '<span class="eq-tag">equipped</span>' : '';
+    return `<div class="inv-item ${equipped? 'equipped' : ''}" style="border-color:${I.color(it)}"><span class="ii-ico">${I.icon(it)}</span>
       <div style="flex:1"><div class="ii-name" style="color:${I.color(it)}">${I.displayName(it)} ${tag} ${eqTag}</div>
       <div class="ii-sub">${sub}</div></div></div>`;
   }
 
   function bigStat(icon, label, eff, base) {
-    const bonus = eff !== base ? `<span class="stat-bonus">(${base}+${round(eff - base)})</span>` : '';
+    const bonus = eff!== base? `<span class="stat-bonus">(${base}+${round(eff - base)})</span>` : '';
     return `<div class="big-stat"><div class="bs-ico">${icon}</div>
       <div class="bs-val">${eff} ${bonus}</div><div class="bs-lbl">${label}</div></div>`;
   }
@@ -221,7 +229,7 @@
     const aff = I.affixLines(it).map(a => `<span class="affix">${a}</span>`).join(' ');
     return `<div class="inv-item" style="border-color:${I.color(it)}"><span class="ii-ico">${D.WEAPONS[it.base].icon}</span>
       <div style="flex:1"><div class="ii-name" style="color:${I.color(it)}">${I.displayName(it)} <span class="rar-tag" style="background:${I.color(it)}">${I.rarityName(it)}</span></div>
-      <div class="ii-sub">${Math.round(s.dmg)} dmg • ⚡${s.power}${aff ? ' — ' + aff : ''}</div></div></div>`;
+      <div class="ii-sub">${Math.round(s.dmg)} dmg • ${s.power}${aff? ' — ' + aff : ''}</div></div></div>`;
   }
 
   /* ---------------- shop ---------------- */
@@ -233,7 +241,7 @@
       const maxed = owned >= item.max;
       const cost = shopCost(item, owned);
       const card = document.createElement('div');
-      card.className = 'shop-item' + (maxed ? ' maxed' : '');
+      card.className = 'shop-item' + (maxed? ' maxed' : '');
       card.innerHTML = `
         <div class="si-ico">${item.icon}</div>
         <div class="si-body">
@@ -241,8 +249,8 @@
           <div class="si-desc">${item.desc}</div>
           <div class="si-effect muted small">${item.effect}</div>
         </div>
-        <button class="buy-btn ${maxed || state.gold < cost ? 'disabled' : ''}" ${maxed ? 'disabled' : ''}>
-          ${maxed ? 'MAX' : '🪙 ' + fmt(cost)}
+        <button class="buy-btn ${maxed || state.gold < cost? 'disabled' : ''}" ${maxed? 'disabled' : ''}>
+          ${maxed? 'MAX' : 'g ' + fmt(cost)}
         </button>`;
       if (!maxed) card.querySelector('.buy-btn').addEventListener('click', () => onBuy(item, cost));
       list.appendChild(card);
@@ -258,11 +266,11 @@
       const owned = state.legacyPerks[p.id] || 0;
       const maxed = owned >= p.max;
       const cost = p.cost * (owned + 1);
-      return `<div class="legacy-perk ${maxed ? 'maxed' : ''}">
+      return `<div class="legacy-perk ${maxed? 'maxed' : ''}">
         <div class="lp-body"><div class="lp-name">${p.name} <span class="si-owned">${owned}/${p.max}</span></div>
         <div class="si-desc">${p.desc}</div></div>
-        <button class="buy-btn lp-buy ${maxed || state.legacy < cost ? 'disabled' : ''}" data-perk="${p.id}" ${maxed ? 'disabled' : ''}>
-          ${maxed ? 'MAX' : '🏆 ' + cost}</button>
+        <button class="buy-btn lp-buy ${maxed || state.legacy < cost? 'disabled' : ''}" data-perk="${p.id}" ${maxed? 'disabled' : ''}>
+          ${maxed? 'MAX' : ' ' + cost}</button>
       </div>`;
     }).join('');
 
@@ -270,8 +278,8 @@
       <div class="legacy-intro">
         <p>Retire your current brute to earn <b>Legacy</b> points based on the level reached. Spend them on permanent bloodline perks that make every <i>future</i> brute stronger from birth.</p>
         <div class="retire-box">
-          <div>Retiring <b>${brute.name}</b> (Lv ${brute.level}) yields <b class="big-num">🏆 ${payout}</b> legacy.</div>
-          <button id="btn-retire" class="danger-btn">⚰️ RETIRE &amp; START NEW BRUTE</button>
+          <div>Retiring <b>${brute.name}</b> (Lv ${brute.level}) yields <b class="big-num"> ${payout}</b> legacy.</div>
+          <button id="btn-retire" class="danger-btn"> RETIRE &amp; START NEW BRUTE</button>
         </div>
       </div>
       <h3>BLOODLINE PERKS</h3>
@@ -296,7 +304,7 @@
     const sd = $('#forge-shards'); if (sd) sd.textContent = fmt(shards);
     // weapon picker, grouped/sorted by tier
     const opts = D.DROPPABLE_WEAPONS.slice().sort((a, b) => a.tier - b.tier)
-      .map(w => `<option value="${w.id}" ${w.id === target ? 'selected' : ''}>${w.icon} ${w.name} (T${w.tier})</option>`).join('');
+      .map(w => `<option value="${w.id}" ${w.id === target? 'selected' : ''}>${w.icon} ${w.name} (T${w.tier})</option>`).join('');
     let body;
     if (!target) {
       body = '<p class="muted small">Choose a weapon above to start banking shards toward it.</p>';
@@ -312,8 +320,8 @@
           </div>
         </div>
         <div class="bounty-bar"><div class="bounty-fill craft-fill" style="width:${pct}%"></div>
-          <span class="bounty-count">🧩 ${fmt(Math.min(shards, cost))} / ${cost}</span></div>
-        <button id="btn-craft" class="primary-btn" ${ready ? '' : 'disabled'}>⚒️ CRAFT ${w.name.toUpperCase()}</button>`;
+          <span class="bounty-count">sh ${fmt(Math.min(shards, cost))} / ${cost}</span></div>
+        <button id="btn-craft" class="primary-btn" ${ready? '' : 'disabled'}> CRAFT ${w.name.toUpperCase()}</button>`;
     }
     el.innerHTML = `<label class="craft-pick"><span>TARGET</span>
         <select id="craft-select"><option value="">— none —</option>${opts}</select></label>${body}`;
@@ -325,29 +333,29 @@
 
   /* ---------------- forge (weapons / pets / skills) ---------------- */
   function instSubline(it, kind) {
-    if (kind === 'pet') { const s = I.petStats(it); return `${I.rarityName(it)} • ❤️${s.hp} 💪${s.strength} 🤸${s.agility} • ⚡${s.power}`; }
-    if (kind === 'skill') { const sk = D.SKILLS[it.base] || {}; return `${I.rarityName(it)} • ${sk.kind === 'active' ? 'Active' : 'Passive'}`; }
-    const s = I.stats(it); return `${I.rarityName(it)} • ${Math.round(s.dmg)} dmg • ⚡${s.power}`;
+    if (kind === 'pet') { const s = I.petStats(it); return `${I.rarityName(it)} • ${s.hp} ${s.strength} ${s.agility} • ${s.power}`; }
+    if (kind === 'skill') { const sk = D.SKILLS[it.base] || {}; return `${I.rarityName(it)} • ${sk.kind === 'active'? 'Active' : 'Passive'}`; }
+    const s = I.stats(it); return `${I.rarityName(it)} • ${Math.round(s.dmg)} dmg • ${s.power}`;
   }
   function forgeCard(it, kind, dust, gold, eq, slots) {
     const upCost = I.upgradeCost(it), rrCost = I.rerollCost(it), fuCost = I.fuseDustCost(it), deVal = I.disenchantValue(it);
     const aff = I.affixLines(it).map(a => `<span class="affix">${a}</span>`).join(' ') || '<span class="muted small">no bonuses</span>';
-    const equipped = kind === 'skill' ? (eq.skills || []).includes(it.uid) : (kind === 'pet' ? eq.pet === it.uid : eq.weapon === it.uid);
-    const equipAct = kind === 'skill' ? 'toggleSkill' : (kind === 'pet' ? 'equipPet' : 'equipWeapon');
-    const equipLabel = equipped ? (kind === 'skill' ? '➖ Unequip' : '✓ Equipped') : '➕ Equip';
-    const equipDisabled = equipped && kind !== 'skill';   // weapon/pet equip button is just an indicator when equipped
+    const equipped = kind === 'skill'? (eq.skills || []).includes(it.uid) : (kind === 'pet'? eq.pet === it.uid : eq.weapon === it.uid);
+    const equipAct = kind === 'skill'? 'toggleSkill' : (kind === 'pet'? 'equipPet' : 'equipWeapon');
+    const equipLabel = equipped? (kind === 'skill'? ' Unequip' : ' Equipped') : ' Equip';
+    const equipDisabled = equipped && kind!== 'skill'; // weapon/pet equip button is just an indicator when equipped
     const canRR = I.canReroll(it);
-    return `<div class="forge-item ${equipped ? 'equipped' : ''}" style="border-color:${I.color(it)}">
+    return `<div class="forge-item ${equipped? 'equipped' : ''}" style="border-color:${I.color(it)}">
       <div class="fi-head"><span class="ii-ico">${I.icon(it)}</span>
         <div><div class="ii-name" style="color:${I.color(it)}">${I.displayName(it)}</div>
         <div class="ii-sub">${instSubline(it, kind)}</div></div></div>
       <div class="fi-affixes">${aff}</div>
       <div class="fi-btns">
-        <button class="forge-btn eq ${equipped ? 'on' : ''}" data-act="${equipAct}" data-uid="${it.uid}" ${equipDisabled ? 'disabled' : ''}>${equipLabel}</button>
-        <button class="forge-btn" data-act="upgrade" data-uid="${it.uid}" ${gold < upCost ? 'disabled' : ''}>⚒️ +${(it.level || 0) + 1}<small>🪙${fmt(upCost)}</small></button>
-        <button class="forge-btn" data-act="reroll" data-uid="${it.uid}" ${(dust < rrCost || !canRR) ? 'disabled' : ''}>🎲 Reroll<small>✦${rrCost}</small></button>
-        <button class="forge-btn" data-act="fuse" data-uid="${it.uid}" ${dust < fuCost ? 'disabled' : ''}>✨ Fuse<small>✦${fuCost}</small></button>
-        <button class="forge-btn de" data-act="disenchant" data-uid="${it.uid}" ${equipped ? 'disabled' : ''}>♻️ Scrap<small>+✦${deVal}</small></button>
+        <button class="forge-btn eq ${equipped? 'on' : ''}" data-act="${equipAct}" data-uid="${it.uid}" ${equipDisabled? 'disabled' : ''}>${equipLabel}</button>
+        <button class="forge-btn" data-act="upgrade" data-uid="${it.uid}" ${gold < upCost? 'disabled' : ''}> +${(it.level || 0) + 1}<small>g${fmt(upCost)}</small></button>
+        <button class="forge-btn" data-act="reroll" data-uid="${it.uid}" ${(dust < rrCost ||!canRR)? 'disabled' : ''}> Reroll<small>d${rrCost}</small></button>
+        <button class="forge-btn" data-act="fuse" data-uid="${it.uid}" ${dust < fuCost? 'disabled' : ''}> Fuse<small>d${fuCost}</small></button>
+        <button class="forge-btn de" data-act="disenchant" data-uid="${it.uid}" ${equipped? 'disabled' : ''}> Scrap<small>+d${deVal}</small></button>
       </div></div>`;
   }
   function renderForge(brute, dust, gold, h) {
@@ -360,9 +368,9 @@
       `<div class="forge-section"><h4>${title} <span class="muted small">${sub}</span></h4>
         <div class="forge-list-grid">${list.map(it => forgeCard(it, kind, dust, gold, eq, slots)).join('') || '<p class="muted small">' + empty + '</p>'}</div></div>`;
     el.innerHTML =
-      sec('⚔️ Weapons', '— equip 1', brute.weapons, 'weapon', 'No weapons yet — win some loot!') +
-      sec('🐾 Pets', '— equip 1', brute.pets, 'pet', 'No pets yet.') +
-      sec('✨ Skills', `— ${eq.skills.length}/${slots} slots equipped`, brute.skills, 'skill', 'No skills yet.');
+      sec(' Weapons', '— equip 1', brute.weapons, 'weapon', 'No weapons yet — win some loot!') +
+      sec(' Pets', '— equip 1', brute.pets, 'pet', 'No pets yet.') +
+      sec(' Skills', `— ${eq.skills.length}/${slots} slots equipped`, brute.skills, 'skill', 'No skills yet.');
     el.querySelectorAll('.forge-btn').forEach(b => {
       if (b.disabled) return;
       b.addEventListener('click', () => h[b.dataset.act](b.dataset.uid));
@@ -377,22 +385,22 @@
     const isMilestone = (g.floor % D.GAUNTLET.milestoneEvery) === 0;
     const toBoss = D.GAUNTLET.bossEvery - ((g.floor - 1) % D.GAUNTLET.bossEvery);
     const toMilestone = D.GAUNTLET.milestoneEvery - ((g.floor - 1) % D.GAUNTLET.milestoneEvery);
-    const bannerCls = isMilestone ? 'milestone' : (nextBoss ? 'boss' : '');
-    const bannerTxt = isMilestone ? '🏆 MILESTONE FLOOR — bonus Legacy + loot + dust'
-      : nextBoss ? '👑 BOSS FLOOR — guaranteed rare loot'
-      : 'Next boss in ' + toBoss + ' floor' + (toBoss > 1 ? 's' : '') + ' • 🏆 milestone in ' + toMilestone;
+    const bannerCls = isMilestone? 'milestone' : (nextBoss? 'boss' : '');
+    const bannerTxt = isMilestone? 'MILESTONE FLOOR: bonus Legacy, loot and dust'
+      : nextBoss? 'BOSS FLOOR: guaranteed rare loot'
+      : 'Next boss in ' + toBoss + ' floor' + (toBoss > 1? 's' : '') + ', milestone in ' + toMilestone;
     const mutHtml = mutator
-      ? `<div class="gaunt-mut"><span class="gaunt-mut-ico">${mutator.icon}</span><b>${mutator.label}:</b> ${mutator.desc}</div>`
+      ? `<div class="gaunt-mut"><b>${mutator.label}:</b> ${mutator.desc}</div>`
       : '';
     el.innerHTML = `
       <div class="gaunt-top">
         <div class="gaunt-floor">FLOOR <b>${g.floor}</b></div>
-        <div class="gaunt-best">🏔️ Best ${g.best} &nbsp; 🚩 Checkpoint ${g.checkpoint || 1}</div>
+        <div class="gaunt-best"> Best ${g.best} &nbsp; Checkpoint ${g.checkpoint || 1}</div>
       </div>
       <div class="gaunt-next ${bannerCls}">${bannerTxt}</div>
       ${mutHtml}
       <p class="muted small">The Gauntlet scales forever. Win to climb; fall and you drop to your last boss checkpoint. Costs no stamina — your power is the only gate.</p>
-      <button id="btn-climb" class="primary-btn" ${enabled ? '' : 'disabled'}>${nextBoss ? '⚔️ FIGHT THE BOSS' : '⬆️ CLIMB FLOOR ' + g.floor}</button>`;
+      <button id="btn-climb" class="primary-btn" ${enabled? '' : 'disabled'}>${nextBoss? ' FIGHT THE BOSS' : ' CLIMB FLOOR ' + g.floor}</button>`;
     const btn = $('#btn-climb');
     if (btn && enabled) btn.addEventListener('click', onClimb);
   }
@@ -400,9 +408,9 @@
   /* ---------------- bounties ---------------- */
   function rewardText(r) {
     const parts = [];
-    if (r.gold) parts.push(`🪙 ${fmt(r.gold)}`);
-    if (r.dust) parts.push(`✦ ${r.dust}`);
-    if (r.legacy) parts.push(`🏆 ${r.legacy}`);
+    if (r.gold) parts.push(`g ${fmt(r.gold)}`);
+    if (r.dust) parts.push(`d ${r.dust}`);
+    if (r.legacy) parts.push(` ${r.legacy}`);
     return parts.join(' • ');
   }
   function renderBounties(bounties, h) {
@@ -413,17 +421,16 @@
       const ms = (bounties.lastRefresh + D.BOUNTIES.refreshHours * 3600000) - Date.now();
       if (ms > 0) {
         const hrs = Math.floor(ms / 3600000), mins = Math.floor((ms % 3600000) / 60000);
-        timer.textContent = `↻ rotates in ${hrs > 0 ? hrs + 'h ' : ''}${mins}m`;
-      } else timer.textContent = '↻ rotating…';
+        timer.textContent = ` rotates in ${hrs > 0? hrs + 'h ' : ''}${mins}m`;
+      } else timer.textContent = ' rotating…';
     }
-    if (!bounties || !bounties.list.length) { el.innerHTML = '<p class="muted">No bounties yet.</p>'; return; }
+    if (!bounties ||!bounties.list.length) { el.innerHTML = '<p class="muted">No bounties yet.</p>'; return; }
     el.innerHTML = bounties.list.map((b, i) => {
       if (!b) return '';
       const pct = Math.min(100, (b.progress / b.target) * 100);
-      const canReroll = !b.done && h.rerollDust >= D.BOUNTIES.rerollCost;
-      return `<div class="bounty ${b.done ? 'done' : ''}">
+      const canReroll =!b.done && h.rerollDust >= D.BOUNTIES.rerollCost;
+      return `<div class="bounty ${b.done? 'done' : ''}">
         <div class="bounty-head">
-          <span class="bounty-ico">${b.icon}</span>
           <div class="bounty-body">
             <div class="bounty-desc">${b.desc}</div>
             <div class="bounty-reward muted small">Reward: ${rewardText(b.reward)}</div>
@@ -433,8 +440,8 @@
           <span class="bounty-count">${Math.min(b.progress, b.target)} / ${b.target}</span></div>
         <div class="bounty-btns">
           ${b.done
-            ? `<button class="primary-btn bounty-claim" data-idx="${i}">✅ CLAIM</button>`
-            : `<button class="forge-btn" data-act="reroll" data-idx="${i}" ${canReroll ? '' : 'disabled'}>🎲 Reroll<small>✦${D.BOUNTIES.rerollCost}</small></button>`}
+            ? `<button class="primary-btn bounty-claim" data-idx="${i}">CLAIM</button>`
+            : `<button class="forge-btn" data-act="reroll" data-idx="${i}" ${canReroll? '' : 'disabled'}>Reroll<small>${D.BOUNTIES.rerollCost}d</small></button>`}
         </div></div>`;
     }).join('');
     el.querySelectorAll('.bounty-claim').forEach(b => b.addEventListener('click', () => h.claim(+b.dataset.idx)));
@@ -450,7 +457,7 @@
     const sHave = Object.keys(col.skills).length;
     const pHave = Object.keys(col.pets).length;
     function grid(items, have, iconOf, nameOf) {
-      return items.map(it => `<div class="col-cell ${have[it.id] ? 'got' : 'miss'}" title="${nameOf(it)}${have[it.id] ? '' : ' (locked)'}">${iconOf(it)}</div>`).join('');
+      return items.map(it => `<div class="col-cell ${have[it.id]? 'got' : 'miss'}" title="${nameOf(it)}${have[it.id]? '' : ' (locked)'}">${iconOf(it)}</div>`).join('');
     }
     const wGrid = grid(D.DROPPABLE_WEAPONS, col.weapons, w => w.icon, w => w.name);
     const sGrid = grid(D.ALL_SKILLS, col.skills, s => s.icon, s => s.name);
@@ -458,16 +465,16 @@
     const mastHtml = D.WEAPON_CATS.map(cat => {
       const lvl = mLevels[cat] || 0, xp = state.masteries[cat] || 0;
       const need = D.MASTERY.xpForLevel(lvl + 1), prev = D.MASTERY.xpForLevel(lvl);
-      const pctv = need > prev ? Math.min(100, ((xp - prev) / (need - prev)) * 100) : 100;
+      const pctv = need > prev? Math.min(100, ((xp - prev) / (need - prev)) * 100) : 100;
       return `<div class="mastery-row"><div class="m-name">${D.CAT_NAMES[cat]} <b>Lv ${lvl}</b> <span class="muted small">+${Math.round(lvl * D.MASTERY.dmgPerLevel * 100)}% dmg</span></div>
         <div class="m-bar"><div class="m-fill" style="width:${pctv}%"></div></div></div>`;
     }).join('');
     el.innerHTML = `
       <div class="col-bonuses">Collection bonus: <b>+${Math.round(wHave * D.COLLECTION.perWeapon * 100)}%</b> global damage • <b>+${Math.round(sHave * D.COLLECTION.perSkill * 100)}%</b> max HP</div>
-      <h3>⚔️ Weapons <span class="muted small">${wHave}/${D.DROPPABLE_WEAPONS.length}</span></h3><div class="col-grid">${wGrid}</div>
-      <h3>✨ Skills <span class="muted small">${sHave}/${D.ALL_SKILLS.length}</span></h3><div class="col-grid">${sGrid}</div>
-      <h3>🐾 Pets <span class="muted small">${pHave}/${D.ALL_PETS.length}</span></h3><div class="col-grid">${pGrid}</div>
-      <h3>🎖️ Weapon Masteries</h3><div class="mastery-list">${mastHtml}</div>`;
+      <h3> Weapons <span class="muted small">${wHave}/${D.DROPPABLE_WEAPONS.length}</span></h3><div class="col-grid">${wGrid}</div>
+      <h3> Skills <span class="muted small">${sHave}/${D.ALL_SKILLS.length}</span></h3><div class="col-grid">${sGrid}</div>
+      <h3> Pets <span class="muted small">${pHave}/${D.ALL_PETS.length}</span></h3><div class="col-grid">${pGrid}</div>
+      <h3> Weapon Masteries</h3><div class="mastery-list">${mastHtml}</div>`;
   }
 
   /* ---------------- level-up modal ---------------- */
@@ -490,7 +497,7 @@
     });
     modal.classList.remove('hidden');
   }
-  function isModalOpen() { return !$('#levelup-modal').classList.contains('hidden'); }
+  function isModalOpen() { return!$('#levelup-modal').classList.contains('hidden'); }
 
   /* ============================================================
    * BATTLE REPLAY
@@ -500,7 +507,7 @@
     $('#slot-left').innerHTML = renderTeam(start.left);
     $('#slot-right').innerHTML = renderTeam(start.right);
     const unitEls = {};
-    $$('#arena-stage .unit').forEach(el => { unitEls[el.dataset.uid] = el; });
+    $$('#arena-stage.unit').forEach(el => { unitEls[el.dataset.uid] = el; });
     // mount articulated fighters for the brutes
     fighters = {};
     start.left.forEach(u => mountFighter(u, leftBrute, 'right'));
@@ -524,7 +531,7 @@
       const body = isBrute
         ? `<div class="fighter-rig" data-rig="${u.id}"></div>`
         : `<div class="pet-rig" data-rig="${u.id}"></div>`;
-      return `<div class="unit ${isBrute ? 'is-brute' : 'is-pet'}" data-uid="${u.id}">
+      return `<div class="unit ${isBrute? 'is-brute' : 'is-pet'}" data-uid="${u.id}">
         <div class="unit-name">${u.name}</div>
         <div class="hpbar"><div class="hpbar-ghost" style="width:100%"></div><div class="hpbar-fill" style="width:100%"></div><span class="hpbar-txt">${u.hp}</span></div>
         ${body}
@@ -546,8 +553,8 @@
     const pct = Math.max(0, (hp / maxHp) * 100);
     fill.style.width = pct + '%';
     if (ghost) ghost.style.width = pct + '%';
-    fill.style.background = pct > 50 ? 'linear-gradient(180deg,#3ce06a,#1faa4c)'
-      : pct > 22 ? 'linear-gradient(180deg,#ffd23f,#e0a800)'
+    fill.style.background = pct > 50? 'linear-gradient(180deg,#3ce06a,#1faa4c)'
+      : pct > 22? 'linear-gradient(180deg,#ffd23f,#e0a800)'
       : 'linear-gradient(180deg,#ff5a5a,#c1121f)';
     if (txt) txt.textContent = Math.max(0, Math.round(hp));
   }
@@ -556,7 +563,7 @@
   function unitPoint(unitEls, uid) {
     const el = unitEls[uid];
     const stage = $('#arena-stage');
-    if (!el || !stage) return null;
+    if (!el ||!stage) return null;
     const r = el.getBoundingClientRect();
     const s = stage.getBoundingClientRect();
     return {
@@ -572,7 +579,7 @@
     const layer = $('#fx-layer');
     const imp = document.createElement('div');
     const big = kind === 'ko' || kind === 'bomb';
-    imp.className = 'impact' + (big ? ' big' : '');
+    imp.className = 'impact' + (big? ' big' : '');
     const colors = { crit: 'var(--pop-yellow)', counter: 'var(--pop-purple)', block: 'var(--pop-blue)',
       miss: '#fff', ko: 'var(--pop-red)', bomb: 'var(--pop-orange)', heal: 'var(--pop-green)' };
     imp.style.setProperty('--burst', colors[kind] || 'var(--pop-yellow)');
@@ -618,7 +625,7 @@
   function speedlinesAt(unitEls, uid) {
     const p = unitPoint(unitEls, uid);
     const sl = $('#speedlines');
-    if (!p || !sl) return;
+    if (!p ||!sl) return;
     sl.style.setProperty('--ox', (p.x / p.w * 100).toFixed(1) + '%');
     sl.style.setProperty('--oy', (p.y / p.h * 100).toFixed(1) + '%');
     sl.classList.remove('active'); void sl.offsetWidth; sl.classList.add('active');
@@ -627,9 +634,9 @@
 
   function shakeStage(big) {
     const st = $('#arena-stage');
-    const cls = big ? 'shake-lg' : 'shake-sm';
+    const cls = big? 'shake-lg' : 'shake-sm';
     st.classList.remove('shake-sm', 'shake-lg'); void st.offsetWidth; st.classList.add(cls);
-    setTimeout(() => st.classList.remove(cls), big ? 340 : 220);
+    setTimeout(() => st.classList.remove(cls), big? 340 : 220);
   }
 
   function logLine(text, cls) {
@@ -640,7 +647,7 @@
     log.appendChild(line);
     log.scrollTop = log.scrollHeight;
   }
-  function teamOf(uid) { return uid[0] === 'L' ? 'left' : 'right'; }
+  function teamOf(uid) { return uid[0] === 'L'? 'left' : 'right'; }
   function pick(arr) { return arr[(Math.random() * arr.length) | 0]; }
 
   /* Replay a battle. The master clock is a plain setTimeout chain so it
@@ -649,7 +656,7 @@
    * decouples the logic timeline from the visual animation layer. */
   function replayBattle(result, leftBrute, rightBrute, fast) {
     const myToken = ++replayToken;
-    curTS = fast ? 0.5 : 1;
+    curTS = fast? 0.5 : 1;
     if (global.setFighterTimeScale) global.setFighterTimeScale(curTS);
     const unitEls = setupArena(result, leftBrute, rightBrute);
     $('#combat-log').innerHTML = '';
@@ -657,13 +664,13 @@
     $('#arena-overlay').classList.add('hidden');
     const ts = curTS;
     const events = result.events;
-    const cancelled = () => myToken !== replayToken;
+    const cancelled = () => myToken!== replayToken;
 
     /* --- pet (non-rig) motion --- */
     function petAttack(uid, onContact) {
       const el = unitEls[uid];
-      if (!el) { setTimeout(() => !cancelled() && onContact && onContact(), 120 * ts); return; }
-      const dir = teamOf(uid) === 'left' ? 1 : -1;
+      if (!el) { setTimeout(() =>!cancelled() && onContact && onContact(), 120 * ts); return; }
+      const dir = teamOf(uid) === 'left'? 1 : -1;
       el.animate([{ transform: 'translateX(0)' }, { transform: `translateX(${34 * dir}px) scale(1.08)` }, { transform: 'translateX(0)' }],
         { duration: 300 * ts, easing: 'ease-out' });
       setTimeout(() => { if (!cancelled()) onContact && onContact(); }, 150 * ts);
@@ -671,23 +678,23 @@
     function petReact(uid, kind) {
       const el = unitEls[uid];
       if (!el) return;
-      const dir = teamOf(uid) === 'left' ? 1 : -1;
+      const dir = teamOf(uid) === 'left'? 1 : -1;
       if (kind === 'dodge') el.animate([{ transform: 'translateX(0)' }, { transform: `translateX(${-28 * dir}px) translateY(-12px)` }, { transform: 'translateX(0)' }], { duration: 340 * ts, easing: 'ease-in-out' });
       else el.animate([{ transform: 'translateX(0)' }, { transform: `translateX(${-16 * dir}px) rotate(${-4 * dir}deg)` }, { transform: 'translateX(0)' }], { duration: 280 * ts, easing: 'ease-out' });
     }
     function attackerAct(srcUid, cat, onContact) {
       const f = fighters[srcUid];
-      if (f) f.attack(cat, onContact);   // fire-and-forget; attack fires onContact at the swing
+      if (f) f.attack(cat, onContact); // fire-and-forget; attack fires onContact at the swing
       else petAttack(srcUid, onContact);
     }
     function react(uid, type) {
       const f = fighters[uid];
       if (f) { if (type === 'block') f.block(); else if (type === 'dodge') f.dodge(); else f.hurt(); }
-      else petReact(uid, type === 'dodge' ? 'dodge' : 'hurt');
+      else petReact(uid, type === 'dodge'? 'dodge' : 'hurt');
     }
     function willDraw(uid, cat) {
       const f = fighters[uid];
-      return f && cat !== 'fist' && f.currentCat !== cat;
+      return f && cat!== 'fist' && f.currentCat!== cat;
     }
 
     // handle one event: trigger visuals, return the unscaled ms until the next event
@@ -699,14 +706,14 @@
         case 'counter': {
           const max = findUnitMax(result, ev.target);
           const cat = catOf(ev.weapon);
-          const isF = !!fighters[ev.source];
+          const isF =!!fighters[ev.source];
           attackerAct(ev.source, cat, () => {
             if (cancelled()) return;
             shakeStage(ev.crit || ev.dmg >= 28);
             updateHp(unitEls, ev.target, ev.hp, max);
             speedlinesAt(unitEls, ev.target);
-            spawnSpecks(unitEls, ev.target, ev.crit ? 9 : 5);
-            spawnNumber(unitEls, ev.target, '-' + ev.dmg, ev.crit ? 'crit' : ev.type === 'counter' ? 'counter' : ev.blocked ? 'blocked' : '');
+            spawnSpecks(unitEls, ev.target, ev.crit? 9 : 5);
+            spawnNumber(unitEls, ev.target, '-' + ev.dmg, ev.crit? 'crit' : ev.type === 'counter'? 'counter' : ev.blocked? 'blocked' : '');
             let word, kind;
             if (ev.crit) { word = 'CRIT!'; kind = 'crit'; }
             else if (ev.type === 'counter') { word = 'COUNTER!'; kind = 'counter'; }
@@ -714,14 +721,14 @@
             else if (ev.kind === 'bomb') { word = 'BLAM!'; kind = 'bomb'; }
             else { word = pick(POW_WORDS); kind = 'pow'; }
             spawnImpact(unitEls, ev.target, word, kind);
-            if (ev.lifeheal > 0 && ev.sourceHp != null) {
+            if (ev.lifeheal > 0 && ev.sourceHp!= null) {
               updateHp(unitEls, ev.source, ev.sourceHp, findUnitMax(result, ev.source));
               spawnNumber(unitEls, ev.source, '+' + ev.lifeheal, 'heal');
             }
-            react(ev.target, ev.blocked ? 'block' : 'hurt');
+            react(ev.target, ev.blocked? 'block' : 'hurt');
           });
-          logLine(logIcon(ev) + ev.text, ev.crit ? 'crit' : ev.type === 'counter' ? 'counter' : '');
-          let d = isF ? (willDraw(ev.source, cat) ? 760 : 540) : 360;
+          logLine(logIcon(ev) + ev.text, ev.crit? 'crit' : ev.type === 'counter'? 'counter' : '');
+          let d = isF? (willDraw(ev.source, cat)? 760 : 540) : 360;
           if (ev.crit) d += 120;
           return d;
         }
@@ -730,7 +737,7 @@
           const cat = catOf(ev.weapon);
           attackerAct(ev.source, cat, () => { if (!cancelled()) spawnImpact(unitEls, ev.source, 'WHIFF!', 'miss'); });
           logLine(`<span class="muted">${ev.text}</span>`);
-          return fighters[ev.source] ? (willDraw(ev.source, cat) ? 700 : 480) : 340;
+          return fighters[ev.source]? (willDraw(ev.source, cat)? 700 : 480) : 340;
         }
 
         case 'evade': {
@@ -741,11 +748,11 @@
             react(ev.target, 'dodge');
           });
           logLine(`<span class="muted">${ev.text}</span>`);
-          return fighters[ev.source] ? (willDraw(ev.source, cat) ? 700 : 480) : 340;
+          return fighters[ev.source]? (willDraw(ev.source, cat)? 700 : 480) : 340;
         }
 
         case 'skill': {
-          logLine(`<span class="log-skill">${ev.icon || '✨'} ${ev.text}</span>`, 'skill');
+          logLine(`<span class="log-skill">${ev.icon || ''} ${ev.text}</span>`, 'skill');
           const f = fighters[ev.source];
           if (ev.skill === 'bomb') {
             if (f) f.throwGesture();
@@ -755,7 +762,7 @@
             if (f) f.throwGesture();
             setTimeout(() => { if (!cancelled() && ev.target) spawnImpact(unitEls, ev.target, 'NET!', 'counter'); }, 200 * ts);
             return 520;
-          } else if (ev.hp != null && ev.source) {
+          } else if (ev.hp!= null && ev.source) {
             updateHp(unitEls, ev.source, ev.hp, findUnitMax(result, ev.source));
             spawnImpact(unitEls, ev.source, 'GULP!', 'heal');
             spawnNumber(unitEls, ev.source, 'HEAL', 'heal');
@@ -767,7 +774,7 @@
         }
 
         case 'combo':
-          logLine(`<span class="log-combo">🔁 ${ev.text}</span>`);
+          logLine(`<span class="log-combo"> ${ev.text}</span>`);
           return 110;
 
         case 'stun':
@@ -809,10 +816,10 @@
   }
 
   function logIcon(ev) {
-    if (ev.type === 'counter') return '↩️ ';
-    if (ev.kind === 'reflect') return '🪞 ';
-    if (ev.kind === 'bomb') return '💥 ';
-    return (ev.icon || '👊') + ' ';
+    if (ev.type === 'counter') return ' ';
+    if (ev.kind === 'reflect') return ' ';
+    if (ev.kind === 'bomb') return ' ';
+    return (ev.icon || '') + ' ';
   }
 
   function findUnitMax(result, uid) {
@@ -823,9 +830,9 @@
 
   function showOutcome(win, rewards) {
     const ov = $('#arena-overlay');
-    ov.className = 'arena-overlay ' + (win ? 'victory' : 'defeat');
+    ov.className = 'arena-overlay ' + (win? 'victory' : 'defeat');
     ov.innerHTML = `<div class="outcome">
-      <div class="outcome-title">${win ? 'VICTORY!' : 'DEFEAT!'}</div>
+      <div class="outcome-title">${win? 'VICTORY!' : 'DEFEAT!'}</div>
       <div class="outcome-rewards">${rewards || ''}</div>
     </div>`;
     ov.classList.remove('hidden');
@@ -838,7 +845,7 @@
   function fmt(n) {
     n = Math.floor(n);
     if (n < 1000) return '' + n;
-    if (n < 1e6) return (n / 1e3).toFixed(n < 1e4 ? 1 : 0).replace(/\.0$/, '') + 'k';
+    if (n < 1e6) return (n / 1e3).toFixed(n < 1e4? 1 : 0).replace(/\.0$/, '') + 'k';
     return (n / 1e6).toFixed(1).replace(/\.0$/, '') + 'M';
   }
   function round(n) { return Math.round(n); }
@@ -849,7 +856,7 @@
     renderLegacy, legacyPayout, renderIdle,
     renderForge, renderCraft, renderGauntlet, renderBounties, renderCollection, renderLifetime, setMeta,
     showLevelUp, isModalOpen,
-    replayBattle, showOutcome, cancelReplay,
+    replayBattle, showOutcome, cancelReplay, setSubmode,
     bruteSummaryHtml, fmt,
   };
 })(window);

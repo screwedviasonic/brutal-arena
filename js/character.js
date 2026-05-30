@@ -19,7 +19,6 @@
     return {
       skin: rng.pick(D.SKIN_COLORS),
       outfit: rng.pick(D.OUTFIT_COLORS),
-      face: rng.pick(['😠', '😤', '😈', '👿', '🤬', '😬', '🥶', '🤨', '😎', '🥵']),
     };
   }
 
