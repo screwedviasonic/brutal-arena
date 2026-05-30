@@ -104,30 +104,148 @@
       dmg: f.dmg, accuracy: f.accuracy, speedMod: f.speedMod, combo: f.combo, block: f.block, crit: f.crit, disarm: f.disarm, lifesteal: 0, armorPen: 0, power: 0 };
   }
 
-  function displayName(item) {
+  /* ========================================================
+   * PETS & SKILLS as instances (parity with weapons)
+   * ====================================================== */
+
+  // affixes that can roll on a PET instance
+  const PET_AFFIXES = [
+    { id: 'php',   prefix: 'Hardy',  stat: 'hp',       roll: [0.10, 0.30], pctText: true },
+    { id: 'pstr',  prefix: 'Savage', stat: 'strength', roll: [0.10, 0.30], pctText: true },
+    { id: 'pagi',  prefix: 'Nimble', stat: 'agility',  roll: [0.10, 0.30], pctText: true },
+    { id: 'pcrit', prefix: 'Vicious', stat: 'crit',    roll: [0.04, 0.12], pctText: true },
+  ];
+  const PET_AFFIX_BY_ID = {};
+  PET_AFFIXES.forEach(a => PET_AFFIX_BY_ID[a.id] = a);
+
+  function kindOf(inst) { return (inst && inst.kind) || 'weapon'; }
+  function baseInfo(inst) {
     const D = global.GAMEDATA;
-    const base = D.WEAPONS[item.base];
-    const baseName = base ? base.name : item.base;
-    let prefix = '';
-    if (item.affixes && item.affixes.length) {
-      // use the first affix's prefix word as a title
-      const a = AFFIX_BY_ID[item.affixes[0].id];
-      if (a) prefix = a.prefix + ' ';
+    const k = kindOf(inst);
+    if (k === 'pet') return D.PETS[inst.base];
+    if (k === 'skill') return D.SKILLS[inst.base];
+    return D.WEAPONS[inst.base];
+  }
+  function icon(inst) { const b = baseInfo(inst); return b ? b.icon : '❓'; }
+
+  // tolerate legacy id-strings: turn 'wolf' / 'herculean' into a common instance
+  function asPet(p)   { return (typeof p === 'string') ? { uid: 'leg_' + p, kind: 'pet', base: p, rarity: 'common', level: 0, affixes: [] } : p; }
+  function asSkill(s) { return (typeof s === 'string') ? { uid: 'leg_' + s, kind: 'skill', base: s, rarity: 'common', level: 0, roll: 0.5 } : s; }
+
+  function generatePet(baseId, rng, opts) {
+    opts = opts || {};
+    const rarity = opts.rarity || rollRarity(rng, opts.luck || 0);
+    const n = RARITY[rarity].affixes;
+    const pool = PET_AFFIXES.slice();
+    rng.shuffle(pool);
+    const affixes = [];
+    for (let i = 0; i < n && i < pool.length; i++) {
+      const a = pool[i];
+      affixes.push({ id: a.id, val: +(rng.range(a.roll[0], a.roll[1]).toFixed(3)) });
     }
-    const lvl = item.level ? ' +' + item.level : '';
-    return prefix + baseName + lvl;
+    return { uid: genUid(), kind: 'pet', base: baseId, rarity, level: opts.level || 0, affixes };
   }
 
-  function affixLines(item) {
-    return (item.affixes || []).map(af => {
-      const a = AFFIX_BY_ID[af.id];
+  // resolve a pet instance into combat-ready stats
+  function petStats(p) {
+    const D = global.GAMEDATA;
+    const inst = asPet(p);
+    const base = D.PETS[inst.base] || D.PETS.dog;
+    const info = RARITY[inst.rarity] || RARITY.common;
+    const mul = info.pow * (1 + 0.07 * (inst.level || 0));
+    let hp = base.hp * mul, strength = base.strength * mul, agility = base.agility * mul, crit = 0;
+    let hpPct = 0, strPct = 0, agiPct = 0;
+    for (const af of inst.affixes || []) {
+      if (af.id === 'php') hpPct += af.val;
+      else if (af.id === 'pstr') strPct += af.val;
+      else if (af.id === 'pagi') agiPct += af.val;
+      else if (af.id === 'pcrit') crit += af.val;
+    }
+    hp = Math.round(hp * (1 + hpPct));
+    strength = Math.round(strength * (1 + strPct));
+    agility = Math.round(agility * (1 + agiPct));
+    const out = { base: inst.base, name: base.name, icon: base.icon, rarity: inst.rarity, level: inst.level || 0,
+      hp, strength, agility, speed: base.speed, crit };
+    out.power = Math.round(hp + strength * 3 + agility * 2 + crit * 50);
+    return out;
+  }
+
+  function generateSkill(baseId, rng, opts) {
+    opts = opts || {};
+    const rarity = opts.rarity || rollRarity(rng, opts.luck || 0);
+    const roll = (opts.roll != null) ? opts.roll : +rng.float().toFixed(3);
+    return { uid: genUid(), kind: 'skill', base: baseId, rarity, level: opts.level || 0, roll };
+  }
+
+  // how strongly a skill instance scales vs its base definition
+  function skillScale(inst) {
+    inst = asSkill(inst);
+    const rank = rarityRank(inst.rarity);
+    const roll = (inst.roll == null ? 0.5 : inst.roll);
+    return (1 + rank * 0.10 + (inst.level || 0) * 0.05) * (0.92 + 0.16 * roll);
+  }
+
+  // resolved, scaled skill effect for combat/effectiveStats
+  function skillMods(inst) {
+    const D = global.GAMEDATA;
+    inst = asSkill(inst);
+    const sk = D.SKILLS[inst.base];
+    if (!sk) return { kind: 'passive', mods: {} };
+    const s = skillScale(inst);
+    if (sk.kind === 'passive') {
+      const out = {};
+      for (const k in (sk.mods || {})) {
+        const v = sk.mods[k];
+        out[k] = /Mul$/.test(k) ? 1 + (v - 1) * s : v * s;   // scale the delta from 1 for multipliers; additive otherwise
+      }
+      return { kind: 'passive', mods: out };
+    }
+    const a = Object.assign({}, sk.active);
+    if (a.mult) a.mult = +(a.mult * (0.9 + 0.1 * s)).toFixed(2);
+    if (a.dmg) a.dmg = Math.round(a.dmg * s);
+    if (a.frac) a.frac = Math.min(0.9, +(a.frac * s).toFixed(3));
+    if (a.uses) a.uses = a.uses + (rarityRank(inst.rarity) >= 3 ? 1 : 0);
+    return { kind: 'active', active: a, id: sk.id, name: sk.name, icon: sk.icon };
+  }
+
+  function displayName(inst) {
+    const D = global.GAMEDATA;
+    const k = kindOf(inst);
+    const base = baseInfo(inst);
+    const baseName = base ? base.name : inst.base;
+    const lvl = inst.level ? ' +' + inst.level : '';
+    if (k === 'weapon' && inst.affixes && inst.affixes.length) {
+      const a = AFFIX_BY_ID[inst.affixes[0].id];
+      if (a) return a.prefix + ' ' + baseName + lvl;
+    }
+    if (k === 'pet' && inst.affixes && inst.affixes.length) {
+      const a = PET_AFFIX_BY_ID[inst.affixes[0].id];
+      if (a) return a.prefix + ' ' + baseName + lvl;
+    }
+    return baseName + lvl;
+  }
+
+  function affixLines(inst) {
+    const k = kindOf(inst);
+    if (k === 'skill') {
+      const D = global.GAMEDATA;
+      const sk = D.SKILLS[inst.base];
+      const pctOver = Math.round((skillScale(inst) - 1) * 100);
+      return [sk ? sk.desc : '', (pctOver > 0 ? '+' + pctOver + '% potency' : 'base potency')].filter(Boolean);
+    }
+    const dict = (k === 'pet') ? PET_AFFIX_BY_ID : AFFIX_BY_ID;
+    return (inst.affixes || []).map(af => {
+      const a = dict[af.id];
       if (!a) return '';
       const v = a.pctText ? Math.round(af.val * 100) + '%' : af.val;
-      return statLabel(af.id) + ' +' + v;
-    });
+      return (a.stat ? statLabel(af.id) : af.id) + ' +' + v;
+    }).filter(Boolean);
   }
   function statLabel(id) {
-    return { dmg: 'Damage', crit: 'Crit', combo: 'Combo', acc: 'Accuracy', life: 'Lifesteal', pen: 'Armor Pen', speed: 'Attack Speed', block: 'Block' }[id] || id;
+    return {
+      dmg: 'Damage', crit: 'Crit', combo: 'Combo', acc: 'Accuracy', life: 'Lifesteal', pen: 'Armor Pen', speed: 'Attack Speed', block: 'Block',
+      php: 'Max HP', pstr: 'Strength', pagi: 'Agility', pcrit: 'Crit',
+    }[id] || id;
   }
   function color(item) { return (RARITY[item.rarity] || RARITY.common).color; }
   function rarityName(item) { return (RARITY[item.rarity] || RARITY.common).name; }
@@ -147,9 +265,11 @@
 
   function upgrade(item) { item.level = (item.level || 0) + 1; return item; }
 
+  // reroll: weapons/pets reroll affixes; skills reroll their potency roll
   function reroll(item, rng) {
+    if (kindOf(item) === 'skill') { item.roll = +rng.float().toFixed(3); return item; }
+    const pool = (kindOf(item) === 'pet' ? PET_AFFIXES : AFFIXES).slice();
     const n = RARITY[item.rarity].affixes;
-    const pool = AFFIXES.slice();
     rng.shuffle(pool);
     item.affixes = [];
     for (let i = 0; i < n && i < pool.length; i++) {
@@ -158,14 +278,22 @@
     }
     return item;
   }
+  function canReroll(item) {
+    return kindOf(item) === 'skill' || (item.affixes && item.affixes.length > 0);
+  }
 
-  // fuse two same-base items of the same rarity into the next rarity up
+  // fuse two same-base, same-rarity, same-kind instances into the next rarity up
   function canFuse(a, b) {
-    return a && b && a.uid !== b.uid && a.base === b.base && a.rarity === b.rarity && rarityRank(a.rarity) < RARITIES.length - 1;
+    return a && b && a.uid !== b.uid && a.base === b.base && a.rarity === b.rarity
+      && kindOf(a) === kindOf(b) && rarityRank(a.rarity) < RARITIES.length - 1;
   }
   function fuse(a, b, rng) {
     const nextRarity = RARITIES[rarityRank(a.rarity) + 1];
-    return generateWeapon(a.base, rng, { rarity: nextRarity, level: Math.max(a.level || 0, b.level || 0) });
+    const lvl = Math.max(a.level || 0, b.level || 0);
+    const k = kindOf(a);
+    if (k === 'pet') return generatePet(a.base, rng, { rarity: nextRarity, level: lvl });
+    if (k === 'skill') return generateSkill(a.base, rng, { rarity: nextRarity, level: lvl });
+    return generateWeapon(a.base, rng, { rarity: nextRarity, level: lvl });
   }
 
   function disenchantValue(item) {
@@ -177,8 +305,9 @@
   }
 
   global.Items = {
-    RARITIES, RARITY, AFFIXES,
+    RARITIES, RARITY, AFFIXES, PET_AFFIXES,
     generateWeapon, stats, fistStats, displayName, affixLines, color, rarityName, rarityRank,
-    upgradeCost, rerollCost, fuseDustCost, upgrade, reroll, canFuse, fuse, disenchantValue, shardValue,
+    upgradeCost, rerollCost, fuseDustCost, upgrade, reroll, canReroll, canFuse, fuse, disenchantValue, shardValue,
+    kindOf, icon, baseInfo, asPet, asSkill, generatePet, petStats, generateSkill, skillMods, skillScale,
   };
 })(window);

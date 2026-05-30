@@ -245,9 +245,15 @@
   function opponentSummary(b) {
     if (!b) return '';
     const D = global.GAMEDATA;
-    const wpns = (b.weapons || []).slice(0, 6).map(w => (D.WEAPONS[w.base] || {}).icon || '🗡️').join(' ');
-    const skills = (b.skills || []).map(id => (D.SKILLS[id] || {}).icon || '✨').join(' ');
-    const pets = (b.pets || []).map(id => (D.PETS[id] || {}).icon || '🐾').join(' ');
+    // tolerate instances (new) and legacy id-strings (old defense snapshots)
+    const eq = b.equipped || null;
+    const wList = eq && eq.weapon ? (b.weapons || []).filter(w => w.uid === eq.weapon) : (b.weapons || []).slice(0, 1);
+    const sList = eq && eq.skills ? (b.skills || []).filter(s => eq.skills.includes(s.uid)) : (b.skills || []);
+    const pList = eq && eq.pet ? (b.pets || []).filter(p => p.uid === eq.pet) : (b.pets || []).slice(0, 1);
+    const baseIcon = (x, dict, fb) => (dict[(x && x.base) || x] || {}).icon || fb;
+    const wpns = wList.map(w => baseIcon(w, D.WEAPONS, '🗡️')).join(' ');
+    const skills = sList.map(s => baseIcon(s, D.SKILLS, '✨')).join(' ');
+    const pets = pList.map(p => baseIcon(p, D.PETS, '🐾')).join(' ');
     return `<div class="pvp-opp-line">LV ${b.level} • ❤️${b.stats.hp} 💪${b.stats.strength} 🤸${b.stats.agility} 💨${b.stats.speed}</div>
       <div class="pvp-opp-line">${wpns || '👊'} ${skills} ${pets}</div>`;
   }

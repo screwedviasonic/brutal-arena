@@ -125,6 +125,7 @@
     { id: 'startSkill', name: 'Innate Talent', desc: 'Start with an extra random skill per level', max: 3, cost: 3 },
     { id: 'goldMul', name: 'Merchant Ancestry', desc: '+20% gold gain per level', max: 10, cost: 1 },
     { id: 'xpMul', name: 'Veteran Blood', desc: '+15% XP gain per level', max: 10, cost: 1 },
+    { id: 'skillSlots', name: 'Open Mind', desc: '+1 equipped skill slot per level', max: 3, cost: 3 },
   ];
 
   /* ---------------- GAUNTLET (endless tower) ---------------- */

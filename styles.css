@@ -502,9 +502,26 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 .craft-fill { background: repeating-linear-gradient(45deg, var(--pop-blue) 0 8px, #2a6fd6 8px 16px); }
 #btn-craft { width: 100%; }
 #btn-craft:disabled { opacity: .5; cursor: not-allowed; }
-.forge-list { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
-@media (max-width: 760px) { .forge-list { grid-template-columns: 1fr; } }
+.forge-list, .forge-list-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+@media (max-width: 760px) { .forge-list, .forge-list-grid { grid-template-columns: 1fr; } }
+.forge-section { margin-bottom: 18px; }
+.forge-section h4 { font-family: 'Anton', sans-serif; letter-spacing: .5px; font-size: 1.05rem; margin-bottom: 10px; border-bottom: 3px solid var(--ink); padding-bottom: 4px; }
 .forge-item { background: var(--paper2); border: 4px solid var(--ink); border-radius: 10px; padding: 12px; box-shadow: var(--shadow-sm); }
+.forge-item.equipped { background: #fff7d6; box-shadow: 0 0 0 3px var(--pop-yellow), var(--shadow-sm); }
+.fi-btns { grid-template-columns: repeat(5, 1fr); }
+.forge-btn.eq { background: var(--pop-green); color: #fff; }
+.forge-btn.eq.on { background: var(--pop-blue); }
+
+/* loadout summary */
+.loadout { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 8px 0 4px; }
+@media (max-width: 600px) { .loadout { grid-template-columns: 1fr; } }
+.lo-slot { display: flex; align-items: center; gap: 10px; background: var(--paper2); border: 3px solid var(--ink); border-radius: 8px; padding: 8px 10px; box-shadow: 2px 2px 0 var(--ink); }
+.lo-ico { font-size: 1.6rem; }
+.lo-lbl { font-family: 'Anton', sans-serif; font-size: .72rem; letter-spacing: .5px; color: var(--muted); text-transform: uppercase; }
+.lo-skills { display: flex; gap: 4px; }
+.lo-skill { font-size: 1.2rem; }
+.eq-tag { font-size: .65rem; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; background: var(--pop-blue); color: #fff; border-radius: 4px; padding: 1px 6px; vertical-align: middle; }
+.inv-item.equipped { box-shadow: inset 0 0 0 2px var(--pop-blue); }
 .fi-head { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
 .fi-head .ii-ico { font-size: 1.8rem; }
 .fi-affixes { min-height: 24px; margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 3px; }

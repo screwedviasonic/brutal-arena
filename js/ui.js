@@ -84,8 +84,8 @@
     const s = brute.stats;
     const e = C.effectiveStats(brute, curMeta);
     const weapons = brute.weapons.map(weaponChip).join('');
-    const skills = brute.skills.map(id => chip(D.SKILLS[id].icon, D.SKILLS[id].name)).join('');
-    const pets = brute.pets.map(id => chip(D.PETS[id].icon, D.PETS[id].name)).join('');
+    const skills = brute.skills.map(it => chip(I.icon(it), I.displayName(it))).join('');
+    const pets = brute.pets.map(it => chip(I.icon(it), I.displayName(it))).join('');
     return `<div class="brute-summary">
       <div class="bs-name">${brute.name} <span class="lvl">LV ${brute.level}</span></div>
       <div class="statline">
@@ -155,23 +155,55 @@
         ${derived('Block', e.block)} ${derived('Counter', e.counter)}
         ${derived('Combo', e.combo)} ${derived('Dmg Reduce', e.dmgReduction)}
       </div>
+      ${loadoutHtml(brute)}
       <h3 class="run-stats-head">📋 THIS BRUTE'S RECORD</h3>
       ${statsGridHtml(brute.career)}`;
 
+    const eq = brute.equipped || { weapon: null, pet: null, skills: [] };
+    const isEq = (uid) => eq.weapon === uid || eq.pet === uid || (eq.skills || []).includes(uid);
     const weaponsHtml = brute.weapons.length
-      ? brute.weapons.map(itemRow).join('')
+      ? brute.weapons.map(it => invInstance(it, 'weapon', isEq(it.uid))).join('')
       : '<p class="muted small">No weapons yet — fists only.</p>';
     const skillsHtml = brute.skills.length
-      ? brute.skills.map(id => invItem(D.SKILLS[id].icon, D.SKILLS[id].name, D.SKILLS[id].desc)).join('')
+      ? brute.skills.map(it => invInstance(it, 'skill', isEq(it.uid))).join('')
       : '<p class="muted small">No skills yet.</p>';
     const petsHtml = brute.pets.length
-      ? brute.pets.map(id => invItem(D.PETS[id].icon, D.PETS[id].name, `${D.PETS[id].hp} HP / ${D.PETS[id].strength} STR`)).join('')
+      ? brute.pets.map(it => invInstance(it, 'pet', isEq(it.uid))).join('')
       : '<p class="muted small">No pets yet.</p>';
 
     $('#brute-inventory-panel').innerHTML = `
       <h3>⚔️ Weapons</h3><div class="inv-list">${weaponsHtml}</div>
       <h3>✨ Skills</h3><div class="inv-list">${skillsHtml}</div>
-      <h3>🐾 Pets</h3><div class="inv-list">${petsHtml}</div>`;
+      <h3>🐾 Pets</h3><div class="inv-list">${petsHtml}</div>
+      <p class="muted small">Equip and forge gear in the ⚒️ FORGE tab.</p>`;
+  }
+
+  // compact "what's equipped" summary
+  function loadoutHtml(brute) {
+    const lo = C.loadout(brute);
+    const slot = (label, inst, fallback) => {
+      const name = inst ? `<b style="color:${I.color(inst)}">${I.displayName(inst)}</b>` : `<span class="muted">${fallback}</span>`;
+      return `<div class="lo-slot"><span class="lo-ico">${inst ? I.icon(inst) : '—'}</span><div><div class="lo-lbl">${label}</div><div>${name}</div></div></div>`;
+    };
+    const skills = lo.skills.length
+      ? lo.skills.map(s => `<span class="lo-skill" title="${I.displayName(s)}">${I.icon(s)}</span>`).join('')
+      : '<span class="muted small">none</span>';
+    return `<h3 class="run-stats-head">🎒 LOADOUT</h3>
+      <div class="loadout">
+        ${slot('Weapon', lo.weapon, 'fists')}
+        ${slot('Pet', lo.pet, 'none')}
+        <div class="lo-slot"><span class="lo-ico">✨</span><div><div class="lo-lbl">Skills</div><div class="lo-skills">${skills}</div></div></div>
+      </div>`;
+  }
+  function invInstance(it, kind, equipped) {
+    const sub = kind === 'pet' ? (() => { const s = I.petStats(it); return `${Math.round(s.hp)} HP / ${Math.round(s.strength)} STR`; })()
+      : kind === 'skill' ? ((D.SKILLS[it.base] || {}).desc || '')
+      : (() => { const s = I.stats(it); return `${Math.round(s.dmg)} dmg • ⚡${s.power}`; })();
+    const tag = `<span class="rar-tag" style="background:${I.color(it)}">${I.rarityName(it)}</span>`;
+    const eqTag = equipped ? '<span class="eq-tag">equipped</span>' : '';
+    return `<div class="inv-item ${equipped ? 'equipped' : ''}" style="border-color:${I.color(it)}"><span class="ii-ico">${I.icon(it)}</span>
+      <div style="flex:1"><div class="ii-name" style="color:${I.color(it)}">${I.displayName(it)} ${tag} ${eqTag}</div>
+      <div class="ii-sub">${sub}</div></div></div>`;
   }
 
   function bigStat(icon, label, eff, base) {
@@ -291,27 +323,46 @@
     if (cb && shards >= cost) cb.addEventListener('click', h.craft);
   }
 
-  /* ---------------- forge ---------------- */
+  /* ---------------- forge (weapons / pets / skills) ---------------- */
+  function instSubline(it, kind) {
+    if (kind === 'pet') { const s = I.petStats(it); return `${I.rarityName(it)} • ❤️${s.hp} 💪${s.strength} 🤸${s.agility} • ⚡${s.power}`; }
+    if (kind === 'skill') { const sk = D.SKILLS[it.base] || {}; return `${I.rarityName(it)} • ${sk.kind === 'active' ? 'Active' : 'Passive'}`; }
+    const s = I.stats(it); return `${I.rarityName(it)} • ${Math.round(s.dmg)} dmg • ⚡${s.power}`;
+  }
+  function forgeCard(it, kind, dust, gold, eq, slots) {
+    const upCost = I.upgradeCost(it), rrCost = I.rerollCost(it), fuCost = I.fuseDustCost(it), deVal = I.disenchantValue(it);
+    const aff = I.affixLines(it).map(a => `<span class="affix">${a}</span>`).join(' ') || '<span class="muted small">no bonuses</span>';
+    const equipped = kind === 'skill' ? (eq.skills || []).includes(it.uid) : (kind === 'pet' ? eq.pet === it.uid : eq.weapon === it.uid);
+    const equipAct = kind === 'skill' ? 'toggleSkill' : (kind === 'pet' ? 'equipPet' : 'equipWeapon');
+    const equipLabel = equipped ? (kind === 'skill' ? '➖ Unequip' : '✓ Equipped') : '➕ Equip';
+    const equipDisabled = equipped && kind !== 'skill';   // weapon/pet equip button is just an indicator when equipped
+    const canRR = I.canReroll(it);
+    return `<div class="forge-item ${equipped ? 'equipped' : ''}" style="border-color:${I.color(it)}">
+      <div class="fi-head"><span class="ii-ico">${I.icon(it)}</span>
+        <div><div class="ii-name" style="color:${I.color(it)}">${I.displayName(it)}</div>
+        <div class="ii-sub">${instSubline(it, kind)}</div></div></div>
+      <div class="fi-affixes">${aff}</div>
+      <div class="fi-btns">
+        <button class="forge-btn eq ${equipped ? 'on' : ''}" data-act="${equipAct}" data-uid="${it.uid}" ${equipDisabled ? 'disabled' : ''}>${equipLabel}</button>
+        <button class="forge-btn" data-act="upgrade" data-uid="${it.uid}" ${gold < upCost ? 'disabled' : ''}>⚒️ +${(it.level || 0) + 1}<small>🪙${fmt(upCost)}</small></button>
+        <button class="forge-btn" data-act="reroll" data-uid="${it.uid}" ${(dust < rrCost || !canRR) ? 'disabled' : ''}>🎲 Reroll<small>✦${rrCost}</small></button>
+        <button class="forge-btn" data-act="fuse" data-uid="${it.uid}" ${dust < fuCost ? 'disabled' : ''}>✨ Fuse<small>✦${fuCost}</small></button>
+        <button class="forge-btn de" data-act="disenchant" data-uid="${it.uid}" ${equipped ? 'disabled' : ''}>♻️ Scrap<small>+✦${deVal}</small></button>
+      </div></div>`;
+  }
   function renderForge(brute, dust, gold, h) {
     const el = $('#forge-list');
     if (!el) return;
     const dd = $('#forge-dust'); if (dd) dd.textContent = fmt(dust);
-    el.innerHTML = brute.weapons.map(it => {
-      const s = I.stats(it);
-      const upCost = I.upgradeCost(it), rrCost = I.rerollCost(it), fuCost = I.fuseDustCost(it), deVal = I.disenchantValue(it);
-      const aff = I.affixLines(it).map(a => `<span class="affix">${a}</span>`).join(' ') || '<span class="muted small">no affixes</span>';
-      return `<div class="forge-item" style="border-color:${I.color(it)}">
-        <div class="fi-head"><span class="ii-ico">${D.WEAPONS[it.base].icon}</span>
-          <div><div class="ii-name" style="color:${I.color(it)}">${I.displayName(it)}</div>
-          <div class="ii-sub">${I.rarityName(it)} • ${Math.round(s.dmg)} dmg • ⚡${s.power}</div></div></div>
-        <div class="fi-affixes">${aff}</div>
-        <div class="fi-btns">
-          <button class="forge-btn" data-act="upgrade" data-uid="${it.uid}" ${gold < upCost ? 'disabled' : ''}>⚒️ +${(it.level || 0) + 1}<small>🪙${fmt(upCost)}</small></button>
-          <button class="forge-btn" data-act="reroll" data-uid="${it.uid}" ${(dust < rrCost || !it.affixes.length) ? 'disabled' : ''}>🎲 Reroll<small>✦${rrCost}</small></button>
-          <button class="forge-btn" data-act="fuse" data-uid="${it.uid}" ${dust < fuCost ? 'disabled' : ''}>✨ Fuse<small>✦${fuCost}</small></button>
-          <button class="forge-btn de" data-act="disenchant" data-uid="${it.uid}">♻️ Scrap<small>+✦${deVal}</small></button>
-        </div></div>`;
-    }).join('') || '<p class="muted">No weapons to forge yet — win some loot!</p>';
+    const eq = brute.equipped || { weapon: null, pet: null, skills: [] };
+    const slots = h.skillSlots || 3;
+    const sec = (title, sub, list, kind, empty) =>
+      `<div class="forge-section"><h4>${title} <span class="muted small">${sub}</span></h4>
+        <div class="forge-list-grid">${list.map(it => forgeCard(it, kind, dust, gold, eq, slots)).join('') || '<p class="muted small">' + empty + '</p>'}</div></div>`;
+    el.innerHTML =
+      sec('⚔️ Weapons', '— equip 1', brute.weapons, 'weapon', 'No weapons yet — win some loot!') +
+      sec('🐾 Pets', '— equip 1', brute.pets, 'pet', 'No pets yet.') +
+      sec('✨ Skills', `— ${eq.skills.length}/${slots} slots equipped`, brute.skills, 'skill', 'No skills yet.');
     el.querySelectorAll('.forge-btn').forEach(b => {
       if (b.disabled) return;
       b.addEventListener('click', () => h[b.dataset.act](b.dataset.uid));

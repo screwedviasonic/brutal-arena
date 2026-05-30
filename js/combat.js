@@ -25,6 +25,7 @@
   function buildUnits(brute, team, bonuses) {
     bonuses = bonuses || {};
     const units = [];
+    const lo = C.loadout(brute);               // equipped weapon / pet / skills only
     const eff = C.effectiveStats(brute, bonuses);
 
     const bruteUnit = {
@@ -37,9 +38,9 @@
       hp: eff.maxHp,
       maxHp: eff.maxHp,
       eff,
-      weapons: brute.weapons.map(it => global.Items.stats(it)), // resolved stat objects
-      skills: brute.skills.slice(),
-      actives: buildActives(brute),
+      weapons: lo.weapon ? [global.Items.stats(lo.weapon)] : [], // only the equipped weapon
+      skills: lo.skills.map(s => global.Items.asSkill(s).base),
+      actives: buildActives(lo.skills),
       dmgMul: bonuses.dmgMul || 1,
       catDmg: bonuses.catDmg || null,
       catHits: { blade: 0, blunt: 0, axe: 0, spear: 0, fist: 0 },
@@ -53,16 +54,15 @@
     };
     units.push(bruteUnit);
 
-    for (const pid of brute.pets) {
-      const pet = D.PETS[pid];
-      if (!pet) continue;
+    if (lo.pet) {
+      const pet = global.Items.petStats(lo.pet);   // resolved: hp/strength/agility/speed/crit
       units.push({
         id: team[0].toUpperCase() + (_uid++),
         team,
         type: 'pet',
         name: pet.name,
         icon: pet.icon,
-        petId: pet.id,
+        petId: pet.base,
         hp: pet.hp,
         maxHp: pet.hp,
         eff: {
@@ -73,7 +73,7 @@
           evasion: Math.min(0.5, pet.agility * 0.006),
           block: 0,
           counter: Math.min(0.4, pet.agility * 0.004),
-          crit: 0.05 + pet.agility * 0.003,
+          crit: Math.min(0.7, 0.05 + pet.agility * 0.003 + (pet.crit || 0)),
           accuracy: 0.75 + pet.agility * 0.003,
           combo: Math.min(0.5, pet.agility * 0.004),
           dmgReduction: 0,
@@ -95,12 +95,12 @@
     return units;
   }
 
-  function buildActives(brute) {
+  function buildActives(skillInsts) {
     const out = [];
-    for (const sid of brute.skills) {
-      const sk = D.SKILLS[sid];
-      if (sk && sk.kind === 'active') {
-        out.push({ id: sk.id, name: sk.name, icon: sk.icon, ...sk.active, used: 0 });
+    for (const inst of (skillInsts || [])) {
+      const m = global.Items.skillMods(inst);   // scaled by rarity/level/roll
+      if (m.kind === 'active') {
+        out.push(Object.assign({ id: m.id, name: m.name, icon: m.icon, used: 0 }, m.active));
       }
     }
     return out;

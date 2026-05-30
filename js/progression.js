@@ -111,34 +111,30 @@
   }
 
   function makeSkillChoice(brute, rng, luck) {
-    const pool = D.ALL_SKILLS.filter(s => !brute.skills.includes(s.id));
-    if (!pool.length) return null;
-    const s = rng.weighted(pool.map(s => ({ item: s, weight: tierWeight(s.tier, luck) })));
+    // dupes allowed now — collect copies to merge/level in the forge
+    const base = rng.weighted(D.ALL_SKILLS.map(s => ({ item: s, weight: tierWeight(s.tier, luck) })));
+    const item = global.Items.generateSkill(base.id, rng, { luck: luck });
     return {
-      key: 'skill:' + s.id, kind: 'skill', id: s.id,
-      icon: s.icon, title: s.name,
-      desc: s.desc + (s.kind === 'active' ? ' (active)' : ''),
-      rarity: rarityForTier(s.tier),
+      key: 'skill:' + item.uid, kind: 'skill', item: item,
+      icon: base.icon, title: global.Items.rarityName(item) + ' ' + base.name,
+      desc: base.desc + (base.kind === 'active' ? ' (active)' : ''),
+      rarity: item.rarity,
     };
   }
 
   function makePetChoice(brute, rng, luck) {
-    // dogs can stack up to 3; others only once
-    const pool = D.ALL_PETS.filter(p => {
-      const owned = brute.pets.filter(x => x === p.id).length;
-      return owned < (p.id === 'dog' ? 3 : 1);
-    });
-    if (!pool.length) return null;
-    const p = rng.weighted(pool.map(p => ({ item: p, weight: tierWeight(p.tier, luck) })));
+    const base = rng.weighted(D.ALL_PETS.map(p => ({ item: p, weight: tierWeight(p.tier, luck) })));
+    const item = global.Items.generatePet(base.id, rng, { luck: luck });
+    const ps = global.Items.petStats(item);
     return {
-      key: 'pet:' + p.id + ':' + brute.pets.length, kind: 'pet', id: p.id,
-      icon: p.icon, title: p.name,
-      desc: `Pet — ${p.hp} HP, ${p.strength} STR. Fights at your side.`,
-      rarity: rarityForTier(p.tier),
+      key: 'pet:' + item.uid, kind: 'pet', item: item,
+      icon: base.icon, title: global.Items.rarityName(item) + ' ' + base.name,
+      desc: `Pet — ${ps.hp} HP, ${ps.strength} STR. Fights at your side.`,
+      rarity: item.rarity,
     };
   }
 
-  /* Apply a chosen reward to the brute. */
+  /* Apply a chosen reward to the brute (game.js auto-equips empty slots after). */
   function applyChoice(brute, choice) {
     switch (choice.kind) {
       case 'stat':
@@ -148,10 +144,10 @@
         brute.weapons.push(choice.item);
         break;
       case 'skill':
-        if (!brute.skills.includes(choice.id)) brute.skills.push(choice.id);
+        brute.skills.push(choice.item);
         break;
       case 'pet':
-        brute.pets.push(choice.id);
+        brute.pets.push(choice.item);
         break;
     }
     // every level also grants a small baseline stat bump so growth feels steady

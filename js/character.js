@@ -44,9 +44,10 @@
       level: 1,
       xp: 0,
       stats,
-      weapons: [],     // ITEM INSTANCES (see items.js)
-      skills: [],      // skill ids
-      pets: [],        // pet ids
+      weapons: [],     // weapon INSTANCES
+      skills: [],      // skill INSTANCES
+      pets: [],        // pet INSTANCES
+      equipped: { weapon: null, pet: null, skills: [] },
       wins: 0,
       losses: 0,
       seed: rng.seed,
@@ -61,14 +62,15 @@
     }
     const extraSkills = legacy.startSkill || 0;
     for (let i = 0; i < extraSkills; i++) {
-      const pool = D.ALL_SKILLS.filter(s => !brute.skills.includes(s.id));
-      if (pool.length) brute.skills.push(rng.pick(pool).id);
+      const pool = D.ALL_SKILLS.filter(s => !brute.skills.some(x => x.base === s.id));
+      if (pool.length) brute.skills.push(global.Items.generateSkill(rng.pick(pool).id, rng, {}));
     }
 
+    autoEquip(brute);
     return brute;
   }
 
-  /* Grant a single random reward (starting kit). */
+  /* Grant a single random reward (starting kit) as an instance. */
   function grantRandomReward(rng, brute, opts) {
     opts = opts || {};
     if (rng.float() < 0.5) {
@@ -76,8 +78,28 @@
       brute.weapons.push(global.Items.generateWeapon(w.id, rng, {}));
       return;
     }
-    const skillPool = D.ALL_SKILLS.filter(s => !brute.skills.includes(s.id));
-    if (skillPool.length) brute.skills.push(rng.pick(skillPool).id);
+    const skillPool = D.ALL_SKILLS.filter(s => !brute.skills.some(x => x.base === s.id));
+    if (skillPool.length) brute.skills.push(global.Items.generateSkill(rng.pick(skillPool).id, rng, {}));
+  }
+
+  /* Fill empty equip slots from owned inventory (keeps valid current picks).
+   * All of weapons/skills/pets are instances with a uid. */
+  function autoEquip(brute, skillSlots) {
+    skillSlots = skillSlots || 3;
+    const eq = brute.equipped = brute.equipped || { weapon: null, pet: null, skills: [] };
+    const owns = (list, uid) => list.some(x => x && x.uid === uid);
+    if (!eq.weapon || !owns(brute.weapons, eq.weapon)) {
+      let best = null, bp = -1;
+      for (const w of brute.weapons) { const p = global.Items.stats(w).power; if (p > bp) { bp = p; best = w; } }
+      eq.weapon = best ? best.uid : null;
+    }
+    if (!eq.pet || !owns(brute.pets, eq.pet)) eq.pet = brute.pets[0] ? brute.pets[0].uid : null;
+    eq.skills = (eq.skills || []).filter(uid => owns(brute.skills, uid)).slice(0, skillSlots);
+    for (const s of brute.skills) {
+      if (eq.skills.length >= skillSlots) break;
+      if (!eq.skills.includes(s.uid)) eq.skills.push(s.uid);
+    }
+    return brute;
   }
 
   /* XP needed to reach the next level (from current level). */
@@ -85,7 +107,31 @@
     return Math.floor(20 * Math.pow(level, 1.55) + 10 * level);
   }
 
-  /* Compute "effective" combat stats after applying skills.
+  /* Resolve a brute's equipped loadout into concrete instances.
+   * Tolerates legacy brutes (no `equipped`, skills/pets as id strings):
+   * auto-derives a sensible loadout so old saves and PvP snapshots still fight.
+   */
+  function loadout(brute) {
+    if (!brute) return { weapon: null, pet: null, skills: [] };
+    const weapons = brute.weapons || [];
+    const pets = brute.pets || [];
+    const skills = brute.skills || [];
+    const byUid = (list, uid) => list.find(x => x && typeof x === 'object' && x.uid === uid);
+    if (brute.equipped) {
+      const eq = brute.equipped;
+      return {
+        weapon: eq.weapon ? byUid(weapons, eq.weapon) || null : null,
+        pet: eq.pet ? byUid(pets, eq.pet) || null : null,
+        skills: (eq.skills || []).map(uid => byUid(skills, uid)).filter(Boolean),
+      };
+    }
+    // legacy fallback: best weapon, first pet, first 3 skills (ids or instances)
+    let weapon = null, wp = -1;
+    for (const w of weapons) { const p = global.Items.stats(w).power; if (p > wp) { wp = p; weapon = w; } }
+    return { weapon, pet: pets[0] || null, skills: skills.slice(0, 3) };
+  }
+
+  /* Compute "effective" combat stats after applying EQUIPPED skills.
    * Returns a fight-ready stat block.
    */
   function effectiveStats(brute, bonuses) {
@@ -95,10 +141,10 @@
     let critAdd = bonuses.critAdd || 0, accuracyAdd = 0, comboAdd = 0, reflect = 0;
     let fistMul = 1, weaponMul = 1;
 
-    for (const sid of brute.skills) {
-      const sk = D.SKILLS[sid];
+    for (const skillInst of loadout(brute).skills) {
+      const sk = D.SKILLS[global.Items.asSkill(skillInst).base];
       if (!sk || sk.kind !== 'passive') continue;
-      const m = sk.mods || {};
+      const m = global.Items.skillMods(skillInst).mods;
       if (m.hpMul) hpMul *= m.hpMul;
       if (m.strengthMul) strMul *= m.strengthMul;
       if (m.agilityMul) agiMul *= m.agilityMul;
@@ -141,12 +187,14 @@
     };
   }
 
-  /* A rough "power rating" used for matchmaking. */
+  /* A rough "power rating" used for matchmaking — counts EQUIPPED gear only. */
   function powerRating(brute, bonuses) {
     const e = effectiveStats(brute, bonuses);
-    const weaponPower = brute.weapons.reduce((a, it) => a + global.Items.stats(it).power, 0);
-    const petPower = brute.pets.reduce((a, id) => a + (D.PETS[id] ? D.PETS[id].hp + D.PETS[id].strength * 3 : 0), 0);
-    return Math.round(e.maxHp + e.strength * 6 + e.agility * 4 + e.speed * 3 + weaponPower * 2 + petPower + brute.level * 5);
+    const lo = loadout(brute);
+    const weaponPower = lo.weapon ? global.Items.stats(lo.weapon).power : 0;
+    const petPower = lo.pet ? global.Items.petStats(lo.pet).power : 0;
+    const skillPower = lo.skills.reduce((a, s) => a + (global.Items.rarityRank(global.Items.asSkill(s).rarity) + 1) * 12, 0);
+    return Math.round(e.maxHp + e.strength * 6 + e.agility * 4 + e.speed * 3 + weaponPower * 2 + petPower + skillPower + brute.level * 5);
   }
 
   /* Generate an arena opponent scaled to the player's level.
@@ -168,11 +216,11 @@
       } else if (pick < 0.82) {
         opp.weapons.push(global.Items.generateWeapon(rng.pick(D.DROPPABLE_WEAPONS).id, rng, { luck }));
       } else if (pick < 0.95) {
-        const pool = D.ALL_SKILLS.filter(s => !opp.skills.includes(s.id));
-        if (pool.length) opp.skills.push(rng.pick(pool).id);
+        const pool = D.ALL_SKILLS.filter(s => !opp.skills.some(x => x.base === s.id));
+        if (pool.length) opp.skills.push(global.Items.generateSkill(rng.pick(pool).id, rng, { luck }));
       } else {
-        const pool = D.ALL_PETS.filter(p => opp.pets.filter(x => x === p.id).length < (p.id === 'dog' ? 3 : 1));
-        if (pool.length) opp.pets.push(rng.pick(pool).id);
+        const pool = D.ALL_PETS.filter(p => !opp.pets.some(x => x.base === p.id));
+        if (pool.length) opp.pets.push(global.Items.generatePet(rng.pick(pool).id, rng, { luck }));
       }
       opp.stats.hp += rng.int(3, 7);
       opp.stats.strength += rng.int(1, 2);
@@ -186,6 +234,7 @@
       opp.stats.agility = Math.round(opp.stats.agility * statMul);
       opp.stats.speed = Math.round(opp.stats.speed * statMul);
     }
+    autoEquip(opp);   // equip its best weapon / first pet / up to 3 skills
     return opp;
   }
 
@@ -203,8 +252,8 @@
       opp.isBoss = true;
       // bosses get a guaranteed nasty weapon + a pet
       opp.weapons.push(global.Items.generateWeapon(rng.pick(D.DROPPABLE_WEAPONS).id, rng, { luck: 0.8 }));
-      const pet = rng.pick(D.ALL_PETS);
-      opp.pets.push(pet.id);
+      opp.pets.push(global.Items.generatePet(rng.pick(D.ALL_PETS).id, rng, { luck: 0.8 }));
+      autoEquip(opp);   // re-equip so the boss wields its new weapon + pet
     }
     return opp;
   }
@@ -217,6 +266,8 @@
     xpForLevel,
     effectiveStats,
     powerRating,
+    loadout,
+    autoEquip,
     generateOpponent,
     generateGauntletOpponent,
   };

@@ -59,12 +59,33 @@
     if (!s.gauntlet) s.gauntlet = { floor: 1, best: 0, checkpoint: 1 };
     if (!s.collection) s.collection = { weapons: {}, skills: {}, pets: {} };
     if (!s.masteries) s.masteries = { blade: 0, blunt: 0, axe: 0, spear: 0 };
-    if (s.brute && Array.isArray(s.brute.weapons)) {
-      s.brute.weapons = s.brute.weapons.map(w =>
-        typeof w === 'string' ? global.Items.generateWeapon(w, new RNG(randomSeed()), { rarity: 'common' }) : w);
-    }
+    if (s.brute) migrateBrute(s.brute, computeSkillSlots(s.legacyPerks || {}));
     return s;
   }
+
+  /* Convert a pre-loadout brute (string skill/pet ids, no equipped slots)
+   * into the instanced loadout model, preserving everything it owned. */
+  function migrateBrute(b, slots) {
+    const rng = () => new RNG(randomSeed());
+    if (Array.isArray(b.weapons)) {
+      b.weapons = b.weapons.map(w => typeof w === 'string'
+        ? global.Items.generateWeapon(w, rng(), { rarity: 'common' }) : w);
+    }
+    if (Array.isArray(b.skills)) {
+      b.skills = b.skills.map(s => typeof s === 'string'
+        ? global.Items.generateSkill(s, rng(), { rarity: 'common' }) : s);
+    }
+    if (Array.isArray(b.pets)) {
+      b.pets = b.pets.map(p => typeof p === 'string'
+        ? global.Items.generatePet(p, rng(), { rarity: 'common' }) : p);
+    }
+    if (!b.equipped) b.equipped = { weapon: null, pet: null, skills: [] };
+    C.autoEquip(b, slots);   // equip best weapon / first pet / up to N skills
+    return b;
+  }
+  // skill slots: base 3, +1 per 'skillSlots' legacy perk level
+  function computeSkillSlots(legacyPerks) { return 3 + ((legacyPerks && legacyPerks.skillSlots) || 0); }
+  function skillSlots() { return computeSkillSlots(state.legacyPerks); }
 
   function now() { return Date.now(); }
 
@@ -129,8 +150,8 @@
   function syncCollection(brute) {
     if (!brute) return;
     brute.weapons.forEach(w => state.collection.weapons[w.base] = true);
-    brute.skills.forEach(s => state.collection.skills[s] = true);
-    brute.pets.forEach(p => state.collection.pets[p] = true);
+    brute.skills.forEach(s => state.collection.skills[s.base || s] = true);
+    brute.pets.forEach(p => state.collection.pets[p.base || p] = true);
   }
   function awardMastery(playerStats) {
     if (!playerStats || !playerStats.catHits) return;
@@ -198,8 +219,13 @@
     state.brute.weapons.push(item);
     collectWeapon(item.base);
     if (state.brute.weapons.length > WEAPON_CAP) {
+      const equippedUid = state.brute.equipped && state.brute.equipped.weapon;
       let wi = -1, wp = Infinity;
-      state.brute.weapons.forEach((w, i) => { const p = global.Items.stats(w).power; if (p < wp) { wp = p; wi = i; } });
+      state.brute.weapons.forEach((w, i) => {
+        if (w.uid === equippedUid) return;           // never auto-scrap the equipped weapon
+        const p = global.Items.stats(w).power;
+        if (p < wp) { wp = p; wi = i; }
+      });
       if (wi >= 0) {
         const weak = state.brute.weapons[wi];
         state.dust += global.Items.disenchantValue(weak);
@@ -303,42 +329,87 @@
     save(); renderAll();
   }
 
-  /* ---------------- forge ---------------- */
-  function findWeapon(uid) { return state.brute.weapons.find(w => w.uid === uid); }
+  /* ---------------- equip / loadout ---------------- */
+  function isEquipped(uid) {
+    const e = state.brute.equipped || {};
+    return e.weapon === uid || e.pet === uid || (e.skills || []).includes(uid);
+  }
+  function equipWeapon(uid) {
+    if (!state.brute.weapons.some(w => w.uid === uid)) return;
+    state.brute.equipped.weapon = uid; save(); renderAll();
+  }
+  function equipPet(uid) {
+    if (uid && !state.brute.pets.some(p => p.uid === uid)) return;
+    state.brute.equipped.pet = uid || null; save(); renderAll();
+  }
+  function toggleSkill(uid) {
+    const eq = state.brute.equipped;
+    const i = eq.skills.indexOf(uid);
+    if (i >= 0) { eq.skills.splice(i, 1); }
+    else {
+      if (eq.skills.length >= skillSlots()) { UI.toast('All skill slots full — unequip one first.', 'bad'); return; }
+      if (!state.brute.skills.some(s => s.uid === uid)) return;
+      eq.skills.push(uid);
+    }
+    save(); renderAll();
+  }
+
+  /* ---------------- forge (works on weapons, pets & skills) ---------------- */
+  function findInstance(uid) {
+    const b = state.brute; if (!b) return null;
+    return b.weapons.find(x => x.uid === uid) || b.pets.find(x => x.uid === uid) || b.skills.find(x => x.uid === uid) || null;
+  }
+  function inventoryOf(inst) {
+    const k = global.Items.kindOf(inst);
+    return k === 'pet' ? state.brute.pets : k === 'skill' ? state.brute.skills : state.brute.weapons;
+  }
   function forgeUpgrade(uid) {
-    const it = findWeapon(uid); if (!it) return;
+    const it = findInstance(uid); if (!it) return;
     const cost = global.Items.upgradeCost(it);
     if (state.gold < cost) { UI.toast('Not enough gold.', 'bad'); return; }
     state.gold -= cost; global.Items.upgrade(it);
     UI.toast(`⚒️ Upgraded to +${it.level}`, 'good'); save(); renderAll();
   }
   function forgeReroll(uid) {
-    const it = findWeapon(uid); if (!it) return;
-    if (!it.affixes.length) { UI.toast('No affixes to reroll.', 'bad'); return; }
+    const it = findInstance(uid); if (!it) return;
+    if (!global.Items.canReroll(it)) { UI.toast('Nothing to reroll.', 'bad'); return; }
     const cost = global.Items.rerollCost(it);
     if (state.dust < cost) { UI.toast('Not enough dust.', 'bad'); return; }
     state.dust -= cost; global.Items.reroll(it, new RNG(randomSeed()));
-    UI.toast('🎲 Affixes rerolled', 'good'); save(); renderAll();
+    UI.toast(global.Items.kindOf(it) === 'skill' ? '🎲 Potency rerolled' : '🎲 Affixes rerolled', 'good');
+    save(); renderAll();
   }
   function forgeDisenchant(uid) {
-    const it = findWeapon(uid); if (!it) return;
-    if (state.brute.weapons.length <= 1) { UI.toast('Cannot disenchant your last weapon.', 'bad'); return; }
+    const it = findInstance(uid); if (!it) return;
+    if (isEquipped(uid)) { UI.toast('Unequip it before scrapping.', 'bad'); return; }
+    const inv = inventoryOf(it);
+    if (global.Items.kindOf(it) === 'weapon' && state.brute.weapons.length <= 1) { UI.toast('Cannot scrap your last weapon.', 'bad'); return; }
     const d = global.Items.disenchantValue(it);
     const sh = global.Items.shardValue(it);
     state.dust += d; state.shards += sh;
-    state.brute.weapons = state.brute.weapons.filter(w => w.uid !== uid);
+    const i = inv.findIndex(x => x.uid === uid); if (i >= 0) inv.splice(i, 1);
     UI.toast(`♻️ Scrapped (+${d} dust • +${sh} shards)`, 'good'); save(); renderAll();
   }
   function forgeFuse(uid) {
-    const it = findWeapon(uid); if (!it) return;
-    const partner = state.brute.weapons.find(w => global.Items.canFuse(it, w));
-    if (!partner) { UI.toast('Need another same-type, same-rarity weapon to fuse.', 'bad'); return; }
+    const it = findInstance(uid); if (!it) return;
+    const inv = inventoryOf(it);
+    const partner = inv.find(w => global.Items.canFuse(it, w));
+    if (!partner) { UI.toast('Need another identical-rarity copy of the same type to fuse.', 'bad'); return; }
     const cost = global.Items.fuseDustCost(it);
     if (state.dust < cost) { UI.toast('Not enough dust to fuse.', 'bad'); return; }
     state.dust -= cost;
+    const wasEquipped = isEquipped(it.uid) || isEquipped(partner.uid);
     const fused = global.Items.fuse(it, partner, new RNG(randomSeed()));
-    state.brute.weapons = state.brute.weapons.filter(w => w.uid !== uid && w.uid !== partner.uid);
-    state.brute.weapons.push(fused); collectWeapon(fused.base);
+    const keep = inv.filter(w => w.uid !== it.uid && w.uid !== partner.uid);
+    keep.push(fused);
+    inv.length = 0; inv.push(...keep);
+    collectWeapon(fused.base);                 // collection is keyed by base id for all kinds
+    if (state.collection) {
+      const k = global.Items.kindOf(fused);
+      if (k === 'skill') state.collection.skills[fused.base] = true;
+      else if (k === 'pet') state.collection.pets[fused.base] = true;
+    }
+    if (wasEquipped) C.autoEquip(state.brute, skillSlots());
     UI.toast(`✨ Fused into ${global.Items.rarityName(fused)} ${global.Items.displayName(fused)}!`, 'good');
     save(); renderAll();
   }
@@ -497,6 +568,7 @@
     const choices = P.generateChoices(state.brute, rng, dropLuck());
     UI.showLevelUp(lvl, choices, (choice) => {
       P.applyChoice(state.brute, choice);
+      C.autoEquip(state.brute, skillSlots());   // fill any empty loadout slot with the new item
       syncCollection(state.brute);
       pendingLevels--;
       UI.toast(`Gained ${choice.icon} ${choice.title}`, 'good');
@@ -655,6 +727,7 @@
     UI.renderBruteTab(state.brute);
     UI.renderForge(state.brute, state.dust, state.gold, {
       upgrade: forgeUpgrade, reroll: forgeReroll, disenchant: forgeDisenchant, fuse: forgeFuse,
+      equipWeapon: equipWeapon, equipPet: equipPet, toggleSkill: toggleSkill, skillSlots: skillSlots(),
     });
     UI.renderCraft(state.shards, state.craftTarget, state.craftTarget ? craftCost(state.craftTarget) : 0,
       { setTarget: setCraftTarget, craft: forgeCraft });
