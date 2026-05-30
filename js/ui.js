@@ -291,11 +291,27 @@
   }
   function legacyPayout(brute) { return Math.floor(Math.pow(brute.level, 1.35) + brute.wins * 0.5); }
 
-  /* ---------------- idle ---------------- */
-  function renderIdle(rate) {
-    $('#idle-rate').innerHTML = rate > 0
-      ? `<span class="idle-glow">+${rate} XP / SEC</span> <span class="muted small">while training</span>`
-      : `<span class="muted">Hire Trainers in the Shop to earn idle XP.</span>`;
+  /* ---------------- idle training (claimable stat bank) ---------------- */
+  function renderTraining(bank, rate, onClaim) {
+    const el = $('#idle-rate');
+    if (!el) return;
+    bank = bank || {};
+    const order = ['hp', 'strength', 'agility', 'speed'];
+    const banked = order.map(k => ({ k, n: Math.floor(bank[k] || 0) })).filter(x => x.n > 0);
+    const hasAny = banked.length > 0;
+    if (rate <= 0) {
+      el.innerHTML = `<p class="muted">Hire <b>Trainers</b> in the Shop and your brute trains its stats while you're away. Claim the banked gains here.</p>`;
+      return;
+    }
+    const chips = hasAny
+      ? banked.map(x => `<span class="train-chip">+${x.n} ${D.TRAINING.statLabel[x.k]}</span>`).join('')
+      : '<span class="muted small">banking… check back after some idle time</span>';
+    el.innerHTML = `
+      <p class="muted small">Training at <b>${rate}/sec</b> while idle or offline (capped at 8h). No XP, no popups — just claim the gains.</p>
+      <div class="train-bank">${chips}</div>
+      <button id="btn-claim-train" class="primary-btn" ${hasAny ? '' : 'disabled'}>CLAIM TRAINING</button>`;
+    const b = $('#btn-claim-train');
+    if (b && hasAny) b.addEventListener('click', onClaim);
   }
 
   /* ---------------- forge: target crafting ---------------- */
@@ -855,7 +871,7 @@
   global.UI = {
     toast, renderTopbar, showScreen, initTabs, updateFightView,
     renderCreatePreview, renderBruteTab, renderShop, shopCost,
-    renderLegacy, legacyPayout, renderIdle,
+    renderLegacy, legacyPayout, renderTraining,
     renderForge, renderCraft, renderGauntlet, renderBounties, renderCollection, renderLifetime, setMeta,
     showLevelUp, isModalOpen,
     replayBattle, showOutcome, cancelReplay,

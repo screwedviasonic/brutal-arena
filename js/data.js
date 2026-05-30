@@ -108,8 +108,8 @@
       effect: 'Increases your maximum stamina by 1.' },
     { id: 'staminaRegen', name: 'Endurance Training', icon: '⏱️', desc: '-6s stamina regen time', max: 20, baseCost: 60, growth: 1.5,
       effect: 'Stamina refills faster.' },
-    { id: 'trainer', name: 'Hire Trainer', icon: '🏋️', desc: '+1 idle XP/sec', max: 50, baseCost: 30, growth: 1.35,
-      effect: 'Your brute earns passive XP while idle.' },
+    { id: 'trainer', name: 'Hire Trainer', icon: '🏋️', desc: '+1 idle stat training/sec', max: 50, baseCost: 30, growth: 1.35,
+      effect: 'Trains your brute\'s stats while idle. Claim the banked gains in the Brute tab.' },
     { id: 'goldFind', name: 'Looter', icon: '💰', desc: '+15% gold from fights', max: 20, baseCost: 80, growth: 1.5,
       effect: 'Win more gold from every victory.' },
     { id: 'xpBoost', name: 'War College', icon: '📚', desc: '+10% XP from fights', max: 20, baseCost: 90, growth: 1.5,
@@ -210,6 +210,16 @@
     luck: 0.7,
   };
 
+  /* ---------------- IDLE TRAINING ----------------
+   * Idle/offline time banks small flat stat gains (per second, per Trainer
+   * owned). The player CLAIMS the bank in the Brute tab — no XP, no popups.
+   * Tuned so ~8h offline at max Trainers is a meaningful-but-not-crazy chunk.
+   */
+  const TRAINING = {
+    perTrainerSec: { hp: 0.00008, strength: 0.00002, agility: 0.00002, speed: 0.000015 },
+    statLabel: { hp: 'Max HP', strength: 'Strength', agility: 'Agility', speed: 'Speed' },
+  };
+
   /* ---------------- MASTERIES (per weapon category) ---------------- */
   const MASTERY = {
     cats: WEAPON_CATS,
@@ -234,6 +244,6 @@
     NAME_PREFIX, NAME_SUFFIX, NAME_TITLE,
     SKIN_COLORS, OUTFIT_COLORS,
     SHOP_ITEMS, LEGACY_PERKS,
-    GAUNTLET, MASTERY, COLLECTION, BOUNTIES, CRAFT, STAT_DEFS,
+    GAUNTLET, MASTERY, COLLECTION, BOUNTIES, CRAFT, STAT_DEFS, TRAINING,
   };
 })(window);

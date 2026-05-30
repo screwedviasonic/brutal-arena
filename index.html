@@ -31,6 +31,7 @@
           <img class="res-ico" src="assets/ui/legacy.png" alt="Legacy" /><span id="res-legacy">0</span>
         </div>
       </div>
+      <button id="btn-levelup" class="levelup-btn hidden" title="Choose your level-up rewards">LEVEL UP</button>
       <button id="btn-reset" class="ghost-btn" title="Wipe all progress">RESET</button>
     </header>
 
@@ -98,19 +99,14 @@
       <div class="tabpane active" id="tab-arena">
         <div class="panel">
           <div class="arena-controls">
-            <button id="btn-fight" class="primary-btn">⚔️ FIND A FIGHT <span class="cost">1⚡</span></button>
-            <label class="toggle">
-              <input type="checkbox" id="auto-fight" /> <span>AUTO</span>
+            <button id="btn-fight" class="primary-btn">FIND A FIGHT <span class="cost">1<img class="cost-ico" src="assets/ui/stamina.png" alt="stamina" /></span></button>
+            <label class="switch">
+              <input type="checkbox" id="auto-fight" /><span class="switch-track"></span><span class="switch-label">AUTO</span>
             </label>
-            <label class="toggle">
-              <input type="checkbox" id="fast-fight" /> <span>FAST</span>
+            <label class="switch">
+              <input type="checkbox" id="fast-fight" /><span class="switch-track"></span><span class="switch-label">FAST</span>
             </label>
           </div>
-        </div>
-        <div class="panel idle-panel">
-          <h3>TRAINING GROUNDS <span class="muted small">(idle XP)</span></h3>
-          <p class="muted small">Your brute trains while you're away, earning a trickle of XP. Hire Trainers in the Shop to speed it up.</p>
-          <div id="idle-rate" class="idle-rate"></div>
         </div>
       </div>
 
@@ -160,6 +156,10 @@
 
       <!-- BRUTE TAB -->
       <div class="tabpane" id="tab-brute">
+        <div class="panel idle-panel">
+          <h3>TRAINING GROUNDS <span class="muted small">— idle stat gains</span></h3>
+          <div id="idle-rate" class="idle-rate"></div>
+        </div>
         <div class="brute-grid">
           <div class="panel" id="brute-card-panel"></div>
           <div class="panel" id="brute-inventory-panel"></div>

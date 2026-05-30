@@ -40,6 +40,7 @@
       legacyPerks: {},
       gauntlet: { floor: 1, best: 0, checkpoint: 1 },
       lifetime: emptyStats(),   // account-wide tally across every brute
+      training: { hp: 0, strength: 0, agility: 0, speed: 0 },  // banked idle stat gains (claimable)
       bounties: null,   // lazily seeded by ensureBounties()
       collection: { weapons: {}, skills: {}, pets: {} },
       masteries: { blade: 0, blunt: 0, axe: 0, spear: 0 },
@@ -54,6 +55,7 @@
     if (s.dust == null) s.dust = 0;
     if (s.shards == null) s.shards = 0;
     if (s.craftTarget === undefined) s.craftTarget = null;
+    if (!s.training) s.training = { hp: 0, strength: 0, agility: 0, speed: 0 };
     s.lifetime = fillStats(s.lifetime);
     if (s.brute) s.brute.career = fillStats(s.brute.career);
     if (!s.gauntlet) s.gauntlet = { floor: 1, best: 0, checkpoint: 1 };
@@ -538,16 +540,30 @@
       if (state.stamina >= staminaMax()) state.staminaProgress = 0;
     }
 
-    // idle XP
-    if (state.brute && idleXpRate() > 0) {
-      idleXpAccum += elapsed * idleXpRate() * xpMul();
-      if (idleXpAccum >= 1) {
-        const whole = Math.floor(idleXpAccum);
-        idleXpAccum -= whole;
-        grantXp(whole, true);
-      }
+    // idle training: bank small flat stat gains (claimed by the player, no XP/popups)
+    const tr = idleXpRate();   // = Trainers owned
+    if (state.brute && tr > 0) {
+      const w = D.TRAINING.perTrainerSec;
+      state.training.hp       += elapsed * tr * w.hp;
+      state.training.strength += elapsed * tr * w.strength;
+      state.training.agility  += elapsed * tr * w.agility;
+      state.training.speed    += elapsed * tr * w.speed;
     }
     return elapsed;
+  }
+
+  /* Claim banked idle training: apply whole-number stat gains to the brute. */
+  function claimTraining() {
+    if (!state.brute) return;
+    const b = state.training;
+    const parts = [];
+    ['hp', 'strength', 'agility', 'speed'].forEach(k => {
+      const n = Math.floor(b[k] || 0);
+      if (n > 0) { state.brute.stats[k] += n; b[k] -= n; parts.push('+' + n + ' ' + D.TRAINING.statLabel[k]); }
+    });
+    if (!parts.length) { UI.toast('Nothing banked yet — hire Trainers and give it time.', 'bad'); return; }
+    UI.toast('Trained: ' + parts.join(', '), 'good');
+    save(); renderAll();
   }
 
   /* ---------------- xp / leveling ---------------- */
@@ -580,10 +596,11 @@
   }
 
   /* ---------------- fighting ---------------- */
-  function doFight() {
+  function doFight(auto) {
     if (fightInProgress) return;
-    if (pendingLevels > 0) { processLevelUps(() => {}); return; }
-    if (state.stamina < 1) { UI.toast('⚡ Out of stamina! It regenerates over time.', 'bad'); return; }
+    // manual click resolves any queued level-ups first; auto-fight leaves them queued
+    if (!auto && pendingLevels > 0) { processLevelUps(() => {}); return; }
+    if (state.stamina < 1) { if (!auto) UI.toast('⚡ Out of stamina! It regenerates over time.', 'bad'); return; }
 
     fightInProgress = true;
     state.stamina--;
@@ -598,11 +615,11 @@
 
     UI.replayBattle(result, state.brute, opponent, state.settings.fastFight).then((finished) => {
       if (!finished) { fightInProgress = false; return; } // replay was cancelled
-      resolveFight(playerWon, opponent, result);
+      resolveFight(playerWon, opponent, result, auto);
     });
   }
 
-  function resolveFight(playerWon, opponent, result) {
+  function resolveFight(playerWon, opponent, result, auto) {
     const lvl = opponent.level;
     let xp = Math.round((playerWon ? 18 : 7) * Math.pow(lvl, 1.15) * xpMul());
     let gold = 0, dust = 0, dropTxt = '';
@@ -633,12 +650,18 @@
     save();
     renderAll();
 
-    // resolve any level-ups, then optionally auto-continue
-    processLevelUps(() => {
-      if (state.settings.autoFight && state.stamina >= 1 && pendingLevels === 0) {
-        setTimeout(() => { if (state.settings.autoFight) doFight(); }, state.settings.fastFight ? 500 : 1400);
+    const contAuto = () => {
+      if (state.settings.autoFight && state.stamina >= 1) {
+        setTimeout(() => { if (state.settings.autoFight) doFight(true); }, state.settings.fastFight ? 500 : 1400);
       }
-    });
+    };
+    if (auto) {
+      // auto-fight: queue level-ups (claim them when you want) and keep going
+      contAuto();
+    } else {
+      // manual fight: open the level-up choice now, then optionally start auto-fighting
+      processLevelUps(contAuto);
+    }
   }
 
   /* ---------------- shop ---------------- */
@@ -718,6 +741,11 @@
       gold: state.gold, legacy: state.legacy, dust: state.dust,
       stamina: state.stamina, staminaMax: staminaMax(),
     });
+    const lvlBtn = $('#btn-levelup');
+    if (lvlBtn) {
+      lvlBtn.classList.toggle('hidden', pendingLevels <= 0);
+      lvlBtn.textContent = pendingLevels > 0 ? `LEVEL UP ×${pendingLevels}` : 'LEVEL UP';
+    }
   }
   function renderAll() {
     renderTopbarOnly();
@@ -738,7 +766,7 @@
     UI.renderLifetime(state.lifetime, state.gauntlet.best);
     UI.renderShop(stateForShop(), buyShop);
     UI.renderLegacy(state, state.brute, retireBrute, buyLegacyPerk);
-    UI.renderIdle(idleXpRate());
+    UI.renderTraining(state.training, idleXpRate(), claimTraining);
     const btn = $('#btn-fight');
     if (btn) btn.disabled = state.stamina < 1 || fightInProgress;
   }
@@ -752,8 +780,6 @@
     renderTopbarOnly();
     const btn = $('#btn-fight');
     if (btn) btn.disabled = state.stamina < 1 || fightInProgress;
-    // resolve queued level-ups if player is just sitting there
-    if (!fightInProgress && pendingLevels > 0 && !UI.isModalOpen()) processLevelUps(() => {});
     refreshBountiesIfDue();
     save();
   }
@@ -764,7 +790,9 @@
   function wireEvents() {
     $('#btn-reroll').addEventListener('click', rollCandidate);
     $('#btn-begin').addEventListener('click', beginGame);
-    $('#btn-fight').addEventListener('click', doFight);
+    $('#btn-fight').addEventListener('click', () => doFight(false));
+    const lvlBtn = $('#btn-levelup');
+    if (lvlBtn) lvlBtn.addEventListener('click', () => processLevelUps(() => {}));
     $('#btn-reset').addEventListener('click', () => {
       if (confirm('Wipe ALL progress (brute, gold, legacy)? This cannot be undone.')) {
         wiped = true;                       // block any queued autosave
@@ -776,7 +804,7 @@
     $('#auto-fight').addEventListener('change', (e) => {
       state.settings.autoFight = e.target.checked;
       save();
-      if (e.target.checked && !fightInProgress && state.stamina >= 1 && pendingLevels === 0) doFight();
+      if (e.target.checked && !fightInProgress && state.stamina >= 1) doFight(true);
     });
     $('#fast-fight').addEventListener('change', (e) => {
       state.settings.fastFight = e.target.checked;
@@ -802,10 +830,8 @@
       syncCollection(state.brute);
       enterGame();
       if (elapsed > 60 && idleXpRate() > 0) {
-        UI.toast(`Welcome back! Your brute trained for ${formatDuration(elapsed)}.`, 'good');
+        UI.toast(`Welcome back! Training banked over ${formatDuration(elapsed)} — claim it in the Brute tab.`, 'good');
       }
-      // resolve any offline level-ups
-      setTimeout(() => processLevelUps(() => {}), 400);
     } else {
       startCreateScreen();
     }
