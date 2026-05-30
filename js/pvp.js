@@ -29,15 +29,23 @@
 
   function configured() { return cfg && cfg.url && cfg.key && global.supabase; }
 
+  let inited = false;
   async function init() {
-    if (!configured()) { render(); return; }
-    sb = global.supabase.createClient(cfg.url, cfg.key, {
-      auth: { persistSession: true, autoRefreshToken: true },
-    });
-    const { data } = await sb.auth.getSession();
-    if (data && data.session) {
-      user = data.session.user;
-      await loadMe();
+    if (inited) return;
+    inited = true;
+    render();                       // always paint something immediately
+    if (!configured()) return;      // render() shows the right "why" message
+    try {
+      sb = global.supabase.createClient(cfg.url, cfg.key, {
+        auth: { persistSession: true, autoRefreshToken: true },
+      });
+      const { data } = await sb.auth.getSession();
+      if (data && data.session) {
+        user = data.session.user;
+        await loadMe();
+      }
+    } catch (e) {
+      toast('PvP init error: ' + (e.message || e), 'bad');
     }
     render();
   }
@@ -179,8 +187,12 @@
     const el = $('#pvp-content');
     if (!el) return;
 
-    if (!configured()) {
+    if (!cfg || !cfg.url || !cfg.key) {
       el.innerHTML = `<p class="muted">PvP isn't configured. Add your Supabase URL + key in <code>js/pvp-config.js</code>.</p>`;
+      return;
+    }
+    if (!global.supabase) {
+      el.innerHTML = `<p class="muted">Loading the PvP library… if this sticks, hard-refresh (Ctrl+Shift+R). It loads from a CDN, so a network/ad-blocker can block it.</p>`;
       return;
     }
     if (!user) {
@@ -256,4 +268,8 @@
   }
 
   global.PVP = { init, render, publishDefense };
+
+  // self-initialize (game.js also calls init(); the `inited` guard makes that safe)
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
 })(window);
