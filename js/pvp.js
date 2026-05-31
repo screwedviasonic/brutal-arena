@@ -482,6 +482,7 @@
     else if (name === 'players') Promise.all([loadRivals(), loadNearby()]).then(renderPlayers);
     else if (name === 'battles') loadRecent().then(renderBattles);
     else if (name === 'prison') renderPrison();
+    else if (name === 'tournament') loadTournament().then(renderTournament);
   }
 
   /* ---------------- social: search / follow / inspect / challenge ---------------- */
@@ -738,6 +739,165 @@
       else if (r.short) toast('Not enough gold (need ' + fmt(r.cost) + ').', 'bad');
       renderPrison();
     }));
+  }
+
+  /* ================= weekly tournament ================= */
+  // Each week players lock a frozen build; entries close Sunday 20:00 UTC.
+  // The bracket (round-robin) is resolved CLIENT-SIDE (combat is deterministic);
+  // the first client to resolve writes the standings row, everyone else reads it.
+  let tourney = null;
+  const TOURNEY_FIELD_CAP = 32;   // cap the O(n^2) field so resolution stays fast in-browser
+
+  // current tournament = the upcoming Sunday 20:00 UTC (always taking entries);
+  // previous tournament = last Sunday (always resolved). Showing both gives a
+  // full week to view results / claim rewards.
+  function tourneyWindows() {
+    const now = new Date();
+    const day = now.getUTCDay();                 // 0=Sun..6=Sat
+    let cur = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + ((7 - day) % 7), 20, 0, 0));
+    if (cur.getTime() <= now.getTime()) cur = new Date(cur.getTime() + 7 * 86400000);  // past this Sunday's lock -> next Sunday
+    const prev = new Date(cur.getTime() - 7 * 86400000);
+    return { curId: cur.toISOString().slice(0, 10), curDeadline: cur, prevId: prev.toISOString().slice(0, 10), prevDeadline: prev };
+  }
+  function hashStr(s) { let h = 2166136261 >>> 0; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+  function tourneyReward(rank, total) {
+    if (rank === 0) return { gold: 500, legacy: 3, label: 'CHAMPION' };
+    if (rank === 1) return { gold: 300, legacy: 2, label: 'RUNNER-UP' };
+    if (rank === 2) return { gold: 200, legacy: 1, label: 'THIRD PLACE' };
+    if (rank < Math.ceil(total / 2)) return { gold: 100, legacy: 0, label: 'TOP HALF' };
+    return { gold: 50, legacy: 0, label: 'ENTRANT' };
+  }
+  function fmtCountdown(ms) {
+    if (ms <= 0) return 'closed';
+    const s = Math.floor(ms / 1000), d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
+    if (d > 0) return d + 'd ' + h + 'h';
+    if (h > 0) return h + 'h ' + m + 'm';
+    return Math.max(1, m) + 'm';
+  }
+
+  async function lockBuild() {
+    if (!user) { toast('Sign in first (open the PVP tab).', 'bad'); return; }
+    const w = tourneyWindows();
+    if (Date.now() >= w.curDeadline.getTime()) { toast('Entries are closed.', 'bad'); return; }
+    const b = Game().brute && Game().brute();
+    if (!b) { toast('No brute to enter.', 'bad'); return; }
+    const bonuses = Game().metaBonuses();
+    const power = global.Character.powerRating(b, bonuses);
+    const row = {
+      tournament_id: w.curId, user_id: user.id, handle: handle, tag: tag, power: power,
+      appearance: { skin: (b.appearance || {}).skin, outfit: (b.appearance || {}).outfit, seed: b.seed },
+      build: JSON.parse(JSON.stringify(b)), bonuses: bonuses, locked_at: new Date().toISOString(),
+    };
+    const { error } = await sb.from('tournament_entries').upsert(row, { onConflict: 'tournament_id,user_id' });
+    if (error) { toast('Lock failed: ' + error.message, 'bad'); return; }
+    toast('Build locked in for this week (Power ' + power + ').', 'good');
+    await loadTournament(); renderTournament();
+  }
+
+  async function loadTournament() {
+    const w = tourneyWindows();
+    tourney = { curId: w.curId, curDeadline: w.curDeadline, prevId: w.prevId, myEntry: null, count: 0, standings: null };
+    if (!user || !sb) return;
+    try {
+      const mine = await sb.from('tournament_entries').select('user_id,power,locked_at').eq('tournament_id', w.curId).eq('user_id', user.id).maybeSingle();
+      tourney.myEntry = mine.data || null;
+      const cnt = await sb.from('tournament_entries').select('user_id', { count: 'exact', head: true }).eq('tournament_id', w.curId);
+      tourney.count = cnt.count || 0;
+      const res = await sb.from('tournament_results').select('standings').eq('tournament_id', w.prevId).maybeSingle();
+      if (res.data) tourney.standings = res.data.standings;
+      else await resolveTournament(w.prevId);   // nobody has resolved last week yet — do it
+    } catch (e) { /* leave defaults */ }
+  }
+
+  async function resolveTournament(id) {
+    try {
+      const all = await sb.from('tournament_entries').select('user_id,handle,tag,power,appearance,build,bonuses').eq('tournament_id', id);
+      let field = (all.data) || [];
+      if (field.length < 2) { tourney.standings = []; return; }   // not enough to run
+      field.sort((a, b) => (b.power || 0) - (a.power || 0));
+      if (field.length > TOURNEY_FIELD_CAP) field = field.slice(0, TOURNEY_FIELD_CAP);
+      const score = {};
+      field.forEach(f => { score[f.user_id] = { e: f, wins: 0, losses: 0 }; });
+      for (let i = 0; i < field.length; i++) {
+        for (let j = i + 1; j < field.length; j++) {
+          const pair = field[i].user_id < field[j].user_id ? [field[i], field[j]] : [field[j], field[i]];
+          const seed = hashStr(id + ':' + pair[0].user_id + ':' + pair[1].user_id);
+          let win;
+          try {
+            const r = global.Combat.simulateBattle(pair[0].build, pair[1].build, seed, { leftBonuses: pair[0].bonuses || {}, rightBonuses: pair[1].bonuses || {} });
+            win = r.winner === 'left' ? 0 : 1;
+          } catch (e) { win = (pair[0].power || 0) >= (pair[1].power || 0) ? 0 : 1; }   // fall back to power if a build won't sim
+          score[pair[win].user_id].wins++; score[pair[1 - win].user_id].losses++;
+        }
+      }
+      const standings = Object.values(score).map(s => ({
+        user_id: s.e.user_id, handle: s.e.handle, tag: s.e.tag, power: s.e.power || 0,
+        appearance: s.e.appearance || null, wins: s.wins, losses: s.losses,
+      })).sort((a, b) => (b.wins - a.wins) || (b.power - a.power) || ((a.handle || '') < (b.handle || '') ? -1 : 1));
+      tourney.standings = standings;
+      await sb.from('tournament_results').insert({ tournament_id: id, standings: standings, field_size: standings.length });
+    } catch (e) { /* leave standings null -> UI shows pending */ }
+  }
+
+  function renderTournament() {
+    const el = $('#tournament-content'); if (!el) return;
+    if (!sb || !user) { el.innerHTML = '<p class="muted">Sign in (open the PVP tab) to enter the weekly tournament.</p>'; return; }
+    if (!tourney) { el.innerHTML = '<p class="muted small">Loading…</p>'; return; }
+    const b = Game().brute && Game().brute();
+    const myPower = Game().livePower ? Game().livePower() : 0;
+    const entered = !!tourney.myEntry;
+    const remain = tourney.curDeadline.getTime() - Date.now();
+    const av = b && global.Avatar ? global.Avatar.svg(b) : '';
+
+    // ----- this week's entry -----
+    let html = `
+      <div class="trn-head">
+        <div class="trn-when"><span class="trn-k">ENTRIES CLOSE IN</span><span class="trn-v">${fmtCountdown(remain)}</span></div>
+        <div class="trn-when"><span class="trn-k">ENTRANTS</span><span class="trn-v">${tourney.count}</span></div>
+      </div>
+      <div class="brute-sec"><span class="brute-sec-tag">YOUR ENTRY</span>${entered ? '<span class="brute-sec-note">LOCKED</span>' : ''}</div>
+      <div class="trn-entry">
+        <span class="pl-av lg2">${av}</span>
+        <div class="pl-main"><div class="pl-name">${b ? b.name : 'No brute'}</div>
+          <div class="pl-sub">${entered ? 'Locked at Power ' + fmt(tourney.myEntry.power) + ' — re-lock to update' : 'Current Power ' + fmt(myPower)}</div></div>
+        <button id="trn-lock" class="primary-btn gaunt-climb">${entered ? 'RE-LOCK' : 'LOCK IN'}</button>
+      </div>
+      <p class="muted small">Round-robin runs after Sunday 20:00 UTC — your locked build fights every entrant once, most wins takes the crown. Re-lock any time before the deadline.</p>`;
+
+    // ----- last week's results -----
+    const st = tourney.standings;
+    if (st && st.length >= 2) {
+      const myIdx = st.findIndex(s => s.user_id === user.id);
+      let reward = '';
+      if (myIdx >= 0) {
+        const rw = tourneyReward(myIdx, st.length);
+        const claimed = Game().tourneyClaimed(tourney.prevId);
+        reward = `<div class="trn-reward">
+          <div class="pl-main"><div class="pl-name">${rw.label} · #${myIdx + 1}</div>
+            <div class="pl-sub">Reward: ${fmt(rw.gold)} gold${rw.legacy ? ' · ' + rw.legacy + ' legacy' : ''}</div></div>
+          <button id="trn-claim" class="primary-btn gaunt-climb"${claimed ? ' disabled' : ''}>${claimed ? 'CLAIMED' : 'CLAIM'}</button></div>`;
+      }
+      const rows = st.map((s, i) => {
+        const cls = (i < 3 ? 'rank-' + (i + 1) : '') + (s.user_id === user.id ? ' me' : '');
+        return `<tr class="${cls}"><td>${i + 1}</td><td class="lb-who"><span class="lb-av">${avatarFor(s)}</span>${fullName(s.handle, s.tag)}</td><td>${s.wins}-${s.losses}</td><td>${fmt(s.power)}</td></tr>`;
+      }).join('');
+      html += `
+        <div class="brute-sec"><span class="brute-sec-tag">LAST WEEK'S RESULTS</span><span class="brute-sec-note">${st.length} FIGHTERS</span></div>
+        ${reward}
+        <table class="pvp-lb"><thead><tr><th>#</th><th>Brute</th><th>W-L</th><th>Power</th></tr></thead><tbody>${rows}</tbody></table>`;
+    } else {
+      html += `<div class="brute-sec"><span class="brute-sec-tag">LAST WEEK'S RESULTS</span></div>
+        <p class="muted small">${st && st.length < 2 ? 'Not enough entrants last week.' : 'No results yet.'}</p>`;
+    }
+    el.innerHTML = html;
+    const lb = $('#trn-lock'); if (lb) lb.addEventListener('click', lockBuild);
+    const cb = $('#trn-claim');
+    if (cb) cb.addEventListener('click', () => {
+      const myIdx = st.findIndex(s => s.user_id === user.id);
+      const rw = tourneyReward(myIdx, st.length);
+      if (Game().claimTourney(tourney.prevId, rw.gold, rw.legacy)) toast('Claimed ' + fmt(rw.gold) + ' gold' + (rw.legacy ? ' + ' + rw.legacy + ' legacy' : '') + '!', 'good');
+      renderTournament();
+    });
   }
 
   // live PvP standing for the brute card (null until the ladder row loads)

@@ -131,6 +131,17 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 .brute-sec-note.bad { color: var(--pop-red); }
 .forge-btn.off { opacity: .45; cursor: not-allowed; }
 
+/* weekly tournament */
+.trn-head { display: flex; gap: 10px; margin-bottom: 4px; }
+.trn-when { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; background: var(--ink); color: var(--paper2); border-radius: 7px; padding: 8px 6px; }
+.trn-k { font-family: 'Anton', sans-serif; font-size: .58rem; letter-spacing: 1.2px; opacity: .8; }
+.trn-v { font-family: 'Bangers', sans-serif; font-size: 1.5rem; line-height: 1; color: var(--pop-yellow); }
+.trn-entry { display: flex; align-items: center; gap: 12px; background: #fff; border: 2px solid var(--ink); border-left: 6px solid var(--pop-yellow); border-radius: 7px; padding: 10px 12px; box-shadow: 2px 2px 0 rgba(0,0,0,.13); margin-bottom: 8px; }
+.trn-entry .primary-btn { flex: none; }
+.pl-av.lg2 { width: 52px; height: 52px; }
+.trn-reward { display: flex; align-items: center; gap: 12px; background: var(--paper2); border: 3px solid var(--ink); border-radius: 8px; padding: 10px 12px; margin-bottom: 12px; box-shadow: 3px 3px 0 var(--pop-yellow); }
+.trn-reward .primary-btn { flex: none; }
+
 /* inspect modal */
 .inspect-card { position: relative; max-width: 440px; text-align: left; }
 .inspect-close { position: absolute; top: 8px; right: 10px; background: none; border: none; font-family: 'Anton', sans-serif; font-size: 1.2rem; color: var(--ink); cursor: pointer; }

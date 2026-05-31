@@ -48,6 +48,7 @@
       sparFocus: 0,           // sparring Focus: multiplies idle XP rate, decays
       prison: [],             // captured players: {id,name,tag,power,at} — grant a power-scaled battle-XP buff
       captors: [],            // players who beat you when you attacked — impose an XP penalty until you escape
+      tourney: { claimed: {} }, // weekly-tournament reward claims, keyed by tournament_id
       bounties: null,   // lazily seeded by ensureBounties()
       collection: { weapons: {}, skills: {}, pets: {} },   // base -> highest rarity rank owned
       masteries: { fist: 0, blade: 0, blunt: 0, axe: 0, spear: 0 },
@@ -69,6 +70,8 @@
     if (typeof s.sparFocus !== 'number') s.sparFocus = 0;
     if (!Array.isArray(s.prison)) s.prison = [];
     if (!Array.isArray(s.captors)) s.captors = [];
+    if (!s.tourney || typeof s.tourney !== 'object') s.tourney = { claimed: {} };
+    if (!s.tourney.claimed) s.tourney.claimed = {};
     s.lifetime = fillStats(s.lifetime);
     if (s.brute) s.brute.career = fillStats(s.brute.career);
     if (!s.gauntlet) s.gauntlet = { floor: 1, best: 0, checkpoint: 1 };
@@ -228,6 +231,18 @@
   function livePower() {
     if (!state.brute || !global.Character) return 0;
     return global.Character.powerRating(state.brute, metaBonuses());
+  }
+
+  /* ---------------- weekly tournament reward claims ---------------- */
+  function tourneyClaimed(id) { return !!(state.tourney && state.tourney.claimed && state.tourney.claimed[id]); }
+  function claimTourney(id, gold, legacy) {
+    state.tourney = state.tourney || { claimed: {} };
+    if (state.tourney.claimed[id]) return false;
+    state.tourney.claimed[id] = true;
+    state.gold = (state.gold || 0) + (gold || 0);
+    state.legacy = (state.legacy || 0) + (legacy || 0);
+    save(); renderAll();
+    return true;
   }
   function dropLuck() { return (state.legacyPerks.fortune || 0) * 0.10; }
   function legacyPerksForCreate() { return state.legacyPerks; }
@@ -1324,6 +1339,9 @@
     captorList: () => captorList(),
     captorPenalty: () => captorPenalty(),
     gold: () => (state && state.gold) || 0,
+    livePower: () => livePower(),
+    tourneyClaimed: (id) => tourneyClaimed(id),
+    claimTourney: (id, gold, legacy) => claimTourney(id, gold, legacy),
   };
 
   function formatDuration(sec) {
