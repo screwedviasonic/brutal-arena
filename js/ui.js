@@ -814,17 +814,24 @@
   }
 
   /* ---------------- level-up modal ---------------- */
-  function showLevelUp(level, choices, onPick) {
+  function showLevelUp(level, choices, onPick, gains) {
     const modal = $('#levelup-modal');
     $('#levelup-title').textContent = `LEVEL ${level}!`;
     const box = $('#levelup-choices');
+    // auto-stat gains banner (above the choices)
+    let gel = $('#levelup-gains');
+    if (!gel) { gel = document.createElement('div'); gel.id = 'levelup-gains'; gel.className = 'levelup-gains'; box.parentNode.insertBefore(gel, box); }
+    const labels = { hp: 'HP', strength: 'STR', agility: 'AGI', speed: 'SPD' };
+    const parts = gains ? Object.keys(labels).filter(k => gains[k] > 0).map(k => `<span class="lvl-gain">+${gains[k]} ${labels[k]}</span>`).join('') : '';
+    gel.innerHTML = parts;
+    gel.style.display = parts ? '' : 'none';
     box.innerHTML = '';
     choices.forEach((ch, i) => {
       const el = document.createElement('button');
       el.className = 'choice rar-' + ch.rarity;
       el.style.animationDelay = (i * 60) + 'ms';
       el.innerHTML = `
-        <div class="choice-ico">${ch.icon}</div>
+        <div class="choice-ico">${ch.item ? craftGlyph(ch.kind, ch.item.base) : ch.icon}</div>
         <div class="choice-title">${ch.title}</div>
         <div class="choice-desc">${ch.desc}</div>
         <div class="choice-rar">${ch.rarity}</div>`;

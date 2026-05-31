@@ -581,6 +581,10 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 }
 .choice:hover { transform: translateY(-8px) rotate(-1deg); box-shadow: var(--shadow-lg); }
 .choice-ico { font-size: 2.8rem; margin-bottom: 8px; filter: drop-shadow(2px 2px 0 rgba(0,0,0,.25)); }
+.choice-ico svg { width: 52px; height: 52px; display: block; margin: 0 auto; }
+/* auto-stat gains banner on level-up */
+.levelup-gains { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 6px; }
+.lvl-gain { font-family: 'Anton', sans-serif; letter-spacing: .5px; font-size: .78rem; background: var(--pop-green, #1a8f5a); color: #fff; border: 2px solid var(--ink); border-radius: 6px; padding: 3px 10px; -webkit-text-stroke: .3px var(--ink); }
 .choice-title { font-family: 'Anton', sans-serif; letter-spacing: .5px; font-size: 1.15rem; }
 .choice-desc { font-size: .82rem; color: var(--muted); margin: 8px 0; min-height: 36px; font-weight: 600; }
 .choice-rar { font-size: 1rem; letter-spacing: 2px; text-transform: uppercase; }

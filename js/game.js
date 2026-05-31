@@ -710,6 +710,7 @@
     const lvl = state.brute.level - pendingLevels + 1;
     const rng = new RNG(randomSeed());
     const choices = P.generateChoices(state.brute, rng, dropLuck());
+    const gains = state.brute._gain; state.brute._gain = null;   // auto-stat gains since last claim
     UI.showLevelUp(lvl, choices, (choice) => {
       P.applyChoice(state.brute, choice);
       C.autoEquip(state.brute, skillSlots());   // fill any empty loadout slot with the new item
@@ -720,7 +721,7 @@
       save();
       // chain remaining level-ups, then run the continuation
       setTimeout(() => processLevelUps(after), 150);
-    });
+    }, gains);
   }
 
   /* ---------------- arena rank (division ladder) ---------------- */

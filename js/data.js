@@ -147,10 +147,10 @@
    * is identical for everyone, so the Gauntlet leaderboard stays a fair race.
    */
   const ASCENSION = {
-    floorReq: (tier) => 12 + tier * 8,   // all-time gauntlet best floor needed to ascend to next tier
-    legacy: (tier) => 4 + tier * 3,      // legacy granted on ascend
+    floorReq: (tier) => 15 + tier * 12,  // all-time gauntlet best floor needed to ascend to next tier
+    legacy: (tier) => 4 + tier * 3,      // legacy granted on ascend (~1000 total over all tiers)
     powerPerTier: 0.06,                  // +6% to all your stats & damage per tier (permanent)
-    maxTier: 50,
+    maxTier: 25,                         // max ~floor 315, reachable ~lvl 150-200 (sim-verified)
   };
 
   /* ---------------- ARENA (ranked division ladder) ----------------
@@ -164,12 +164,14 @@
     bandSize: 100,          // ARP per division
     winARP: 12,
     lossARP: 8,
-    // opponent power is set by your DIVISION (rank), not your brute level:
-    baseLevel: 2,           // Rookie opponent level
-    levelPerDiv: 4,         // +levels per division (Champion ~ level 26)
-    statMulPerDiv: 0.10,    // +stats per division on top of level
-    econPerDiv: 0.10,       // +10% gold & XP per division (climb incentive)
-    staminaPerDiv: 1,       // +1 max stamina per division reached (best)
+    // opponent power is set by your DIVISION (rank), not your brute level.
+    // Tuned (sim-verified) so the ladder is a full-length endgame climb:
+    // Bronze ~lvl30, Diamond ~lvl60, Champion ~lvl110-150.
+    baseLevel: 3,           // Rookie opponent level
+    levelPerDiv: 24,        // +levels per division (Champion ~ level 147)
+    statMulPerDiv: 0.28,    // +stats per division on top of level (Champion ~x2.68)
+    econPerDiv: 0.14,       // +14% gold & XP per division (harder = pays more)
+    staminaPerDiv: 2,       // +2 max stamina per division reached (best) -> Champion +12
     regenPerDiv: 4,         // -4s stamina regen time per division reached
   };
 

@@ -12,7 +12,8 @@
   const D = global.GAMEDATA;
   const C = global.Character;
 
-  /* Add XP; returns the number of levels gained. */
+  /* Add XP; returns the number of levels gained. Each level auto-grants a
+   * random stat bump (accumulated on brute._gain for the level-up modal). */
   function addXp(brute, amount) {
     brute.xp += amount;
     let gained = 0;
@@ -21,9 +22,23 @@
       brute.xp -= need;
       brute.level++;
       gained++;
+      autoStat(brute);
       need = C.xpForLevel(brute.level);
     }
     return gained;
+  }
+
+  // one random stat per level, scaling a little with level
+  function autoStat(brute) {
+    const r = Math.random();
+    const stat = r < 0.30 ? 'hp' : r < 0.55 ? 'strength' : r < 0.80 ? 'agility' : 'speed';
+    const lvl = brute.level;
+    const amt = stat === 'hp'
+      ? 6 + Math.floor(lvl * 0.8) + Math.floor(Math.random() * 6)
+      : 1 + Math.floor(lvl * 0.18) + Math.floor(Math.random() * 3);
+    brute.stats[stat] += amt;
+    brute._gain = brute._gain || { hp: 0, strength: 0, agility: 0, speed: 0 };
+    brute._gain[stat] += amt;
   }
 
   /* Generate 3 distinct reward choices for a level-up.
@@ -34,13 +49,13 @@
     const choices = [];
     const usedKinds = [];
 
-    // weighted category roll
+    // every level already grants a random stat bump automatically; the choice
+    // is pure loot — weapon / skill / pet.
     function rollCategory() {
       return rng.weighted([
-        { item: 'stat', weight: 42 },
-        { item: 'weapon', weight: 26 },
-        { item: 'skill', weight: 22 },
-        { item: 'pet', weight: 10 + luck * 6 },
+        { item: 'weapon', weight: 44 },
+        { item: 'skill', weight: 34 },
+        { item: 'pet', weight: 16 + luck * 6 },
       ]);
     }
 
@@ -49,46 +64,20 @@
       attempts++;
       const cat = rollCategory();
       let choice = null;
-      if (cat === 'stat') choice = makeStatChoice(rng);
-      else if (cat === 'weapon') choice = makeWeaponChoice(brute, rng, luck);
+      if (cat === 'weapon') choice = makeWeaponChoice(brute, rng, luck);
       else if (cat === 'skill') choice = makeSkillChoice(brute, rng, luck);
       else if (cat === 'pet') choice = makePetChoice(brute, rng, luck);
 
       if (!choice) continue;
-      // avoid duplicate identical choices
       if (choices.some(c => c.key === choice.key)) continue;
       choices.push(choice);
     }
-
-    // guarantee at least the board is full with stat choices
+    // backfill with weapons if the board isn't full
     while (choices.length < 3) {
-      const s = makeStatChoice(rng);
-      if (!choices.some(c => c.key === s.key)) choices.push(s);
+      const w = makeWeaponChoice(brute, rng, luck);
+      if (!choices.some(c => c.key === w.key)) choices.push(w);
     }
     return choices;
-  }
-
-  function makeStatChoice(rng) {
-    const which = rng.weighted([
-      { item: 'hp', weight: 30 },
-      { item: 'strength', weight: 24 },
-      { item: 'agility', weight: 24 },
-      { item: 'speed', weight: 22 },
-    ]);
-    const map = {
-      hp: { label: 'Max HP', icon: '❤️', amount: rng.int(8, 18) },
-      strength: { label: 'Strength', icon: '💪', amount: rng.int(2, 5) },
-      agility: { label: 'Agility', icon: '🤸', amount: rng.int(2, 5) },
-      speed: { label: 'Speed', icon: '💨', amount: rng.int(2, 5) },
-    };
-    const m = map[which];
-    return {
-      key: 'stat:' + which + ':' + m.amount,
-      kind: 'stat', stat: which, amount: m.amount,
-      icon: m.icon, title: `+${m.amount} ${m.label}`,
-      desc: `Permanently increase ${m.label}.`,
-      rarity: m.amount > (which === 'hp' ? 14 : 4) ? 'rare' : 'common',
-    };
   }
 
   function tierWeight(tier, luck) {
@@ -134,24 +123,14 @@
     };
   }
 
-  /* Apply a chosen reward to the brute (game.js auto-equips empty slots after). */
+  /* Apply a chosen reward to the brute (game.js auto-equips empty slots after).
+   * Stat growth is automatic per level (see autoStat); the choice is loot only. */
   function applyChoice(brute, choice) {
     switch (choice.kind) {
-      case 'stat':
-        brute.stats[choice.stat] += choice.amount;
-        break;
-      case 'weapon':
-        brute.weapons.push(choice.item);
-        break;
-      case 'skill':
-        brute.skills.push(choice.item);
-        break;
-      case 'pet':
-        brute.pets.push(choice.item);
-        break;
+      case 'weapon': brute.weapons.push(choice.item); break;
+      case 'skill': brute.skills.push(choice.item); break;
+      case 'pet': brute.pets.push(choice.item); break;
     }
-    // every level also grants a small baseline stat bump so growth feels steady
-    brute.stats.hp += 2;
   }
 
   function rarityForTier(tier) {
