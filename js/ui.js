@@ -53,7 +53,7 @@
     $$('.screen').forEach(s => s.classList.add('hidden'));
     $('#' + id).classList.remove('hidden');
   }
-  const FIGHT_TABS = ['arena', 'gauntlet', 'pvp'];
+  const FIGHT_TABS = ['arena', 'gauntlet', 'pvp', 'sparring'];
   // the shared fight stage is visible only on the fighting tabs
   function updateFightView(tabName) {
     const fv = $('#fight-view');
@@ -382,24 +382,32 @@
   }
 
   /* ---------------- idle training (claimable stat bank) ---------------- */
-  function renderTraining(banked, rate, cap, onClaim) {
+  function renderTraining(banked, rate, cap, focus, h) {
     const el = $('#idle-rate');
     if (!el) return;
     banked = Math.floor(banked || 0);
     cap = Math.max(1, Math.floor(cap || 0));
+    focus = focus || 0;
+    const fmul = 1 + focus * D.SPAR.perFocus;
+    rate = rate * fmul;   // effective (focus-boosted) rate
     const pct = Math.min(100, (banked / cap) * 100);
     const full = banked >= cap;
     const has = banked > 0;
+    const pips = Array.from({ length: D.SPAR.maxFocus }, (_, i) => `<span class="focus-pip${i < Math.round(focus) ? ' on' : ''}"></span>`).join('');
     el.innerHTML = `
-      <p class="muted small">Your brute trains while you're away, banking XP up to a cap. Claim it here. Hire <b>Trainers</b> in the Shop to bank faster and raise the cap.</p>
+      <p class="muted small"><b>SPAR</b> to build Focus — it speeds your idle XP trickle (no stamina, no direct XP) and fades when you stop. Claim the bank for levels.</p>
+      <div class="train-focus"><span class="train-focus-lbl">FOCUS</span><div class="focus-pips">${pips}</div><span class="train-focus-mul">${fmul.toFixed(1)}× rate</span></div>
       <div class="train-readout">
         <div class="train-xp"><span class="train-xp-num">${fmt(banked)}</span><span class="train-xp-lbl">/ ${fmt(cap)} XP</span></div>
         <span class="train-rate">${rate.toFixed(2)} XP/sec${full ? ' · FULL' : ''}</span>
       </div>
       <div class="train-bar"><div class="train-fill${full ? ' full' : ''}" style="width:${pct}%"></div></div>
-      <button id="btn-claim-train" class="primary-btn gaunt-climb" ${has ? '' : 'disabled'}>CLAIM ${fmt(banked)} XP</button>`;
-    const b = $('#btn-claim-train');
-    if (b && has) b.addEventListener('click', onClaim);
+      <div class="train-btns">
+        <button id="btn-spar" class="primary-btn gaunt-climb">SPAR</button>
+        <button id="btn-claim-train" class="secondary-btn" ${has ? '' : 'disabled'}>CLAIM ${fmt(banked)} XP</button>
+      </div>`;
+    const sb = $('#btn-spar'); if (sb) sb.addEventListener('click', h.spar);
+    const cb = $('#btn-claim-train'); if (cb && has) cb.addEventListener('click', h.claim);
   }
 
   /* ---------------- forge: target crafting ---------------- */

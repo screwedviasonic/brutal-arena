@@ -935,6 +935,16 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 .levelup-btn:hover { filter: brightness(1.08); }
 
 /* idle training XP bank */
+/* sparring focus meter */
+.train-focus { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+.train-focus-lbl { font-family: 'Anton', sans-serif; letter-spacing: 1.5px; font-size: .66rem; color: var(--muted); }
+.focus-pips { display: flex; gap: 5px; }
+.focus-pip { width: 16px; height: 16px; border: 2.5px solid var(--ink); border-radius: 50%; background: var(--paper2); }
+.focus-pip.on { background: var(--pop-orange); box-shadow: 0 0 5px var(--pop-orange); }
+.train-focus-mul { font-family: 'Bangers', sans-serif; letter-spacing: .5px; color: var(--pop-orange); -webkit-text-stroke: .3px var(--ink); margin-left: auto; }
+.train-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+.train-btns .primary-btn { flex: 1; min-width: 140px; }
+
 .train-readout { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin: 12px 0 6px; }
 .train-xp { display: flex; align-items: baseline; gap: 7px; }
 .train-xp-num { font-family: 'Bangers', sans-serif; font-size: 2rem; line-height: 1; color: var(--pop-purple); -webkit-text-stroke: .5px var(--ink); }

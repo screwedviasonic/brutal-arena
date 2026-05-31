@@ -64,6 +64,7 @@
         <button class="tab active" data-tab="arena"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 16 V11 a8 8 0 0 1 16 0 V16 Z" fill="#3aa0d6" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><path d="M12 2 C8.5 2 6 5 5.5 9 H8 C8.5 6 10 5 12 5 C14 5 15.5 6 16 9 H18.5 C18 5 15.5 2 12 2 Z" fill="#ffce3a" stroke="#14110d" stroke-width="1.8" stroke-linejoin="round"/><rect x="3.5" y="15.3" width="17" height="3.4" rx="1.2" fill="#14110d"/><path d="M12 11 V15.3" stroke="#14110d" stroke-width="2"/></svg><span>ARENA</span></button>
         <button class="tab" data-tab="gauntlet"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 21 V8 H18 V21 Z" fill="#b9772f" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><path d="M5 8 V5 H7 V6.5 H9 V5 H11 V6.5 H13 V5 H15 V6.5 H17 V5 H19 V8 Z" fill="#cd884a" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><rect x="10" y="14" width="4" height="7" fill="#14110d"/><rect x="8" y="10.5" width="2.4" height="2.4" fill="#14110d"/><rect x="13.6" y="10.5" width="2.4" height="2.4" fill="#14110d"/></svg><span>GAUNTLET</span></button>
         <button class="tab" data-tab="pvp"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><g stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 L16 4" stroke="#14110d" stroke-width="5.4"/><path d="M20 20 L8 4" stroke="#14110d" stroke-width="5.4"/><path d="M4 20 L16 4" stroke="#d4d8dd" stroke-width="3"/><path d="M20 20 L8 4" stroke="#d4d8dd" stroke-width="3"/><path d="M2.5 15.5 L8 21" stroke="#14110d" stroke-width="5"/><path d="M21.5 15.5 L16 21" stroke="#14110d" stroke-width="5"/><path d="M2.5 15.5 L8 21" stroke="#ffce3a" stroke-width="2.8"/><path d="M21.5 15.5 L16 21" stroke="#ffce3a" stroke-width="2.8"/></g></svg><span>PVP</span></button>
+        <button class="tab" data-tab="sparring"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="10.4" width="6" height="3.2" fill="#8a8472" stroke="#14110d" stroke-width="2"/><rect x="3" y="6.5" width="4.5" height="11" rx="1.6" fill="#6b7077" stroke="#14110d" stroke-width="2"/><rect x="16.5" y="6.5" width="4.5" height="11" rx="1.6" fill="#6b7077" stroke="#14110d" stroke-width="2"/></svg><span>SPARRING</span></button>
         <div class="navgroup">BRUTE</div>
         <button class="tab" data-tab="brute"><span class="tab-ico nav-avatar" id="nav-brute-ico"></span><span>BRUTE</span></button>
         <button class="tab" data-tab="forge"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7 H15 L19.5 9 L15 11 H12 L13 13 H7 L8 11 H6.5 C4.5 11 3 9.3 3 7.4 Z" fill="#6b7077" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><path d="M8 13 H13 L14 16.5 H7 Z" fill="#6b7077" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><rect x="5" y="16.3" width="11" height="3.4" rx="1" fill="#4c5157" stroke="#14110d" stroke-width="2"/></svg><span>FORGE</span></button>
@@ -163,8 +164,12 @@
       <!-- BRUTE TAB -->
       <div class="tabpane" id="tab-brute">
         <div class="panel" id="brute-card-panel"></div>
+      </div>
+
+      <!-- SPARRING TAB (shares the fight stage above) -->
+      <div class="tabpane" id="tab-sparring">
         <div class="panel idle-panel">
-          <h3 class="comic-title">TRAINING <span class="ct-sub">IDLE GAINS</span></h3>
+          <h3 class="comic-title">SPARRING <span class="ct-sub">NO STAMINA</span></h3>
           <div id="idle-rate" class="idle-rate"></div>
         </div>
       </div>

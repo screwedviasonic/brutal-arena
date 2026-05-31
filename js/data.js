@@ -270,6 +270,10 @@
    * in the Brute tab (it feeds normal leveling). A small base rate always
    * accrues; Trainers (Shop) raise both the rate and the cap.
    */
+  // Sparring builds "Focus" which multiplies idle-XP rate, then decays.
+  // No stamina, no direct XP — just an active way to speed the trickle.
+  const SPAR = { perFocus: 0.5, maxFocus: 5, decaySec: 90 };
+
   const TRAINING = {
     baseXpSec: 0.06,          // banked XP/sec with no Trainers
     xpPerTrainerSec: 0.06,    // extra banked XP/sec per Trainer
@@ -313,6 +317,6 @@
     NAME_PREFIX, NAME_SUFFIX, NAME_TITLE,
     SKIN_COLORS, OUTFIT_COLORS,
     SHOP, LEGACY_PERKS, LEGACY_PERKS_RETIRED, ASCENSION,
-    ARENA, GAUNTLET, MASTERY, COLLECTION, BOUNTIES, CRAFT, STAT_DEFS, TRAINING, ACHIEVEMENTS,
+    ARENA, GAUNTLET, MASTERY, COLLECTION, BOUNTIES, CRAFT, STAT_DEFS, TRAINING, SPAR, ACHIEVEMENTS,
   };
 })(window);

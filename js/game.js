@@ -45,6 +45,7 @@
       ascension: { tier: 0 },       // endgame: deepest-floor milestones grant permanent power
       lifetime: emptyStats(),   // account-wide tally across every brute
       training: 0,            // banked idle XP (claimable, capped)
+      sparFocus: 0,           // sparring Focus: multiplies idle XP rate, decays
       bounties: null,   // lazily seeded by ensureBounties()
       collection: { weapons: {}, skills: {}, pets: {} },   // base -> highest rarity rank owned
       masteries: { fist: 0, blade: 0, blunt: 0, axe: 0, spear: 0 },
@@ -63,6 +64,7 @@
     if (s.craftTarget === undefined) s.craftTarget = null;
     if (s.craftKind === undefined) s.craftKind = 'weapon';
     if (typeof s.training !== 'number') s.training = 0;   // legacy stat-bank object -> XP bank
+    if (typeof s.sparFocus !== 'number') s.sparFocus = 0;
     s.lifetime = fillStats(s.lifetime);
     if (s.brute) s.brute.career = fillStats(s.brute.career);
     if (!s.gauntlet) s.gauntlet = { floor: 1, best: 0, checkpoint: 1 };
@@ -674,10 +676,20 @@
       if (state.stamina >= staminaMax()) state.staminaProgress = 0;
     }
 
-    // idle training: bank XP up to a cap (claimed by the player)
+    // idle training: bank XP up to a cap. Sparring "Focus" multiplies the rate
+    // and decays over time; integrate the decay across the elapsed window so
+    // offline returns don't keep a stale buff.
     if (state.brute) {
+      const F0 = state.sparFocus || 0, decay = D.SPAR.decaySec;
+      let focusSec = 0;
+      if (F0 > 0) {
+        const tz = F0 * decay;   // seconds until focus hits 0
+        focusSec = elapsed >= tz ? 0.5 * F0 * tz : elapsed * F0 - 0.5 * elapsed * elapsed / decay;
+        state.sparFocus = Math.max(0, F0 - elapsed / decay);
+      }
       const cap = trainXpCap();
-      state.training = Math.min(cap, (state.training || 0) + elapsed * trainXpRate());
+      const gained = trainXpRate() * (elapsed + D.SPAR.perFocus * focusSec);
+      state.training = Math.min(cap, (state.training || 0) + gained);
     }
     return elapsed;
   }
@@ -692,6 +704,23 @@
     UI.toast('Claimed ' + UI.fmt(xp) + ' training XP', 'good');
     save(); renderAll();
     processLevelUps(() => {});
+  }
+  // sparring: a no-stakes practice fight that builds Focus (boosts idle XP rate).
+  // No stamina, no loot, no direct XP.
+  function spar() {
+    if (fightInProgress || !state.brute) return;
+    fightInProgress = true;
+    const rng = new RNG(randomSeed());
+    const opp = C.generateOpponent(state.brute.level, rng, { level: Math.max(1, state.brute.level) });
+    opp.name = 'Training Dummy';
+    const result = global.Combat.simulateBattle(state.brute, opp, randomSeed(), { leftBonuses: metaBonuses() });
+    renderAll();
+    UI.replayBattle(result, state.brute, opp, state.settings.fastFight).then((finished) => {
+      fightInProgress = false;
+      if (!finished) return;
+      state.sparFocus = Math.min(D.SPAR.maxFocus, (state.sparFocus || 0) + 1);   // no-stakes: always +1 Focus
+      save(); renderAll();
+    });
   }
 
   /* ---------------- xp / leveling ---------------- */
@@ -1067,7 +1096,7 @@
     ensureShop();
     UI.renderShop(state.shopStock, state.gold, { buy: buyShopItem, reroll: rerollShop });
     UI.renderLegacy(state, ascensionInfo(), { ascend: ascend, buyPerk: buyLegacyPerk });
-    UI.renderTraining(state.training, trainXpRate(), trainXpCap(), claimTraining);
+    UI.renderTraining(state.training, trainXpRate(), trainXpCap(), state.sparFocus || 0, { claim: claimTraining, spar: spar });
     const btn = $('#btn-fight');
     if (btn) btn.disabled = state.stamina < 1 || fightInProgress;
   }
