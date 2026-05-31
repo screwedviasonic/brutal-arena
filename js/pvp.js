@@ -172,7 +172,7 @@
       if (Game().brute()) await publishDefense(true);
       await loadMe();
       renderAcct();
-      toast('⚔️ Welcome to the ladder, ' + fullName(handle, tag) + '!', 'good');
+      toast('Welcome to the ladder, ' + fullName(handle, tag) + '!', 'good');
     } catch (e) {
       toast('Sign-in failed: ' + (e.message || e), 'bad');
     } finally {
@@ -197,7 +197,7 @@
     // rating/wins/losses intentionally omitted — the DB guard owns those
     const { error } = await sb.from('ladder').upsert(row, { onConflict: 'user_id' });
     if (error) { toast('Publish failed: ' + error.message, 'bad'); return; }
-    if (!silent) toast('🛡️ Defense brute published (Power ' + power + ').', 'good');
+    if (!silent) toast('Defense brute published (Power ' + power + ').', 'good');
     await loadMe();
     render();
   }
@@ -276,7 +276,7 @@
     const oppName = fullName(opponent.handle, opponent.tag);
     try { await UI().replayBattle(result, me, opponent.defense, Game().fast()); } catch (e) {}
     UI().showOutcome(attackerWon,
-      `<div>${attackerWon ? '🏆 PVP VICTORY' : '☠️ PVP DEFEAT'}<br>vs ${oppName}</div>`);
+      `<div>${attackerWon ? 'PVP VICTORY' : 'PVP DEFEAT'}<br>vs ${oppName}</div>`);
     await loadMe();
     opponent = null;
     setBusy(false);
@@ -288,6 +288,23 @@
   }
 
   function setBusy(v) { busy = v; render(); }
+
+  /* ---------------- comic glyphs (no emoji) ---------------- */
+  const PVP_ICON = {
+    // rating medallion (purple, gold star) — fills the .ar-medal box
+    badge: `<svg viewBox="0 0 48 48" class="rankglyph" aria-hidden="true"><path d="M17 27 L13 45 L21 40 L24 46 L27 40 L35 45 L31 27 Z" fill="#b23a2e" stroke="#14110d" stroke-width="2.4" stroke-linejoin="round"/><circle cx="24" cy="19" r="14.5" fill="#8338ec" stroke="#14110d" stroke-width="3"/><circle cx="24" cy="19" r="10.5" fill="none" stroke="#14110d" stroke-width="1.4" opacity=".4"/><path d="M24 11 l2.2 4.7 5.1 .5 -3.8 3.4 1.1 5 -4.6-2.7 -4.6 2.7 1.1-5 -3.8-3.4 5.1-.5 Z" fill="#ffd23f" stroke="#14110d" stroke-width="1.4" stroke-linejoin="round"/></svg>`,
+    // crossed swords (record / W-L)
+    swords: `<svg viewBox="0 0 24 24" class="gicon" aria-hidden="true"><g stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 L15 5" stroke="#14110d" stroke-width="4.6"/><path d="M20 20 L9 5" stroke="#14110d" stroke-width="4.6"/><path d="M4 20 L15 5" stroke="#d4d8dd" stroke-width="2.4"/><path d="M20 20 L9 5" stroke="#d4d8dd" stroke-width="2.4"/></g></svg>`,
+    // flame (power)
+    power: `<svg viewBox="0 0 24 24" class="gicon" aria-hidden="true"><path d="M12 2 C14 7 19 9 19 14 a7 7 0 0 1 -14 0 C5 10 9 9 9 5 C10.5 7 12 6 12 2 Z" fill="#ff7b00" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><path d="M12.5 12 C13.4 13.6 15 14.4 14.5 16.4 a2.4 2.4 0 0 1 -4.8 -.3 C9.8 14.8 11 14.3 11 12.9 C11.6 13.7 12.5 13 12.5 12 Z" fill="#ffce3a" stroke="#14110d" stroke-width="1.1" stroke-linejoin="round"/></svg>`,
+  };
+
+  // current (live) power of my brute vs my published defense snapshot
+  function livePower() {
+    const b = Game().brute && Game().brute();
+    if (!b || !global.Character) return 0;
+    return global.Character.powerRating(b, Game().metaBonuses ? Game().metaBonuses() : {});
+  }
 
   /* ---------------- rendering ---------------- */
   function render() {
@@ -307,7 +324,7 @@
         <p class="muted small">Sign in to publish your brute and battle other players' brutes for ladder rating. Anonymous — no email needed.</p>
         <label class="field"><span>HANDLE (your ladder name)</span>
           <input id="pvp-handle" type="text" maxlength="16" placeholder="e.g. Skullcrusher" /></label>
-        <button id="pvp-signin" class="primary-btn" ${busy ? 'disabled' : ''}>⚔️ ENTER THE PVP ARENA</button>
+        <button id="pvp-signin" class="primary-btn gaunt-climb" ${busy ? 'disabled' : ''}>ENTER THE PVP ARENA</button>
         <div id="pvp-leaderboard"></div>`;
       $('#pvp-signin').addEventListener('click', signIn);
       renderLeaderboard();
@@ -315,29 +332,41 @@
     }
 
     const r = myRow || { rating: 1000, wins: 0, losses: 0, power: 0 };
+    const cur = livePower();
+    const pub = r.power || 0;
+    const stale = cur > pub;   // brute has grown since the defense snapshot was published
     const oppHtml = opponent ? `
       <div class="pvp-opp">
-        <div class="pvp-opp-head">OPPONENT: <b>${fullName(opponent.handle, opponent.tag)}</b> <span class="muted small">★ ${opponent.rating} • ⚡${opponent.power}</span></div>
+        <div class="pvp-opp-head"><span class="pvp-opp-tag">OPPONENT</span><b>${fullName(opponent.handle, opponent.tag)}</b><span class="pvp-opp-meta">RTG ${opponent.rating} · PWR ${opponent.power}</span></div>
         <div class="pvp-opp-card">${opponentSummary(opponent.defense)}</div>
         <div class="pvp-fight-btns">
-          <button id="pvp-attack" class="primary-btn" ${busy ? 'disabled' : ''}>⚔️ ATTACK</button>
-          <button id="pvp-skip" class="secondary-btn" ${busy ? 'disabled' : ''}>↻ Another</button>
+          <button id="pvp-attack" class="primary-btn gaunt-climb" ${busy ? 'disabled' : ''}>ATTACK</button>
+          <button id="pvp-skip" class="secondary-btn" ${busy ? 'disabled' : ''}>ANOTHER</button>
         </div>
       </div>` : `
-      <button id="pvp-find" class="primary-btn" ${busy ? 'disabled' : ''}>🔍 FIND OPPONENT</button>`;
+      <button id="pvp-find" class="primary-btn gaunt-climb" ${busy ? 'disabled' : ''}>FIND OPPONENT</button>`;
 
     el.innerHTML = `
-      <div class="pvp-me">
-        <div class="pvp-rating">★ <b>${r.rating}</b><span class="muted small"> rating</span></div>
-        <div class="muted">${fullName(handle, tag)} &nbsp;•&nbsp; 🏅 ${r.wins}W / ${r.losses}L &nbsp;•&nbsp; ⚡ Power ${r.power}</div>
+      <div class="gaunt-top">
+        <div class="ar-divline">
+          <span class="ar-medal">${PVP_ICON.badge}</span>
+          <div class="pvp-id">
+            <div class="gaunt-floor ar-divname">${r.rating}</div>
+            <div class="pvp-handle">${fullName(handle, tag)}</div>
+          </div>
+        </div>
+        <div class="gaunt-stats">
+          <span class="gaunt-chip chip-best">${PVP_ICON.swords}<span class="gc-k">RECORD</span><span class="gc-v">${r.wins}-${r.losses}</span></span>
+          <span class="gaunt-chip chip-cp${stale ? ' chip-stale' : ''}">${PVP_ICON.power}<span class="gc-k">POWER</span><span class="gc-v">${cur}</span></span>
+        </div>
       </div>
       <div class="pvp-actions">
         ${oppHtml}
       </div>
       <div class="pvp-tools">
-        <button id="pvp-publish" class="secondary-btn" ${busy ? 'disabled' : ''}>🛡️ Update my defense brute</button>
+        <button id="pvp-publish" class="${stale ? 'primary-btn' : 'secondary-btn'}" ${busy ? 'disabled' : ''} title="${stale ? `Your defense is Power ${pub}; you're now Power ${cur}` : 'Refresh your defense snapshot'}">UPDATE DEFENSE BRUTE${stale ? ` <span class="pw-delta">+${cur - pub}</span>` : ''}</button>
       </div>
-      <p class="muted small">Your "defense brute" is a frozen snapshot others fight while you're away. Update it after you upgrade.</p>
+      <div class="gaunt-rules"><span class="gr-tag">HOW IT WORKS</span><p>Fight other players' defense brutes to win rating. Your defense brute is a frozen snapshot others battle while you're away, so update it whenever you upgrade.</p></div>
       <div id="pvp-leaderboard"></div>`;
 
     const bind = (id, fn) => { const b = $(id); if (b && !b.disabled) b.addEventListener('click', fn); };
@@ -356,12 +385,15 @@
     const wList = eq && eq.weapon ? (b.weapons || []).filter(w => w.uid === eq.weapon) : (b.weapons || []).slice(0, 1);
     const sList = eq && eq.skills ? (b.skills || []).filter(s => eq.skills.includes(s.uid)) : (b.skills || []);
     const pList = eq && eq.pet ? (b.pets || []).filter(p => p.uid === eq.pet) : (b.pets || []).slice(0, 1);
-    const baseIcon = (x, dict, fb) => (dict[(x && x.base) || x] || {}).icon || fb;
-    const wpns = wList.map(w => baseIcon(w, D.WEAPONS, '🗡️')).join(' ');
-    const skills = sList.map(s => baseIcon(s, D.SKILLS, '✨')).join(' ');
-    const pets = pList.map(p => baseIcon(p, D.PETS, '🐾')).join(' ');
-    return `<div class="pvp-opp-line">LV ${b.level} • ❤️${b.stats.hp} 💪${b.stats.strength} 🤸${b.stats.agility} 💨${b.stats.speed}</div>
-      <div class="pvp-opp-line">${wpns || '👊'} ${skills} ${pets}</div>`;
+    const baseName = (x, dict, fb) => (dict[(x && x.base) || x] || {}).name || fb;
+    const stat = (k, v) => `<span class="ost"><i>${k}</i>${v}</span>`;
+    const gear = [
+      baseName(wList[0], D.WEAPONS, 'Bare Fists'),
+      pList[0] ? baseName(pList[0], D.PETS, null) : null,
+      sList.length ? sList.length + ' skill' + (sList.length > 1 ? 's' : '') : null,
+    ].filter(Boolean).join(' · ');
+    return `<div class="pvp-opp-stats">${stat('LV', b.level)}${stat('HP', b.stats.hp)}${stat('STR', b.stats.strength)}${stat('AGI', b.stats.agility)}${stat('SPD', b.stats.speed)}</div>
+      <div class="pvp-opp-gear">${gear}</div>`;
   }
 
   // render one leaderboard (rating | arena | gauntlet) into a target element
@@ -377,6 +409,8 @@
     const divCell = arp => { const n = arenaDivName(arp); const ico = (UI() && UI().rankIcon) ? UI().rankIcon(n) : ''; return `<td><span class="lb-rank-ico">${ico}</span> ${n}</td>`; };
     const arpIco = `<svg viewBox="0 0 24 24" class="lb-arp-ico" aria-hidden="true"><path d="M12 3 L21 11 H16 L12 7.5 L8 11 H3 Z" fill="var(--pop-blue)" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/><path d="M12 11 L21 19 H16 L12 15.5 L8 19 H3 Z" fill="var(--pop-blue)" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/></svg>`;
     const arpCell = v => `<td><span class="lb-arp">${arpIco}${v || 0}</span></td>`;
+    const floorIco = `<svg viewBox="0 0 24 24" class="lb-arp-ico" aria-hidden="true"><path d="M2 21 L9 6 L13 14 L16 9 L22 21 Z" fill="var(--pop-yellow)" stroke="var(--ink)" stroke-width="2.4" stroke-linejoin="round"/><path d="M9 6 L11 9 L8 10 Z" fill="#fff" stroke="var(--ink)" stroke-width="1.4" stroke-linejoin="round"/></svg>`;
+    const floorCell = v => `<td><span class="lb-arp">${floorIco}${v || 0}</span></td>`;
 
     // per-board config: column, header, value-cells, my live value, colspan
     const cfg = {
@@ -385,7 +419,7 @@
                   cells: r => `${divCell(r.arp)}${arpCell(r.arp)}`, mine: () => `${divCell(Game().arp())}${arpCell(Game().arp())}`, myVal: () => Game().arp() },
       gauntlet: { title: 'GAUNTLET LEADERBOARD', col: 'gauntlet_best', sel: 'user_id,handle,tag,gauntlet_best,defense', span: 3,
                   head: '<th>#</th><th>Brute</th><th>Best Floor</th>',
-                  cells: r => `<td>${r.gauntlet_best || 0}</td>`, mine: () => `<td>${Game().gauntletBest()}</td>`, myVal: () => Game().gauntletBest() },
+                  cells: r => floorCell(r.gauntlet_best), mine: () => floorCell(Game().gauntletBest()), myVal: () => Game().gauntletBest() },
       rating:   { title: 'PVP LEADERBOARD', col: 'rating', sel: 'user_id,handle,tag,rating,wins,losses,power,defense', span: 5,
                   head: '<th>#</th><th>Brute</th><th>Rating</th><th>W/L</th><th>Power</th>',
                   cells: r => `<td>${r.rating}</td><td>${r.wins}/${r.losses}</td><td>${r.power}</td>`,

@@ -46,7 +46,7 @@
       collection: { weapons: {}, skills: {}, pets: {} },
       masteries: { blade: 0, blunt: 0, axe: 0, spear: 0 },
       brute: null,
-      settings: { autoFight: false, fastFight: false },
+      settings: { autoFight: false, fastFight: false, autoClimb: false },
     };
   }
 
@@ -461,9 +461,10 @@
     }
     return out;
   }
-  function climbGauntlet() {
+  function climbGauntlet(auto) {
     if (fightInProgress) return;
-    if (pendingLevels > 0) { processLevelUps(() => {}); return; }
+    // manual click resolves queued level-ups first; auto-climb leaves them queued
+    if (!auto && pendingLevels > 0) { processLevelUps(() => {}); return; }
     fightInProgress = true;
     const floor = state.gauntlet.floor;
     const mut = mutatorForFloor(floor);
@@ -476,10 +477,10 @@
     renderAll();
     UI.replayBattle(result, state.brute, opp, state.settings.fastFight).then((finished) => {
       if (!finished) { fightInProgress = false; return; }
-      resolveGauntlet(won, floor, result, mut);
+      resolveGauntlet(won, floor, result, mut, auto);
     });
   }
-  function resolveGauntlet(won, floor, result, mut) {
+  function resolveGauntlet(won, floor, result, mut, auto) {
     const isBoss = floor % D.GAUNTLET.bossEvery === 0;
     const isMilestone = floor % D.GAUNTLET.milestoneEvery === 0;
     const rMul = (mut && mut.rewardMul) || {};
@@ -506,14 +507,25 @@
       state.brute.losses++;
       const back = state.gauntlet.checkpoint || 1;
       state.gauntlet.floor = back;
+      state.settings.autoClimb = false;   // stop auto-climbing once you hit your wall
       UI.showOutcome(false, `<div>FELL ON FLOOR ${floor}<br>Back to floor ${back}</div>`);
     }
     progressBounties(fightContext(won, true, result, won ? state.gauntlet.floor : null));
     accumulateStats(extractFightStats(result, won, true, earned));
     fightInProgress = false;
     save(); renderAll();
-    processLevelUps(() => {});
-    idleSoon();
+    const contAuto = () => {
+      if (won && state.settings.autoClimb) {
+        setTimeout(() => { if (state.settings.autoClimb && !fightInProgress) climbGauntlet(true); }, state.settings.fastFight ? 500 : 1400);
+      }
+    };
+    if (auto) {
+      // auto-climb: leave level-ups queued and keep going
+      contAuto();
+    } else {
+      processLevelUps(contAuto);
+      if (!state.settings.autoClimb) idleSoon();
+    }
   }
 
   function activateTab(name) {
@@ -825,7 +837,8 @@
     UI.renderCraft(state.shards, state.craftTarget, state.craftTarget ? craftCost(state.craftTarget) : 0,
       { setTarget: setCraftTarget, craft: forgeCraft });
     UI.renderArenaRank(arenaInfo());
-    UI.renderGauntlet(state.gauntlet, climbGauntlet, !fightInProgress, mutatorForFloor(state.gauntlet.floor));
+    UI.renderGauntlet(state.gauntlet, climbGauntlet, !fightInProgress, mutatorForFloor(state.gauntlet.floor), state.settings);
+    wireGauntletControls();
     ensureBounties();
     UI.renderBounties(state.bounties, { claim: claimBounty, reroll: rerollBounty, rerollDust: state.dust });
     UI.renderCollection(state, masteryLevels());
@@ -853,6 +866,27 @@
   /* ---------------- wiring ---------------- */
   function $(s) { return document.querySelector(s); }
 
+  // gauntlet AUTO/FAST toggles live inside the re-rendered gauntlet content,
+  // so (re)bind them via .onchange (idempotent) after each renderGauntlet
+  function wireGauntletControls() {
+    const ga = $('#gaunt-auto');
+    if (ga) ga.onchange = (e) => {
+      state.settings.autoClimb = e.target.checked;
+      if (e.target.checked) {                       // gauntlet auto and arena auto are mutually exclusive
+        state.settings.autoFight = false;
+        const af = $('#auto-fight'); if (af) af.checked = false;
+      }
+      save();
+      if (e.target.checked && !fightInProgress) climbGauntlet(true);
+    };
+    const gf = $('#gaunt-fast');
+    if (gf) gf.onchange = (e) => {
+      state.settings.fastFight = e.target.checked;
+      const af = $('#fast-fight'); if (af) af.checked = e.target.checked;   // keep arena in sync
+      save();
+    };
+  }
+
   function wireEvents() {
     $('#btn-reroll').addEventListener('click', rollCandidate);
     $('#btn-begin').addEventListener('click', beginGame);
@@ -869,11 +903,16 @@
     });
     $('#auto-fight').addEventListener('change', (e) => {
       state.settings.autoFight = e.target.checked;
+      if (e.target.checked) {                       // arena auto and gauntlet auto are mutually exclusive
+        state.settings.autoClimb = false;
+        const gc = $('#gaunt-auto'); if (gc) gc.checked = false;
+      }
       save();
       if (e.target.checked && !fightInProgress && state.stamina >= 1) doFight(true);
     });
     $('#fast-fight').addEventListener('change', (e) => {
       state.settings.fastFight = e.target.checked;
+      const gf = $('#gaunt-fast'); if (gf) gf.checked = e.target.checked;   // keep gauntlet in sync
       save();
     });
     // pause auto-fight replay cancellation when switching to a non-arena tab is not needed;

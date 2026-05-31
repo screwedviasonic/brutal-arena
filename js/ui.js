@@ -463,9 +463,10 @@
       ${RANK_EMBLEM[d.emblem]}
     </svg>`;
   }
-  function renderGauntlet(g, onClimb, enabled, mutator) {
+  function renderGauntlet(g, onClimb, enabled, mutator, settings) {
     const el = $('#gauntlet-content');
     if (!el) return;
+    settings = settings || {};
     const nextBoss = (g.floor % D.GAUNTLET.bossEvery) === 0;
     const isMilestone = (g.floor % D.GAUNTLET.milestoneEvery) === 0;
     const toBoss = D.GAUNTLET.bossEvery - ((g.floor - 1) % D.GAUNTLET.bossEvery);
@@ -492,9 +493,13 @@
       ${bannerHtml}
       ${mutHtml}
       <div class="gaunt-rules"><span class="gr-tag">HOW IT WORKS</span><p>The tower scales forever. Win to climb; fall and you drop to your last boss checkpoint. No stamina, your power is the only gate.</p></div>
-      <button id="btn-climb" class="primary-btn gaunt-climb" ${enabled ? '' : 'disabled'}>${nextBoss ? 'FIGHT THE BOSS' : 'CLIMB FLOOR ' + g.floor}</button>`;
+      <div class="gaunt-controls">
+        <button id="btn-climb" class="primary-btn gaunt-climb" ${enabled ? '' : 'disabled'}>${nextBoss ? 'FIGHT THE BOSS' : 'CLIMB FLOOR ' + g.floor}</button>
+        <label class="switch"><input type="checkbox" id="gaunt-auto" ${settings.autoClimb ? 'checked' : ''} /><span class="switch-track"></span><span class="switch-label">AUTO</span></label>
+        <label class="switch"><input type="checkbox" id="gaunt-fast" ${settings.fastFight ? 'checked' : ''} /><span class="switch-track"></span><span class="switch-label">FAST</span></label>
+      </div>`;
     const btn = $('#btn-climb');
-    if (btn && enabled) btn.addEventListener('click', onClimb);
+    if (btn && enabled) btn.addEventListener('click', () => onClimb(false));
   }
 
   /* ---------------- bounties ---------------- */

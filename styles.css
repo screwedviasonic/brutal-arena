@@ -631,10 +631,13 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 .gaunt-mut .gm-desc { color: var(--muted); font-size: .9rem; }
 
 /* "how it works" note card */
-.gaunt-rules { position: relative; background: var(--paper2); border: 3px solid var(--ink); border-radius: 8px; padding: 12px 14px 10px; margin: 0 0 14px; box-shadow: var(--shadow-sm); }
+.gaunt-rules { position: relative; background: var(--paper2); border: 3px solid var(--ink); border-radius: 8px; padding: 12px 14px 10px; margin: 20px 0 14px; box-shadow: var(--shadow-sm); }
+#pvp-content .gaunt-rules { margin-top: 22px; }
 .gaunt-rules .gr-tag { position: absolute; top: -11px; left: 12px; font-family: 'Anton', sans-serif; font-size: .62rem; letter-spacing: 1.5px; background: var(--ink); color: var(--paper); padding: 2px 9px; border-radius: 5px; }
 .gaunt-rules p { margin: 0; color: var(--ink); font-size: .86rem; line-height: 1.4; opacity: .82; }
 .gaunt-climb { font-family: 'Bangers', sans-serif; letter-spacing: 2px; font-size: 1.3rem; }
+.gaunt-controls { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.gaunt-controls .primary-btn { flex: 1; min-width: 200px; }
 #btn-climb { display: block; width: 100%; margin-top: 8px; }
 
 /* ============ BOUNTIES ============ */
@@ -678,19 +681,32 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 .stat-banner b { color: var(--pop-yellow); font-family: 'Bangers', sans-serif; font-size: 1.2rem; letter-spacing: 1px; }
 
 /* ============ PVP ============ */
-.pvp-me { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; background: var(--ink); color: var(--paper2); border-radius: 8px; padding: 10px 16px; margin-bottom: 14px; }
-.pvp-rating { font-family: 'Bangers', sans-serif; font-size: 1.8rem; letter-spacing: 1px; color: var(--pop-yellow); -webkit-text-stroke: .5px var(--ink); }
-.pvp-rating b { color: var(--pop-yellow); }
+/* rating badge + identity (mirrors arena division header) */
+.pvp-id .ar-divname { font-size: 2.2rem; }
+.pvp-handle { font-family: 'Anton', sans-serif; letter-spacing: .5px; color: var(--muted); font-size: .82rem; margin-top: 2px; }
 .pvp-actions { margin-bottom: 14px; }
 .pvp-actions .primary-btn { width: 100%; }
-.pvp-opp { border: 4px dashed var(--ink); border-radius: 10px; padding: 12px 14px; background: #fff7d6; }
-.pvp-opp-head { font-family: 'Anton', sans-serif; letter-spacing: .5px; font-size: 1.1rem; margin-bottom: 8px; }
+
+/* opponent card */
+.pvp-opp { border: 3px dashed var(--ink); border-radius: 10px; padding: 12px 14px; background: #fff7d6; }
+.pvp-opp-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.pvp-opp-head b { font-family: 'Anton', sans-serif; letter-spacing: .5px; font-size: 1.05rem; }
+.pvp-opp-tag { font-family: 'Anton', sans-serif; font-size: .66rem; letter-spacing: 1.5px; background: var(--pop-purple); color: #fff; border: 2px solid var(--ink); border-radius: 6px; padding: 3px 9px; -webkit-text-stroke: .3px var(--ink); }
+.pvp-opp-meta { font-family: 'Anton', sans-serif; letter-spacing: 1px; font-size: .78rem; color: var(--muted); }
 .pvp-opp-card { margin-bottom: 10px; }
-.pvp-opp-line { font-weight: 700; margin: 2px 0; }
+.pvp-opp-stats { display: flex; gap: 7px; flex-wrap: wrap; margin: 2px 0 6px; }
+.pvp-opp-stats .ost { display: inline-flex; align-items: baseline; gap: 4px; font-family: 'Bangers', sans-serif; font-size: 1.05rem; line-height: 1; color: var(--ink); border: 2px solid var(--ink); background: #fff; border-radius: 5px; padding: 3px 7px; }
+.pvp-opp-stats .ost i { font-family: 'Anton', sans-serif; font-style: normal; font-size: .6rem; letter-spacing: 1px; color: var(--muted); }
+.pvp-opp-gear { font-family: 'Anton', sans-serif; letter-spacing: .5px; font-size: .85rem; color: var(--ink); opacity: .85; }
 .pvp-fight-btns { display: flex; gap: 10px; }
 .pvp-fight-btns .primary-btn { flex: 2; }
 .pvp-fight-btns .secondary-btn { flex: 1; }
-.pvp-tools { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.pvp-tools { display: flex; gap: 10px; flex-wrap: wrap; margin: 14px 0 0; }
+
+/* "+N power gain if you republish" badge on the update button */
+.pw-delta { font-family: 'Bangers', sans-serif; background: #fff; color: var(--pop-green, #1a8f5a); border: 2px solid var(--ink); border-radius: 5px; padding: 0 7px; margin-left: 4px; -webkit-text-stroke: .3px var(--ink); }
+.gaunt-chip.chip-stale { animation: legpulse 1.1s ease-in-out infinite; }
+.gaunt-chip.chip-stale .gc-v { background: #ffe0b0; }
 .pvp-lb-head { margin-top: 18px; font-family: 'Bangers', sans-serif; letter-spacing: 2px; color: var(--pop-red); -webkit-text-stroke: .4px var(--ink); font-size: 1.4rem; }
 .pvp-lb { width: 100%; border-collapse: separate; border-spacing: 0; margin-top: 10px;
   border: 3px solid var(--ink); border-radius: 8px; overflow: hidden; box-shadow: var(--shadow-sm); background: var(--panel); }
