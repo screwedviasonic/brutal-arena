@@ -46,6 +46,8 @@
       lifetime: emptyStats(),   // account-wide tally across every brute
       training: 0,            // banked idle XP (claimable, capped)
       sparFocus: 0,           // sparring Focus: multiplies idle XP rate, decays
+      prison: [],             // captured players: {id,name,tag,power,at} — grant a power-scaled battle-XP buff
+      captors: [],            // players who beat you when you attacked — impose an XP penalty until you escape
       bounties: null,   // lazily seeded by ensureBounties()
       collection: { weapons: {}, skills: {}, pets: {} },   // base -> highest rarity rank owned
       masteries: { fist: 0, blade: 0, blunt: 0, axe: 0, spear: 0 },
@@ -65,6 +67,8 @@
     if (s.craftKind === undefined) s.craftKind = 'weapon';
     if (typeof s.training !== 'number') s.training = 0;   // legacy stat-bank object -> XP bank
     if (typeof s.sparFocus !== 'number') s.sparFocus = 0;
+    if (!Array.isArray(s.prison)) s.prison = [];
+    if (!Array.isArray(s.captors)) s.captors = [];
     s.lifetime = fillStats(s.lifetime);
     if (s.brute) s.brute.career = fillStats(s.brute.career);
     if (!s.gauntlet) s.gauntlet = { floor: 1, best: 0, checkpoint: 1 };
@@ -144,7 +148,87 @@
   function trainXpRate() { return D.TRAINING.baseXpSec + (state.legacyPerks.trainer || 0) * D.TRAINING.xpPerTrainerSec; }
   function trainXpCap() { return D.TRAINING.capBase + (state.legacyPerks.trainer || 0) * D.TRAINING.capPerTrainer; }
   function goldMul() { return 1 + (state.legacyPerks.goldMul || 0) * 0.20; }
-  function xpMul() { return 1 + (state.legacyPerks.xpMul || 0) * 0.15; }
+  function xpMul() { return Math.max(0.4, 1 + (state.legacyPerks.xpMul || 0) * 0.15 + prisonBuff() - captorPenalty()); }
+
+  /* ---------------- prison (captured players → power-scaled battle-XP buff) ---------------- */
+  const PRISON_SLOTS = 3;
+  const PRISON_PER_CAP = 0.08;     // max XP buff one prisoner can give
+  // a prisoner stronger than you is worth more; weaker still gives a small cut
+  function prisonValue(p) {
+    const mine = livePower() || 1;
+    return Math.max(0.01, Math.min(PRISON_PER_CAP, (p.power / mine) * PRISON_PER_CAP));
+  }
+  function prisonBuff() {
+    const list = state.prison || [];
+    return list.reduce((s, p) => s + prisonValue(p), 0);
+  }
+  function prisonList() {
+    return (state.prison || []).map(p => ({ ...p, buff: prisonValue(p) }));
+  }
+  function capturePrisoner(p) {
+    if (!p || !p.id) return false;
+    state.prison = state.prison || [];
+    if (state.prison.some(x => x.id === p.id)) return false;   // already jailed
+    const entry = { id: p.id, name: p.name || 'Unknown', tag: p.tag || '', power: p.power || 0, at: now() };
+    if (state.prison.length >= PRISON_SLOTS) {
+      // replace the weakest only if the newcomer is stronger
+      let wi = 0; for (let i = 1; i < state.prison.length; i++) if (state.prison[i].power < state.prison[wi].power) wi = i;
+      if (state.prison[wi].power >= entry.power) return false;
+      state.prison[wi] = entry;
+    } else {
+      state.prison.push(entry);
+    }
+    save();
+    return true;
+  }
+  function releasePrisoner(id) {
+    state.prison = (state.prison || []).filter(p => p.id !== id);
+    save();
+  }
+
+  /* ---------------- captors (lose a PvP attack → you're jailed; free yourself) ---------------- */
+  const CAPTOR_PER_CAP = 0.06;     // max battle-XP penalty one captor inflicts
+  function captorValue(p) {
+    const mine = livePower() || 1;
+    return Math.max(0.01, Math.min(CAPTOR_PER_CAP, (p.power / mine) * CAPTOR_PER_CAP));
+  }
+  function captorPenalty() {
+    return (state.captors || []).reduce((s, p) => s + captorValue(p), 0);
+  }
+  function captorList() {
+    return (state.captors || []).map(p => ({ ...p, penalty: captorValue(p), bribe: bribeCost(p) }));
+  }
+  function bribeCost(p) {
+    return Math.max(25, Math.round((p.power || 0) * 0.6));   // gold to buy your way out
+  }
+  function addCaptor(p) {
+    if (!p || !p.id) return false;
+    state.captors = state.captors || [];
+    if (state.captors.some(x => x.id === p.id)) return false;
+    state.captors.push({ id: p.id, name: p.name || 'Unknown', tag: p.tag || '', power: p.power || 0, at: now() });
+    save();
+    return true;
+  }
+  function freeCaptor(id) {   // freed by beating them in a rematch
+    const had = (state.captors || []).some(p => p.id === id);
+    state.captors = (state.captors || []).filter(p => p.id !== id);
+    if (had) save();
+    return had;
+  }
+  function bribeCaptor(id) {  // pay gold to escape without fighting
+    const p = (state.captors || []).find(x => x.id === id);
+    if (!p) return { ok: false };
+    const cost = bribeCost(p);
+    if ((state.gold || 0) < cost) return { ok: false, cost, short: true };
+    state.gold -= cost;
+    state.captors = state.captors.filter(x => x.id !== id);
+    save(); renderAll();
+    return { ok: true, cost, name: p.name };
+  }
+  function livePower() {
+    if (!state.brute || !global.Character) return 0;
+    return global.Character.powerRating(state.brute, metaBonuses());
+  }
   function dropLuck() { return (state.legacyPerks.fortune || 0) * 0.10; }
   function legacyPerksForCreate() { return state.legacyPerks; }
 
@@ -1230,6 +1314,16 @@
     arp: () => (state && state.arena && state.arena.arp) || 0,
     gauntletBest: () => (state && state.gauntlet && state.gauntlet.best) || 0,
     setBruteName: (n) => { if (state && state.brute && n) { state.brute.name = n; save(); renderAll(); } },
+    capturePrisoner: (p) => capturePrisoner(p),
+    releasePrisoner: (id) => { releasePrisoner(id); },
+    prisonList: () => prisonList(),
+    prisonBuff: () => prisonBuff(),
+    addCaptor: (p) => addCaptor(p),
+    freeCaptor: (id) => freeCaptor(id),
+    bribeCaptor: (id) => bribeCaptor(id),
+    captorList: () => captorList(),
+    captorPenalty: () => captorPenalty(),
+    gold: () => (state && state.gold) || 0,
   };
 
   function formatDuration(sec) {

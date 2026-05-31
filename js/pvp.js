@@ -157,6 +157,10 @@
     }
     const lad = await sb.from('ladder').select('*').eq('user_id', user.id).maybeSingle();
     myRow = lad.data || null;
+    // detect whether the egress-optimization column exists (pvp/appearance.sql).
+    // until it's run, fall back to selecting the full row so search/boards keep working.
+    if (myRow) hasAppearance = ('appearance' in myRow);
+    else { const probe = await sb.from('ladder').select('appearance').limit(1); hasAppearance = !probe.error; }
     if (Game() && Game().refreshBrute) Game().refreshBrute();   // brute card shows PvP rating once it loads
   }
 
@@ -192,6 +196,8 @@
     const row = {
       user_id: user.id, handle: handle, tag: tag, defense: snapshot,
       defense_bonuses: bonuses, power: power,
+      // small avatar-only snapshot so list queries don't pull the heavy defense JSON
+      appearance: { skin: (b.appearance || {}).skin, outfit: (b.appearance || {}).outfit, seed: b.seed },
       arp: Game().arp ? Game().arp() : 0, gauntlet_best: Game().gauntletBest ? Game().gauntletBest() : 0,
       updated_at: new Date().toISOString(),
     };
@@ -235,17 +241,22 @@
     setBusy(true);
     try {
       const myRating = myRow ? myRow.rating : 1000;
+      // pull a light pool (no heavy defense JSON), then fetch the chosen brute's full row
       let pool = [];
-      const near = await sb.from('ladder').select('*')
+      const near = await sb.from('ladder').select('user_id,rating')
         .neq('user_id', user.id)
         .gte('rating', myRating - 150).lte('rating', myRating + 150).limit(25);
       pool = (near.data) || [];
       if (!pool.length) {
-        const any = await sb.from('ladder').select('*').neq('user_id', user.id).limit(25);
+        const any = await sb.from('ladder').select('user_id,rating').neq('user_id', user.id).limit(25);
         pool = (any.data) || [];
       }
       if (!pool.length) { toast('No opponents yet. Get another player to sign up — or open the game in another browser to test!', 'bad'); opponent = null; }
-      else opponent = pool[Math.floor(Math.random() * pool.length)];
+      else {
+        const pick = pool[Math.floor(Math.random() * pool.length)];
+        opponent = await fetchFull(pick.user_id);
+        if (!opponent) { toast('Could not load opponent. Try again.', 'bad'); }
+      }
     } catch (e) {
       toast('Matchmaking error: ' + (e.message || e), 'bad');
     } finally {
@@ -285,8 +296,19 @@
     // animate the (authoritative) fight in the shared stage (already visible on the PVP tab)
     const oppName = fullName(opponent.handle, opponent.tag);
     try { await UI().replayBattle(result, me, opponent.defense, Game().fast()); } catch (e) {}
+    const oppRef = { id: opponent.user_id, name: opponent.handle, tag: opponent.tag, power: opponent.power || 0 };
+    let captured = false, freed = false;
+    if (attackerWon) {
+      if (Game().capturePrisoner) captured = Game().capturePrisoner(oppRef);
+      if (Game().freeCaptor) freed = Game().freeCaptor(oppRef.id);   // beating your captor frees you
+    } else if (Game().addCaptor) {
+      Game().addCaptor(oppRef);                                       // lost your attack → they jail you
+    }
+    const note = attackerWon
+      ? (captured ? '<br><span style="color:var(--pop-yellow)">PRISONER TAKEN</span>' : (freed ? '<br><span style="color:var(--pop-yellow)">YOU BROKE FREE</span>' : ''))
+      : '<br><span style="color:var(--pop-red)">CAPTURED</span>';
     UI().showOutcome(attackerWon,
-      `<div>${attackerWon ? 'PVP VICTORY' : 'PVP DEFEAT'}<br>vs ${oppName}</div>`);
+      `<div>${attackerWon ? 'PVP VICTORY' : 'PVP DEFEAT'}<br>vs ${oppName}${note}</div>`);
     await loadMe();
     opponent = null;
     setBusy(false);
@@ -415,7 +437,7 @@
     const me = r => (user && r.user_id === user.id) ? 'me' : '';   // names repeat, so match by id
     const empty = n => `<tr><td colspan="${n}" class="muted">No entries yet.</td></tr>`;
     // brute portrait + name#tag
-    const who = r => `<td class="lb-who">${r.defense && global.Avatar ? `<span class="lb-av">${global.Avatar.svg(r.defense)}</span>` : ''}${fullName(r.handle, r.tag)}</td>`;
+    const who = r => `<td class="lb-who">${global.Avatar ? `<span class="lb-av">${avatarFor(r)}</span>` : ''}${fullName(r.handle, r.tag)}</td>`;
     const divCell = arp => { const ico = (UI() && UI().rankIcon) ? UI().rankIcon(arenaRank(arp)) : ''; return `<td><span class="lb-rank-ico">${ico}</span> ${arenaDivName(arp)}</td>`; };
     const arpIco = `<svg viewBox="0 0 24 24" class="lb-arp-ico" aria-hidden="true"><path d="M12 3 L21 11 H16 L12 7.5 L8 11 H3 Z" fill="var(--pop-blue)" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/><path d="M12 11 L21 19 H16 L12 15.5 L8 19 H3 Z" fill="var(--pop-blue)" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/></svg>`;
     const arpCell = v => `<td><span class="lb-arp">${arpIco}${v || 0}</span></td>`;
@@ -424,13 +446,13 @@
 
     // per-board config: column, header, value-cells, my live value, colspan
     const cfg = {
-      arena:    { title: 'ARENA LEADERBOARD', col: 'arp', sel: 'user_id,handle,tag,arp,defense', span: 4,
+      arena:    { title: 'ARENA LEADERBOARD', col: 'arp', sel: hasAppearance ? 'user_id,handle,tag,arp,appearance' : '*', span: 4,
                   head: '<th>#</th><th>Brute</th><th>Division</th><th>ARP</th>',
                   cells: r => `${divCell(r.arp)}${arpCell(r.arp)}`, mine: () => `${divCell(Game().arp())}${arpCell(Game().arp())}`, myVal: () => Game().arp() },
-      gauntlet: { title: 'GAUNTLET LEADERBOARD', col: 'gauntlet_best', sel: 'user_id,handle,tag,gauntlet_best,defense', span: 3,
+      gauntlet: { title: 'GAUNTLET LEADERBOARD', col: 'gauntlet_best', sel: hasAppearance ? 'user_id,handle,tag,gauntlet_best,appearance' : '*', span: 3,
                   head: '<th>#</th><th>Brute</th><th>Best Floor</th>',
                   cells: r => floorCell(r.gauntlet_best), mine: () => floorCell(Game().gauntletBest()), myVal: () => Game().gauntletBest() },
-      rating:   { title: 'PVP LEADERBOARD', col: 'rating', sel: 'user_id,handle,tag,rating,wins,losses,power,defense', span: 5,
+      rating:   { title: 'PVP LEADERBOARD', col: 'rating', sel: hasAppearance ? 'user_id,handle,tag,rating,wins,losses,power,appearance' : '*', span: 5,
                   head: '<th>#</th><th>Brute</th><th>Rating</th><th>W/L</th><th>Power</th>',
                   cells: r => `<td>${r.rating}</td><td>${r.wins}/${r.losses}</td><td>${r.power}</td>`,
                   mine: () => `<td>${myRow.rating}</td><td>${myRow.wins}/${myRow.losses}</td><td>${myRow.power}</td>`, myVal: () => (myRow ? myRow.rating : 0) },
@@ -457,18 +479,67 @@
   function boardFor(name) {
     if (name === 'arena') renderArenaBoard();
     else if (name === 'gauntlet') renderGauntletBoard();
-    else if (name === 'players') loadRivals().then(renderPlayers);
+    else if (name === 'players') Promise.all([loadRivals(), loadNearby()]).then(renderPlayers);
+    else if (name === 'battles') loadRecent().then(renderBattles);
+    else if (name === 'prison') renderPrison();
   }
 
   /* ---------------- social: search / follow / inspect / challenge ---------------- */
-  const PLAYER_COLS = 'user_id,handle,tag,rating,power,wins,losses,arp,gauntlet_best,defense,defense_bonuses';
+  // list queries pull only the small avatar snapshot, never the heavy defense JSON.
+  // when the `appearance` column isn't present yet (SQL not run), we fall back to the
+  // full row so nothing breaks — `hasAppearance` is detected in loadMe().
+  let hasAppearance = true;
+  const PLAYER_COLS_BASE = 'user_id,handle,tag,rating,power,wins,losses,arp,gauntlet_best';
+  function playerCols() { return hasAppearance ? PLAYER_COLS_BASE + ',appearance' : '*'; }
+  function avatarFor(r) {
+    if (!global.Avatar) return '';
+    const stub = r && r.appearance
+      ? { appearance: { skin: r.appearance.skin, outfit: r.appearance.outfit }, seed: r.appearance.seed || 0 }
+      : (r && r.defense) || { appearance: {}, seed: 0 };
+    return global.Avatar.svg(stub);
+  }
+  async function fetchFull(uid) {   // pull the full row (incl. defense) for one player on demand
+    try { const r = await sb.from('ladder').select('*').eq('user_id', uid).maybeSingle(); return r.data || null; }
+    catch (e) { return null; }
+  }
   let rivals = [];           // ladder rows I follow
   let rivalIds = new Set();
   let searchResults = [];
   let searchQ = '';
+  let nearby = [];           // random discovery list around my power
   let rivalsOk = true;       // false if the rivals table isn't set up
+  let recent = [];           // recent match log (resolved against ladder names)
   const byId = {};            // uid -> ladder row (for button handlers)
   const fmt = (n) => (UI() && UI().fmt) ? UI().fmt(n) : ('' + n);
+
+  // recent battles where I attacked or was defended against
+  async function loadRecent() {
+    if (!user || !sb) { recent = []; return; }
+    try {
+      const m = await sb.from('matches')
+        .select('attacker,defender,attacker_won,attacker_rating_before,attacker_rating_after,defender_rating_before,defender_rating_after,created_at')
+        .or('attacker.eq.' + user.id + ',defender.eq.' + user.id)
+        .order('created_at', { ascending: false }).limit(15);
+      const rows = (m.data) || [];
+      // resolve the other player's name (one light query for all opponents)
+      const ids = Array.from(new Set(rows.map(r => r.attacker === user.id ? r.defender : r.attacker)));
+      let names = {};
+      if (ids.length) {
+        const nm = await sb.from('ladder').select(hasAppearance ? 'user_id,handle,tag,appearance' : 'user_id,handle,tag').in('user_id', ids);
+        (nm.data || []).forEach(p => { names[p.user_id] = p; });
+      }
+      recent = rows.map(r => {
+        const iAttacked = r.attacker === user.id;
+        const oppId = iAttacked ? r.defender : r.attacker;
+        const won = iAttacked ? r.attacker_won : !r.attacker_won;
+        const delta = iAttacked
+          ? (r.attacker_rating_after || 0) - (r.attacker_rating_before || 0)
+          : (r.defender_rating_after || 0) - (r.defender_rating_before || 0);
+        const opp = names[oppId] || {};
+        return { oppId, opp, role: iAttacked ? 'ATK' : 'DEF', won, delta, at: r.created_at };
+      });
+    } catch (e) { recent = []; }
+  }
 
   async function loadRivals() {
     if (!user || !sb) { rivals = []; rivalIds = new Set(); return; }
@@ -477,14 +548,32 @@
       if (f.error) throw f.error;
       const ids = (f.data || []).map(r => r.rival_id);
       rivalIds = new Set(ids);
-      rivals = ids.length ? ((await sb.from('ladder').select(PLAYER_COLS).in('user_id', ids)).data || []) : [];
+      rivals = ids.length ? ((await sb.from('ladder').select(playerCols()).in('user_id', ids)).data || []) : [];
     } catch (e) { rivalsOk = false; rivals = []; rivalIds = new Set(); }
+  }
+  // a random sampling of players around my power, for discovery
+  async function loadNearby() {
+    if (!user || !sb) { nearby = []; return; }
+    const p = livePower() || (myRow && myRow.power) || 100;
+    const lo = Math.floor(p * 0.55), hi = Math.ceil(p * 1.8);
+    try {
+      let res = await sb.from('ladder').select(playerCols()).neq('user_id', user.id)
+        .gte('power', lo).lte('power', hi).limit(25);
+      let rows = (res.data) || [];
+      if (rows.length < 4) {   // not enough in band — widen to anyone
+        const any = await sb.from('ladder').select(playerCols()).neq('user_id', user.id).limit(25);
+        rows = (any.data) || [];
+      }
+      // shuffle and trim so the list feels fresh each visit
+      for (let i = rows.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [rows[i], rows[j]] = [rows[j], rows[i]]; }
+      nearby = rows.slice(0, 10);
+    } catch (e) { nearby = []; }
   }
   async function searchPlayers(q) {
     searchQ = (q || '').trim();
     if (!sb || !searchQ) { searchResults = []; renderPlayers(); return; }
     try {
-      let qb = sb.from('ladder').select(PLAYER_COLS).ilike('handle', '%' + searchQ + '%').order('power', { ascending: false }).limit(20);
+      let qb = sb.from('ladder').select(playerCols()).ilike('handle', '%' + searchQ + '%').order('power', { ascending: false }).limit(20);
       if (user) qb = qb.neq('user_id', user.id);
       searchResults = (await qb).data || [];
     } catch (e) { searchResults = []; }
@@ -503,15 +592,17 @@
     try { await sb.from('rivals').delete().eq('owner_id', user.id).eq('rival_id', uid); } catch (e) {}
     await loadRivals(); renderPlayers();
   }
-  function challenge(uid) {
+  async function challenge(uid) {
     if (busy) return;
     if (!user) { toast('Sign in first (open the PVP tab).', 'bad'); return; }
-    const row = byId[uid]; if (!row) return;
-    opponent = row;
-    attack().then(() => { loadRivals().then(renderPlayers); });
+    const full = await fetchFull(uid);
+    if (!full || !full.defense) { toast('Could not load that player.', 'bad'); return; }
+    opponent = full;
+    attack().then(() => { renderPrison(); Promise.all([loadRivals(), loadRecent()]).then(() => { renderPlayers(); renderBattles(); }); });
   }
-  function inspect(uid) {
-    const r = byId[uid]; if (!r || !r.defense) { toast('Nothing to inspect.', 'bad'); return; }
+  async function inspect(uid) {
+    const r = await fetchFull(uid);
+    if (!r || !r.defense) { toast('Nothing to inspect.', 'bad'); return; }
     const b = r.defense, C = global.Character, I = global.Items, A = global.Avatar;
     const lo = (C && C.loadout) ? C.loadout(b) : { weapon: null, pet: null, skills: [] };
     const s = b.stats || {};
@@ -547,7 +638,7 @@
     byId[r.user_id] = r;
     const isRival = rivalIds.has(r.user_id);
     return `<div class="pl-row">
-      <span class="pl-av">${global.Avatar ? global.Avatar.svg(r.defense) : ''}</span>
+      <span class="pl-av">${avatarFor(r)}</span>
       <div class="pl-main"><div class="pl-name">${fullName(r.handle, r.tag)}</div>
         <div class="pl-sub">PWR ${fmt(r.power)} · RTG ${r.rating} · ${arenaDivName(r.arp)}</div></div>
       <div class="pl-acts">
@@ -556,22 +647,97 @@
         <button class="forge-btn eq" data-pl-challenge="${r.user_id}">FIGHT</button>
       </div></div>`;
   }
+  // shared row action wiring (inspect / rival / challenge buttons)
+  function wireRowActions(el) {
+    el.querySelectorAll('[data-pl-inspect]').forEach(b => b.addEventListener('click', () => inspect(b.dataset.plInspect)));
+    el.querySelectorAll('[data-pl-rival]').forEach(b => b.addEventListener('click', () => (rivalIds.has(b.dataset.plRival) ? removeRival(b.dataset.plRival) : addRival(b.dataset.plRival))));
+    el.querySelectorAll('[data-pl-challenge]').forEach(b => b.addEventListener('click', () => challenge(b.dataset.plChallenge)));
+  }
+
+  /* ----- PLAYERS tab: search + nearby + rivals ----- */
   function renderPlayers() {
     const el = $('#players-content'); if (!el) return;
     if (!sb || !user) { el.innerHTML = '<p class="muted">Sign in (open the PVP tab) to find and add rivals.</p>'; return; }
     const rivalsHtml = rivals.length ? rivals.map(playerRow).join('')
-      : `<p class="muted small">${rivalsOk ? 'No rivals yet — search below and add some.' : 'Rivals need setup — run pvp/rivals.sql in Supabase.'}</p>`;
+      : `<p class="muted small">${rivalsOk ? 'No rivals yet — search or pick from the list below.' : 'Rivals need setup — run pvp/rivals.sql in Supabase.'}</p>`;
+    const nearbyHtml = nearby.length ? nearby.map(playerRow).join('')
+      : `<p class="muted small">No other players in range yet.</p>`;
     el.innerHTML = `
       <div class="pl-search"><input id="pl-q" type="text" maxlength="20" placeholder="Search players by name…" value="${searchQ.replace(/"/g, '&quot;')}" /><button id="pl-go" class="primary-btn gaunt-climb">SEARCH</button></div>
+      ${searchResults.length ? `<div class="brute-sec"><span class="brute-sec-tag">SEARCH RESULTS</span></div><div class="pl-list">${searchResults.map(playerRow).join('')}</div>` : ''}
       <div class="brute-sec"><span class="brute-sec-tag">RIVALS</span></div>
       <div class="pl-list">${rivalsHtml}</div>
-      ${searchResults.length ? `<div class="brute-sec"><span class="brute-sec-tag">SEARCH RESULTS</span></div><div class="pl-list">${searchResults.map(playerRow).join('')}</div>` : ''}`;
+      <div class="brute-sec"><span class="brute-sec-tag">NEAR YOUR POWER</span><button id="pl-shuffle" class="forge-btn" style="margin-left:auto">SHUFFLE</button></div>
+      <div class="pl-list">${nearbyHtml}</div>`;
     const q = $('#pl-q'), go = $('#pl-go');
     if (go) go.addEventListener('click', () => searchPlayers(q.value));
     if (q) q.addEventListener('keydown', e => { if (e.key === 'Enter') searchPlayers(q.value); });
-    el.querySelectorAll('[data-pl-inspect]').forEach(b => b.addEventListener('click', () => inspect(b.dataset.plInspect)));
-    el.querySelectorAll('[data-pl-rival]').forEach(b => b.addEventListener('click', () => (rivalIds.has(b.dataset.plRival) ? removeRival(b.dataset.plRival) : addRival(b.dataset.plRival))));
-    el.querySelectorAll('[data-pl-challenge]').forEach(b => b.addEventListener('click', () => challenge(b.dataset.plChallenge)));
+    const sh = $('#pl-shuffle'); if (sh) sh.addEventListener('click', () => loadNearby().then(renderPlayers));
+    wireRowActions(el);
+  }
+
+  /* ----- BATTLES tab: recent match log ----- */
+  function recentRow(b) {
+    const name = b.opp.handle ? fullName(b.opp.handle, b.opp.tag) : '<span class="muted">Unknown</span>';
+    const d = b.delta > 0 ? '+' + b.delta : '' + b.delta;
+    return `<div class="rb-row">
+      <span class="pl-av sm">${avatarFor(b.opp)}</span>
+      <div class="pl-main"><div class="pl-name">${name}</div>
+        <div class="pl-sub">${b.role === 'ATK' ? 'You attacked' : 'They attacked you'} · RTG ${d}</div></div>
+      <span class="rb-res ${b.won ? 'win' : 'loss'}">${b.won ? 'WON' : 'LOST'}</span>
+    </div>`;
+  }
+  function renderBattles() {
+    const el = $('#battles-content'); if (!el) return;
+    if (!sb || !user) { el.innerHTML = '<p class="muted">Sign in (open the PVP tab) to track your battles.</p>'; return; }
+    const recentHtml = recent.length ? recent.map(recentRow).join('')
+      : `<p class="muted small">No battles yet. Fight someone to start your record.</p>`;
+    el.innerHTML = `
+      <div class="brute-sec"><span class="brute-sec-tag">RECENT BATTLES</span></div>
+      <div class="pl-list">${recentHtml}</div>`;
+  }
+
+  /* ----- PRISON tab: prisoners you hold + captors holding you ----- */
+  function prisonRow(p) {
+    return `<div class="pr-row">
+      <div class="pl-main"><div class="pl-name">${fullName(p.name, p.tag)}</div>
+        <div class="pl-sub">PWR ${fmt(p.power)} · +${Math.round(p.buff * 100)}% battle XP</div></div>
+      <button class="forge-btn" data-pl-release="${p.id}">RELEASE</button>
+    </div>`;
+  }
+  function captorRow(p) {
+    const canPay = Game().gold() >= p.bribe;
+    return `<div class="cap-row">
+      <div class="pl-main"><div class="pl-name">${fullName(p.name, p.tag)}</div>
+        <div class="pl-sub">PWR ${fmt(p.power)} · -${Math.round(p.penalty * 100)}% battle XP</div></div>
+      <div class="pl-acts">
+        <button class="forge-btn eq" data-cap-fight="${p.id}">BREAK OUT</button>
+        <button class="forge-btn${canPay ? '' : ' off'}" data-cap-bribe="${p.id}" ${canPay ? '' : 'disabled'}>BRIBE ${fmt(p.bribe)}g</button>
+      </div></div>`;
+  }
+  function renderPrison() {
+    const el = $('#prison-content'); if (!el) return;
+    const prison = (Game().prisonList ? Game().prisonList() : []);
+    const captors = (Game().captorList ? Game().captorList() : []);
+    const totalBuff = prison.reduce((s, p) => s + p.buff, 0);
+    const totalPen = captors.reduce((s, p) => s + p.penalty, 0);
+    const prisonHtml = prison.length ? prison.map(prisonRow).join('')
+      : `<p class="muted small">No prisoners. Beat a player in PvP to capture them for a battle-XP buff.</p>`;
+    const captorHtml = captors.length ? captors.map(captorRow).join('')
+      : `<p class="muted small">You're a free brute. Lose a PvP attack and the winner jails you here.</p>`;
+    el.innerHTML = `
+      <div class="brute-sec"><span class="brute-sec-tag">YOUR PRISONERS</span>${prison.length ? `<span class="brute-sec-note">+${Math.round(totalBuff * 100)}% battle XP</span>` : ''}</div>
+      <div class="pl-list">${prisonHtml}</div>
+      <div class="brute-sec"><span class="brute-sec-tag">HOLDING YOU</span>${captors.length ? `<span class="brute-sec-note bad">-${Math.round(totalPen * 100)}% battle XP</span>` : ''}</div>
+      <div class="pl-list">${captorHtml}</div>`;
+    el.querySelectorAll('[data-pl-release]').forEach(b => b.addEventListener('click', () => { Game().releasePrisoner(b.dataset.plRelease); renderPrison(); }));
+    el.querySelectorAll('[data-cap-fight]').forEach(b => b.addEventListener('click', () => challenge(b.dataset.capFight)));
+    el.querySelectorAll('[data-cap-bribe]').forEach(b => b.addEventListener('click', () => {
+      const r = Game().bribeCaptor(b.dataset.capBribe);
+      if (r.ok) toast('Bought your freedom for ' + fmt(r.cost) + ' gold.', 'good');
+      else if (r.short) toast('Not enough gold (need ' + fmt(r.cost) + ').', 'bad');
+      renderPrison();
+    }));
   }
 
   // live PvP standing for the brute card (null until the ladder row loads)

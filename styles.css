@@ -115,6 +115,21 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 .pl-name { font-family: 'Anton', sans-serif; letter-spacing: .3px; font-size: 1rem; }
 .pl-sub { color: var(--muted); font-size: .8rem; }
 .pl-acts { display: flex; gap: 6px; flex-wrap: wrap; }
+.pl-av.sm { width: 32px; height: 32px; }
+.brute-sec-note { margin-left: auto; margin-top: -4px; font-family: 'Anton', sans-serif; font-size: .72rem; letter-spacing: .5px; color: var(--pop-green, #2a9d3a); background: var(--paper); padding: 0 6px; }
+#pl-shuffle { margin-top: -6px; }
+
+/* recent battles */
+.rb-row { display: flex; align-items: center; gap: 11px; background: #fff; border: 2px solid var(--ink); border-left: 6px solid var(--muted); border-radius: 7px; padding: 7px 11px; box-shadow: 2px 2px 0 rgba(0,0,0,.13); }
+.rb-res { flex: none; font-family: 'Anton', sans-serif; letter-spacing: 1px; font-size: .82rem; padding: 3px 9px; border: 2px solid var(--ink); border-radius: 5px; }
+.rb-res.win { background: var(--pop-green, #2a9d3a); color: #fff; }
+.rb-res.loss { background: var(--pop-red); color: #fff; }
+
+/* prison */
+.pr-row { display: flex; align-items: center; gap: 11px; background: #fff; border: 2px solid var(--ink); border-left: 6px solid var(--pop-yellow); border-radius: 7px; padding: 8px 11px; box-shadow: 2px 2px 0 rgba(0,0,0,.13); }
+.cap-row { display: flex; align-items: center; gap: 11px; background: #fff; border: 2px solid var(--ink); border-left: 6px solid var(--pop-red); border-radius: 7px; padding: 8px 11px; box-shadow: 2px 2px 0 rgba(0,0,0,.13); }
+.brute-sec-note.bad { color: var(--pop-red); }
+.forge-btn.off { opacity: .45; cursor: not-allowed; }
 
 /* inspect modal */
 .inspect-card { position: relative; max-width: 440px; text-align: left; }
@@ -546,7 +561,7 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 .bderiv b { font-family: 'Bangers', sans-serif; font-size: 1rem; color: var(--pop-yellow); -webkit-text-stroke: .3px var(--ink); }
 
 /* section divider with a tag */
-.brute-sec { position: relative; border-top: 3px solid var(--ink); margin: 22px 0 14px; }
+.brute-sec { position: relative; border-top: 3px solid var(--ink); margin: 22px 0 14px; display: flex; align-items: center; min-height: 8px; }
 .brute-sec-tag { position: absolute; top: -11px; left: 0; font-family: 'Anton', sans-serif; font-size: .66rem; letter-spacing: 1.5px; background: var(--ink); color: var(--paper); padding: 3px 10px; border-radius: 5px; }
 
 /* loadout slots */
