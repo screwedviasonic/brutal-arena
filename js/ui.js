@@ -179,7 +179,7 @@
     const arena = info.arena;
     const pvp = info.pvp;
     const standings = `
-      ${arena ? `<span class="gaunt-chip chip-rank"><span class="bc-medal">${rankIcon(arena.name)}</span><span class="gc-k">ARENA</span><span class="gc-v rank-v">${arena.name.toUpperCase()}</span></span>` : ''}
+      ${arena ? `<span class="gaunt-chip chip-rank"><span class="bc-medal">${rankIcon(arena.name)}</span><span class="gc-k">ARENA</span><span class="gc-v rank-v">${(arena.label || arena.name).toUpperCase()}</span></span>` : ''}
       <span class="gaunt-chip chip-best">${GICON.peak}<span class="gc-k">BEST FLOOR</span><span class="gc-v">${fmt(info.gauntletBest || 0)}</span></span>
       <span class="gaunt-chip chip-cp">${GICON.star}<span class="gc-k">PVP RATING</span><span class="gc-v">${pvp ? fmt(pvp.rating) : '—'}</span></span>`;
 
@@ -616,11 +616,10 @@
     const el = $('#arena-rank');
     if (!el || !info) return;
     const pct = info.isTop ? 100 : Math.min(100, (info.into / info.band) * 100);
-    const next = info.isTop ? null : D.ARENA.divisions[info.idx + 1];
     const progHtml = info.isTop
-      ? `<div class="gaunt-banner milestone">${GICON.crown}<span>TOP DIVISION</span><span class="gb-sub">keep stacking ARP</span></div>`
+      ? `<div class="gaunt-banner milestone">${GICON.crown}<span>TOP RANK</span><span class="gb-sub">Champion I — keep stacking ARP</span></div>`
       : `<div class="ar-next">
-           <span class="gaunt-pill mile-pill">${GICON.flag}<span>NEXT</span><b>${next.toUpperCase()}</b></span>
+           <span class="gaunt-pill mile-pill">${GICON.flag}<span>NEXT</span><b>${info.nextLabel.toUpperCase()}</b></span>
            <div class="ar-barwrap">
              <div class="ar-bar"><div class="ar-fill" style="width:${pct}%"></div></div>
              <span class="ar-barlabel">${info.into} / ${info.band} ARP</span>
@@ -630,7 +629,7 @@
       <div class="gaunt-top">
         <div class="ar-divline">
           <span class="ar-medal">${rankIcon(info.name)}</span>
-          <div class="gaunt-floor ar-divname">${info.name.toUpperCase()}</div>
+          <div class="gaunt-floor ar-divname">${info.label.toUpperCase()}</div>
         </div>
         <div class="gaunt-stats">
           <span class="gaunt-chip chip-best">${GICON.chevron}<span class="gc-k">ARP</span><span class="gc-v">${fmt(info.arp)}</span></span>

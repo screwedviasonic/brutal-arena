@@ -214,10 +214,19 @@
       }).eq('user_id', user.id);
     } catch (e) {}
   }
-  function arenaDivName(arp) {
+  function arenaStep(arp) {
+    const A = global.GAMEDATA && global.GAMEDATA.ARENA;
+    return A ? Math.min(A.steps - 1, Math.floor((arp || 0) / A.bandSize)) : 0;
+  }
+  function arenaRank(arp) {   // rank name (for the medal icon)
     const A = global.GAMEDATA && global.GAMEDATA.ARENA;
     if (!A) return '-';
-    return A.divisions[Math.min(A.divisions.length - 1, Math.floor((arp || 0) / A.bandSize))];
+    return A.divisions[Math.min(A.divisions.length - 1, Math.floor(arenaStep(arp) / 3))];
+  }
+  function arenaDivName(arp) {   // full label, e.g. "Bronze II"
+    const A = global.GAMEDATA && global.GAMEDATA.ARENA;
+    if (!A) return '-';
+    return arenaRank(arp) + ' ' + A.tiers[arenaStep(arp) % 3];
   }
 
   /* ---------------- matchmaking ---------------- */
@@ -407,7 +416,7 @@
     const empty = n => `<tr><td colspan="${n}" class="muted">No entries yet.</td></tr>`;
     // brute portrait + name#tag
     const who = r => `<td class="lb-who">${r.defense && global.Avatar ? `<span class="lb-av">${global.Avatar.svg(r.defense)}</span>` : ''}${fullName(r.handle, r.tag)}</td>`;
-    const divCell = arp => { const n = arenaDivName(arp); const ico = (UI() && UI().rankIcon) ? UI().rankIcon(n) : ''; return `<td><span class="lb-rank-ico">${ico}</span> ${n}</td>`; };
+    const divCell = arp => { const ico = (UI() && UI().rankIcon) ? UI().rankIcon(arenaRank(arp)) : ''; return `<td><span class="lb-rank-ico">${ico}</span> ${arenaDivName(arp)}</td>`; };
     const arpIco = `<svg viewBox="0 0 24 24" class="lb-arp-ico" aria-hidden="true"><path d="M12 3 L21 11 H16 L12 7.5 L8 11 H3 Z" fill="var(--pop-blue)" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/><path d="M12 11 L21 19 H16 L12 15.5 L8 19 H3 Z" fill="var(--pop-blue)" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/></svg>`;
     const arpCell = v => `<td><span class="lb-arp">${arpIco}${v || 0}</span></td>`;
     const floorIco = `<svg viewBox="0 0 24 24" class="lb-arp-ico" aria-hidden="true"><path d="M2 21 L9 6 L13 14 L16 9 L22 21 Z" fill="var(--pop-yellow)" stroke="var(--ink)" stroke-width="2.4" stroke-linejoin="round"/><path d="M9 6 L11 9 L8 10 Z" fill="#fff" stroke="var(--ink)" stroke-width="1.4" stroke-linejoin="round"/></svg>`;

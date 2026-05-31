@@ -41,7 +41,7 @@
       shopStock: { list: [], lastRefresh: 0 },
       legacyPerks: {},
       gauntlet: { floor: 1, best: 0, checkpoint: 1 },
-      arena: { arp: 0, best: 0 },   // ranked division ladder (arp + highest division reached)
+      arena: { arp: 0, best: 0, _stepMigrated: true },   // ranked ladder (arp + highest step reached)
       ascension: { tier: 0 },       // endgame: deepest-floor milestones grant permanent power
       lifetime: emptyStats(),   // account-wide tally across every brute
       training: 0,            // banked idle XP (claimable, capped)
@@ -69,6 +69,8 @@
     if (s.brute) s.brute.career = fillStats(s.brute.career);
     if (!s.gauntlet) s.gauntlet = { floor: 1, best: 0, checkpoint: 1 };
     if (!s.arena) s.arena = { arp: 0, best: 0 };
+    // arena.best switched from division index (0-6) to step index (0-20); rescale old saves
+    if (s.arena._stepMigrated == null) { s.arena.best = (s.arena.best || 0) * 3; s.arena._stepMigrated = true; }
     if (!s.ascension) s.ascension = { tier: 0 };
     if (!s.shopStock) s.shopStock = { list: [], lastRefresh: 0 };
     // refund legacy spent on retired perks, then drop them
@@ -134,10 +136,10 @@
 
   /* ---------------- derived values ---------------- */
   // max stamina + regen now scale with your highest Arena division reached
-  function arenaStaminaBonus() { return ((state.arena && state.arena.best) || 0) * D.ARENA.staminaPerDiv; }
-  function staminaMax() { return STAMINA_BASE + arenaStaminaBonus(); }
+  function arenaBestRank() { return arenaRankIdx((state.arena && state.arena.best) || 0); }
+  function staminaMax() { return STAMINA_BASE + arenaBestRank() * D.ARENA.staminaPerRank; }
   function staminaRegenTime() {
-    return Math.max(6, STAMINA_REGEN_BASE - ((state.arena && state.arena.best) || 0) * D.ARENA.regenPerDiv);
+    return Math.max(6, STAMINA_REGEN_BASE - arenaBestRank() * D.ARENA.regenPerRank);
   }
   function trainXpRate() { return D.TRAINING.baseXpSec + (state.legacyPerks.trainer || 0) * D.TRAINING.xpPerTrainerSec; }
   function trainXpCap() { return D.TRAINING.capBase + (state.legacyPerks.trainer || 0) * D.TRAINING.capPerTrainer; }
@@ -753,17 +755,23 @@
     }, gains);
   }
 
-  /* ---------------- arena rank (division ladder) ---------------- */
-  function arenaDiv(arp) {
-    return Math.min(D.ARENA.divisions.length - 1, Math.floor((arp || 0) / D.ARENA.bandSize));
-  }
+  /* ---------------- arena rank (division ladder w/ sub-tiers) ---------------- */
+  function arenaStep(arp) { return Math.min(D.ARENA.steps - 1, Math.floor((arp || 0) / D.ARENA.bandSize)); }
+  function arenaRankIdx(step) { return Math.min(D.ARENA.divisions.length - 1, Math.floor(step / 3)); }
+  function arenaName(step) { return D.ARENA.divisions[arenaRankIdx(step)]; }            // rank (for the medal)
+  function arenaLabel(step) { return arenaName(step) + ' ' + D.ARENA.tiers[step % 3]; }  // e.g. "Bronze II"
+  function arenaDiv(arp) { return arenaRankIdx(arenaStep(arp)); }                        // legacy: rank index
   function arenaInfo() {
-    const A = D.ARENA, arp = (state.arena && state.arena.arp) || 0, idx = arenaDiv(arp);
-    return { idx, name: A.divisions[idx], into: arp - idx * A.bandSize, band: A.bandSize,
-             isTop: idx >= A.divisions.length - 1, arp };
+    const A = D.ARENA, arp = (state.arena && state.arena.arp) || 0, step = arenaStep(arp);
+    const isTop = step >= A.steps - 1;
+    return {
+      step, rankIdx: arenaRankIdx(step), name: arenaName(step), label: arenaLabel(step),
+      into: arp - step * A.bandSize, band: A.bandSize, isTop, arp,
+      nextLabel: isTop ? null : arenaLabel(step + 1),
+    };
   }
-  function arenaPromoReward(idx) {
-    return { gold: 60 + idx * 70, dust: 8 + idx * 10, legacy: idx >= 6 ? 1 : 0, drop: idx >= 3 };
+  function arenaPromoReward(rankIdx) {
+    return { gold: 60 + rankIdx * 70, dust: 8 + rankIdx * 10, legacy: rankIdx >= 6 ? 1 : 0, drop: rankIdx >= 3 };
   }
   // cross-mode standings shown on the brute card
   function bruteCardData() {
@@ -806,9 +814,9 @@
 
     const oppRng = new RNG(randomSeed());
     // opponent power is driven by your arena DIVISION (rank), not your brute level
-    const aidx = arenaDiv(state.arena.arp);
-    const oppLvl = D.ARENA.baseLevel + aidx * D.ARENA.levelPerDiv;
-    const opponent = C.generateOpponent(oppLvl, oppRng, { level: oppLvl, statMul: 1 + aidx * D.ARENA.statMulPerDiv });
+    const step = arenaStep(state.arena.arp);
+    const oppLvl = D.ARENA.oppLevel(step);
+    const opponent = C.generateOpponent(oppLvl, oppRng, { level: oppLvl, statMul: D.ARENA.oppStatMul(step) });
     const seed = randomSeed();
     const result = global.Combat.simulateBattle(state.brute, opponent, seed, { leftBonuses: metaBonuses() });
     const playerWon = result.winner === 'left';
@@ -821,7 +829,7 @@
 
   function resolveFight(playerWon, opponent, result, auto) {
     const lvl = opponent.level;
-    const econ = 1 + arenaDiv(state.arena.arp) * D.ARENA.econPerDiv;   // higher divisions pay more
+    const econ = 1 + arenaStep(state.arena.arp) * D.ARENA.econPerStep;   // higher steps pay more
     let xp = Math.round((playerWon ? 18 : 7) * Math.pow(lvl, 1.15) * xpMul() * econ);
     let gold = 0, dust = 0, dropTxt = '';
     if (playerWon) {
@@ -846,17 +854,18 @@
     const arpBefore = state.arena.arp || 0;
     state.arena.arp = Math.max(0, arpBefore + (playerWon ? A.winARP : -A.lossARP));
     const arpDelta = state.arena.arp - arpBefore;
-    const newIdx = arenaDiv(state.arena.arp);
+    const newStep = arenaStep(state.arena.arp);
     let promoTxt = '';
-    if (newIdx > (state.arena.best || 0)) {
-      state.arena.best = newIdx;
-      const pr = arenaPromoReward(newIdx);
+    if (newStep > (state.arena.best || 0)) {
+      const rank = arenaRankIdx(newStep);
+      state.arena.best = newStep;
+      const pr = arenaPromoReward(rank);
       state.gold += pr.gold; state.dust += pr.dust; state.legacy += pr.legacy;
-      const pdrop = pr.drop ? ' • ' + lootBadge(dropItem(0.5 + newIdx * 0.06)) : '';
-      promoTxt = `<div class="promo">PROMOTED — ${A.divisions[newIdx].toUpperCase()}!<br>+🪙${pr.gold} • +✦${pr.dust}${pr.legacy ? ' • +🏆' + pr.legacy : ''}${pdrop}</div>`;
-      UI.toast('⬆ Promoted to ' + A.divisions[newIdx] + '!', 'good');
+      const pdrop = pr.drop ? ' • ' + lootBadge(dropItem(0.5 + rank * 0.06)) : '';
+      promoTxt = `<div class="promo">PROMOTED — ${arenaLabel(newStep).toUpperCase()}!<br>+${pr.gold}g • +${pr.dust} dust${pr.legacy ? ' • +' + pr.legacy + ' legacy' : ''}${pdrop}</div>`;
+      UI.toast('Promoted to ' + arenaLabel(newStep) + '!', 'good');
     }
-    const arpHtml = `<div class="arp-line">${arpDelta >= 0 ? '+' : ''}${arpDelta} ARP • ${A.divisions[newIdx]}</div>`;
+    const arpHtml = `<div class="arp-line">${arpDelta >= 0 ? '+' : ''}${arpDelta} ARP • ${arenaLabel(newStep)}</div>`;
 
     const rewardHtml = `<div>+${UI.fmt(xp)} XP • +🪙 ${UI.fmt(gold)}${dust ? ' • +✦ ' + dust : ''}${dropTxt}</div>${arpHtml}${promoTxt}`;
     UI.showOutcome(playerWon, rewardHtml);
@@ -965,7 +974,7 @@
         case 'rarityAny': cur = Math.min(1, rarityOwnedCount(a.rarity)); break;
         case 'masteryAny': cur = maxWeaponMast; break;
         case 'gauntlet': cur = state.gauntlet.best || 0; break;
-        case 'arenaDiv': cur = state.arena.best || 0; break;
+        case 'arenaDiv': cur = arenaRankIdx(state.arena.best || 0); break;
         case 'ascend': cur = (state.ascension && state.ascension.tier) || 0; break;
         case 'career': cur = Math.floor(life[a.stat] || 0); break;
         case 'pvp': cur = pvp ? pvp.rating : 0; break;

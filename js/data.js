@@ -161,18 +161,18 @@
    */
   const ARENA = {
     divisions: ['Rookie', 'Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond', 'Champion'],
-    bandSize: 100,          // ARP per division
+    tiers: ['III', 'II', 'I'],   // sub-tiers within each rank (low step -> III, high -> I)
+    steps: 21,                   // 7 ranks x 3 tiers — one ARP band each
+    bandSize: 100,               // ARP per sub-tier step (2100 ARP to max)
     winARP: 12,
     lossARP: 8,
-    // opponent power is set by your DIVISION (rank), not your brute level.
-    // Tuned (sim-verified) so the ladder is a full-length endgame climb:
-    // Bronze ~lvl30, Diamond ~lvl60, Champion ~lvl110-150.
-    baseLevel: 3,           // Rookie opponent level
-    levelPerDiv: 24,        // +levels per division (Champion ~ level 147)
-    statMulPerDiv: 0.28,    // +stats per division on top of level (Champion ~x2.68)
-    econPerDiv: 0.14,       // +14% gold & XP per division (harder = pays more)
-    staminaPerDiv: 2,       // +2 max stamina per division reached (best) -> Champion +12
-    regenPerDiv: 4,         // -4s stamina regen time per division reached
+    // opponent power scales per STEP on a curve: gentle early (no cliffs),
+    // steep late. Sim-verified smooth +1..+11 level jumps; Champion I ~lvl 139.
+    oppLevel: (step) => Math.round(1 + 0.85 * Math.pow(step, 1.7)),
+    oppStatMul: (step) => 1 + 0.011 * Math.pow(step, 1.7),
+    econPerStep: 0.05,           // +5% gold & XP per step (Champion I ~ +100%)
+    staminaPerRank: 2,           // +2 max stamina per RANK reached (best) -> Champion +12
+    regenPerRank: 4,             // -4s stamina regen per rank reached
   };
 
   /* ---------------- GAUNTLET (endless tower) ---------------- */
