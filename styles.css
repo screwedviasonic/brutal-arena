@@ -266,6 +266,20 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 
 .fighter-slot { display: flex; flex-direction: column; gap: 8px; align-items: center; justify-content: flex-end; min-width: 150px; z-index: 5; }
 
+/* resting state: one brute, centered, no opponent */
+#arena-stage.is-idle { justify-content: center; }
+#arena-stage.is-idle #slot-right { display: none; }
+#arena-stage.is-idle .unit { position: relative; }
+/* nameplate ribbon pinned just above the brute's head */
+#arena-stage.is-idle .unit-name {
+  position: absolute; top: -40px; left: 50%; transform: translateX(-50%) rotate(-2deg);
+  z-index: 7; white-space: nowrap;
+  font-family: 'Bangers', sans-serif; letter-spacing: 1.5px; font-size: 1.15rem;
+  color: #fff; -webkit-text-stroke: .6px var(--ink);
+  background: var(--pop-red); border: 3px solid var(--ink); border-radius: 6px;
+  padding: 2px 12px; box-shadow: 3px 3px 0 var(--ink);
+}
+
 /* ===== animated fighter rig ===== */
 .fighter-rig { width: 138px; height: 218px; position: relative; }
 .fighter-rig.flip { transform: scaleX(-1); }
@@ -798,3 +812,11 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 .acct-chip:hover { background: var(--pop-blue); color: #fff; }
 
 .field input.locked { opacity: .8; cursor: not-allowed; background: var(--paper); }
+
+/* combined arena panel: controls | rank, side by side */
+.arena-main { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+.arena-main .arena-controls { margin: 0; }
+.arena-main #arena-rank { flex: 1; min-width: 260px; border-left: 3px dashed var(--ink); padding-left: 22px; }
+@media (max-width: 680px) {
+  .arena-main #arena-rank { border-left: none; padding-left: 0; border-top: 3px dashed var(--ink); padding-top: 14px; width: 100%; }
+}

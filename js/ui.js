@@ -542,8 +542,28 @@
   /* ============================================================
    * BATTLE REPLAY
    * ============================================================ */
+  // show the player's brute idling in the stage when no fight is happening
+  function showIdleBrute(brute) {
+    if (!brute) return;
+    cancelReplay();              // make sure no replay is mid-flight
+    fighters = {};
+    const left = $('#slot-left'), right = $('#slot-right');
+    if (!left) return;
+    left.innerHTML = `<div class="unit is-brute"><div class="unit-name">${brute.name}</div><div class="fighter-rig" data-rig="idle"></div></div>`;
+    if (right) right.innerHTML = '';
+    const stage = $('#arena-stage'); if (stage) stage.classList.add('is-idle');
+    const vs = document.querySelector('#arena-stage .vs-badge'); if (vs) vs.style.display = 'none';
+    const ov = $('#arena-overlay'); if (ov) ov.classList.add('hidden');
+    const rig = document.querySelector('[data-rig="idle"]');
+    const lo = C.loadout ? C.loadout(brute) : null;
+    const wcat = (lo && lo.weapon) ? catOf(lo.weapon.base) : 'fist';
+    if (rig && global.Fighter) fighters.idle = new global.Fighter(rig, brute, 'right', wcat);
+  }
+
   function setupArena(result, leftBrute, rightBrute) {
     const start = result.events.find(e => e.type === 'start');
+    const stage = $('#arena-stage'); if (stage) stage.classList.remove('is-idle');
+    const vs = document.querySelector('#arena-stage .vs-badge'); if (vs) vs.style.display = '';
     $('#slot-left').innerHTML = renderTeam(start.left);
     $('#slot-right').innerHTML = renderTeam(start.right);
     const unitEls = {};
@@ -981,7 +1001,7 @@
     renderLegacy, legacyPayout, renderTraining,
     renderForge, renderCraft, renderArenaRank, renderGauntlet, renderBounties, renderCollection, renderLifetime, setMeta,
     showLevelUp, isModalOpen,
-    replayBattle, showOutcome, cancelReplay,
+    replayBattle, showOutcome, cancelReplay, showIdleBrute,
     bruteSummaryHtml, fmt,
   };
 })(window);

@@ -513,6 +513,7 @@
     fightInProgress = false;
     save(); renderAll();
     processLevelUps(() => {});
+    idleSoon();
   }
 
   function activateTab(name) {
@@ -697,6 +698,7 @@
     } else {
       // manual fight: open the level-up choice now, then optionally start auto-fighting
       processLevelUps(contAuto);
+      idleSoon();
     }
   }
 
@@ -787,6 +789,13 @@
   function enterGame() {
     UI.showScreen('screen-game');
     renderAll();
+    if (UI.showIdleBrute) UI.showIdleBrute(state.brute);   // brute idles in the stage at rest
+  }
+  // settle back to the idle brute a few seconds after a manual fight result
+  function idleSoon() {
+    setTimeout(() => {
+      if (!fightInProgress && state.brute && !UI.isModalOpen()) UI.showIdleBrute(state.brute);
+    }, 3000);
   }
 
   /* ---------------- rendering ---------------- */

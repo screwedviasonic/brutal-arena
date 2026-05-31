@@ -281,6 +281,10 @@
     opponent = null;
     setBusy(false);
     render();
+    // settle the shared stage back to the idle brute a few seconds after the result
+    setTimeout(() => {
+      if (!busy && UI().showIdleBrute && Game().brute) UI().showIdleBrute(Game().brute());
+    }, 3000);
   }
 
   function setBusy(v) { busy = v; render(); }
