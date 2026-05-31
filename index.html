@@ -77,6 +77,8 @@
         <button class="tab" data-tab="bounties"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4 H17 a2 2 0 0 1 2 2 V18 a2 2 0 0 0 2 2 H8 a2 2 0 0 1 -2 -2 V6" fill="#f1e6c8" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><path d="M6 4 a2 2 0 0 0 0 4 H8 V6 a2 2 0 0 0 -2 -2 Z" fill="#dccfa6" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><path d="M9.5 9 H16 M9.5 12 H16 M9.5 15 H13.5" stroke="#14110d" stroke-width="1.5" stroke-linecap="round"/></svg><span>BOUNTIES</span><span class="nav-badge hidden" id="bounty-badge"></span></button>
         <button class="tab" data-tab="shop"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3 H20 V12 L11 21 L3 13 Z" fill="#ffce3a" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><circle cx="16" cy="8" r="1.9" fill="#fff" stroke="#14110d" stroke-width="1.7"/></svg><span>SHOP</span></button>
         <button class="tab" data-tab="legacy"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 L20.5 11.5 H15.5 L12 8 L8.5 11.5 H3.5 Z" fill="#8338ec" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><path d="M12 11 L20.5 19.5 H15.5 L12 16 L8.5 19.5 H3.5 Z" fill="#8338ec" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/></svg><span>ASCENSION</span></button>
+        <div class="navgroup">SOCIAL</div>
+        <button class="tab" data-tab="players"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="8.5" cy="8" r="3.6" fill="#ffce3a" stroke="#14110d" stroke-width="2"/><path d="M2.5 20 C2.5 14.5 14.5 14.5 14.5 20 Z" fill="#ffce3a" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><circle cx="16.5" cy="9" r="3" fill="#3aa0d6" stroke="#14110d" stroke-width="2"/><path d="M13 19 C13 15 22 14.5 22 19 Z" fill="#3aa0d6" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/></svg><span>PLAYERS</span></button>
       </nav>
       <div id="content">
 
@@ -169,6 +171,14 @@
         <div class="panel" id="brute-card-panel"></div>
       </div>
 
+      <!-- PLAYERS TAB (search / friends / inspect / challenge — shares the fight stage) -->
+      <div class="tabpane" id="tab-players">
+        <div class="panel">
+          <h3 class="comic-title">PLAYERS <span class="ct-sub">RIVALS</span></h3>
+          <div id="players-content"></div>
+        </div>
+      </div>
+
       <!-- SPARRING TAB (shares the fight stage above) -->
       <div class="tabpane" id="tab-sparring">
         <div class="panel idle-panel">
@@ -225,6 +235,14 @@
         <button id="rename-cancel" class="secondary-btn">CANCEL</button>
         <button id="rename-save" class="primary-btn">SAVE</button>
       </div>
+    </div>
+  </div>
+
+  <!-- ============ INSPECT MODAL ============ -->
+  <div id="inspect-modal" class="modal hidden">
+    <div class="modal-card inspect-card">
+      <button id="inspect-close" class="inspect-close" title="Close">✕</button>
+      <div id="inspect-body"></div>
     </div>
   </div>
 

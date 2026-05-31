@@ -244,7 +244,7 @@
         const any = await sb.from('ladder').select('*').neq('user_id', user.id).limit(25);
         pool = (any.data) || [];
       }
-      if (!pool.length) { toast('No opponents yet. Get a friend to sign up — or open the game in another browser to test!', 'bad'); opponent = null; }
+      if (!pool.length) { toast('No opponents yet. Get another player to sign up — or open the game in another browser to test!', 'bad'); opponent = null; }
       else opponent = pool[Math.floor(Math.random() * pool.length)];
     } catch (e) {
       toast('Matchmaking error: ' + (e.message || e), 'bad');
@@ -457,6 +457,121 @@
   function boardFor(name) {
     if (name === 'arena') renderArenaBoard();
     else if (name === 'gauntlet') renderGauntletBoard();
+    else if (name === 'players') loadRivals().then(renderPlayers);
+  }
+
+  /* ---------------- social: search / follow / inspect / challenge ---------------- */
+  const PLAYER_COLS = 'user_id,handle,tag,rating,power,wins,losses,arp,gauntlet_best,defense,defense_bonuses';
+  let rivals = [];           // ladder rows I follow
+  let rivalIds = new Set();
+  let searchResults = [];
+  let searchQ = '';
+  let rivalsOk = true;       // false if the rivals table isn't set up
+  const byId = {};            // uid -> ladder row (for button handlers)
+  const fmt = (n) => (UI() && UI().fmt) ? UI().fmt(n) : ('' + n);
+
+  async function loadRivals() {
+    if (!user || !sb) { rivals = []; rivalIds = new Set(); return; }
+    try {
+      const f = await sb.from('rivals').select('rival_id').eq('owner_id', user.id);
+      if (f.error) throw f.error;
+      const ids = (f.data || []).map(r => r.rival_id);
+      rivalIds = new Set(ids);
+      rivals = ids.length ? ((await sb.from('ladder').select(PLAYER_COLS).in('user_id', ids)).data || []) : [];
+    } catch (e) { rivalsOk = false; rivals = []; rivalIds = new Set(); }
+  }
+  async function searchPlayers(q) {
+    searchQ = (q || '').trim();
+    if (!sb || !searchQ) { searchResults = []; renderPlayers(); return; }
+    try {
+      let qb = sb.from('ladder').select(PLAYER_COLS).ilike('handle', '%' + searchQ + '%').order('power', { ascending: false }).limit(20);
+      if (user) qb = qb.neq('user_id', user.id);
+      searchResults = (await qb).data || [];
+    } catch (e) { searchResults = []; }
+    renderPlayers();
+  }
+  async function addRival(uid) {
+    if (!user || !sb) return;
+    try {
+      const r = await sb.from('rivals').insert({ owner_id: user.id, rival_id: uid });
+      if (r.error) throw r.error;
+      toast('Rival added', 'good'); await loadRivals(); renderPlayers();
+    } catch (e) { rivalsOk = false; toast('Rivals need setup — run pvp/rivals.sql in Supabase.', 'bad'); renderPlayers(); }
+  }
+  async function removeRival(uid) {
+    if (!user || !sb) return;
+    try { await sb.from('rivals').delete().eq('owner_id', user.id).eq('rival_id', uid); } catch (e) {}
+    await loadRivals(); renderPlayers();
+  }
+  function challenge(uid) {
+    if (busy) return;
+    if (!user) { toast('Sign in first (open the PVP tab).', 'bad'); return; }
+    const row = byId[uid]; if (!row) return;
+    opponent = row;
+    attack().then(() => { loadRivals().then(renderPlayers); });
+  }
+  function inspect(uid) {
+    const r = byId[uid]; if (!r || !r.defense) { toast('Nothing to inspect.', 'bad'); return; }
+    const b = r.defense, C = global.Character, I = global.Items, A = global.Avatar;
+    const lo = (C && C.loadout) ? C.loadout(b) : { weapon: null, pet: null, skills: [] };
+    const s = b.stats || {};
+    const app = b.appearance || {};
+    const chip = (k, v) => `<span class="ins-chip"><span class="ins-chip-v">${v}</span><span class="ins-chip-k">${k}</span></span>`;
+    const st = (k, v) => `<span class="ins-stat"><i>${k}</i>${Math.round(v || 0)}</span>`;
+    const gear = (inst, fb) => inst ? `<b style="color:${I.color(inst)}">${I.displayName(inst)}</b>` : `<span class="muted">${fb}</span>`;
+    const skills = (lo.skills && lo.skills.length) ? lo.skills.map(sk => gear(sk, '')).join(', ') : '<span class="muted">None</span>';
+    $('#inspect-body').innerHTML = `
+      <div class="ins-hero">
+        <div class="avatar lg" style="--skin:${app.skin || '#c98b5e'};--outfit:${app.outfit || '#b3261e'}">${A ? A.svg(b) : ''}</div>
+        <div class="ins-id"><div class="ins-name">${fullName(r.handle, r.tag)}</div><div class="ins-lv">LEVEL ${b.level || 1}</div></div>
+      </div>
+      <div class="ins-chips">${chip('POWER', fmt(r.power))}${chip('PVP', r.rating)}${chip('W/L', r.wins + '-' + r.losses)}${chip('ARENA', arenaDivName(r.arp))}${chip('FLOOR', r.gauntlet_best || 0)}</div>
+      <div class="ins-stats">${st('HP', s.hp)}${st('STR', s.strength)}${st('AGI', s.agility)}${st('SPD', s.speed)}</div>
+      <div class="ins-sec">LOADOUT</div>
+      <div class="ins-loadout">
+        <div class="ins-slot"><span class="ins-slot-k">WEAPON</span>${gear(lo.weapon, 'Bare Fists')}</div>
+        <div class="ins-slot"><span class="ins-slot-k">PET</span>${gear(lo.pet, 'None')}</div>
+        <div class="ins-slot"><span class="ins-slot-k">SKILLS</span>${skills}</div>
+      </div>
+      <div class="ins-actions">
+        <button class="primary-btn gaunt-climb" id="ins-fight">CHALLENGE</button>
+        <button class="secondary-btn" id="ins-follow">${rivalIds.has(uid) ? 'REMOVE RIVAL' : 'ADD RIVAL'}</button>
+      </div>`;
+    const close = () => $('#inspect-modal').classList.add('hidden');
+    $('#inspect-close').onclick = close;
+    $('#ins-fight').onclick = () => { close(); challenge(uid); };
+    $('#ins-follow').onclick = () => { (rivalIds.has(uid) ? removeRival(uid) : addRival(uid)); close(); };
+    $('#inspect-modal').classList.remove('hidden');
+  }
+  function playerRow(r) {
+    byId[r.user_id] = r;
+    const isRival = rivalIds.has(r.user_id);
+    return `<div class="pl-row">
+      <span class="pl-av">${global.Avatar ? global.Avatar.svg(r.defense) : ''}</span>
+      <div class="pl-main"><div class="pl-name">${fullName(r.handle, r.tag)}</div>
+        <div class="pl-sub">PWR ${fmt(r.power)} · RTG ${r.rating} · ${arenaDivName(r.arp)}</div></div>
+      <div class="pl-acts">
+        <button class="forge-btn" data-pl-inspect="${r.user_id}">INSPECT</button>
+        <button class="forge-btn eq${isRival ? ' on' : ''}" data-pl-rival="${r.user_id}">${isRival ? 'RIVAL ✓' : '+ RIVAL'}</button>
+        <button class="forge-btn eq" data-pl-challenge="${r.user_id}">FIGHT</button>
+      </div></div>`;
+  }
+  function renderPlayers() {
+    const el = $('#players-content'); if (!el) return;
+    if (!sb || !user) { el.innerHTML = '<p class="muted">Sign in (open the PVP tab) to find and add rivals.</p>'; return; }
+    const rivalsHtml = rivals.length ? rivals.map(playerRow).join('')
+      : `<p class="muted small">${rivalsOk ? 'No rivals yet — search below and add some.' : 'Rivals need setup — run pvp/rivals.sql in Supabase.'}</p>`;
+    el.innerHTML = `
+      <div class="pl-search"><input id="pl-q" type="text" maxlength="20" placeholder="Search players by name…" value="${searchQ.replace(/"/g, '&quot;')}" /><button id="pl-go" class="primary-btn gaunt-climb">SEARCH</button></div>
+      <div class="brute-sec"><span class="brute-sec-tag">RIVALS</span></div>
+      <div class="pl-list">${rivalsHtml}</div>
+      ${searchResults.length ? `<div class="brute-sec"><span class="brute-sec-tag">SEARCH RESULTS</span></div><div class="pl-list">${searchResults.map(playerRow).join('')}</div>` : ''}`;
+    const q = $('#pl-q'), go = $('#pl-go');
+    if (go) go.addEventListener('click', () => searchPlayers(q.value));
+    if (q) q.addEventListener('keydown', e => { if (e.key === 'Enter') searchPlayers(q.value); });
+    el.querySelectorAll('[data-pl-inspect]').forEach(b => b.addEventListener('click', () => inspect(b.dataset.plInspect)));
+    el.querySelectorAll('[data-pl-rival]').forEach(b => b.addEventListener('click', () => (rivalIds.has(b.dataset.plRival) ? removeRival(b.dataset.plRival) : addRival(b.dataset.plRival))));
+    el.querySelectorAll('[data-pl-challenge]').forEach(b => b.addEventListener('click', () => challenge(b.dataset.plChallenge)));
   }
 
   // live PvP standing for the brute card (null until the ladder row loads)

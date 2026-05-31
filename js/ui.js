@@ -61,7 +61,7 @@
     $$('.screen').forEach(s => s.classList.add('hidden'));
     $('#' + id).classList.remove('hidden');
   }
-  const FIGHT_TABS = ['arena', 'gauntlet', 'pvp', 'sparring'];
+  const FIGHT_TABS = ['arena', 'gauntlet', 'pvp', 'sparring', 'players'];
   // the shared fight stage is visible only on the fighting tabs
   function updateFightView(tabName) {
     const fv = $('#fight-view');
