@@ -304,20 +304,24 @@
     // animate the (authoritative) fight in the shared stage (already visible on the PVP tab)
     const oppName = fullName(opponent.handle, opponent.tag);
     try { await UI().replayBattle(result, me, opponent.defense, Game().fast()); } catch (e) {}
-    const oppRef = { id: opponent.user_id, name: opponent.handle, tag: opponent.tag, power: opponent.power || 0 };
-    let captured = false, freed = false;
-    if (attackerWon) {
-      if (Game().capturePrisoner) captured = Game().capturePrisoner(oppRef);
-      if (Game().freeCaptor) freed = Game().freeCaptor(oppRef.id);   // beating your captor frees you
-    } else if (Game().addCaptor) {
-      Game().addCaptor(oppRef);                                       // lost your attack → they jail you
-    }
-    const note = attackerWon
-      ? (captured ? '<br><span style="color:var(--pop-yellow)">PRISONER TAKEN</span>' : (freed ? '<br><span style="color:var(--pop-yellow)">YOU BROKE FREE</span>' : ''))
-      : '<br><span style="color:var(--pop-red)">CAPTURED</span>';
-    UI().showOutcome(attackerWon,
-      `<div>${attackerWon ? 'PVP VICTORY' : 'PVP DEFEAT'}<br>vs ${oppName}${note}</div>`);
-    await loadMe();
+    // post-fight bookkeeping must never strand the busy lock (a loadMe/render
+    // throw would otherwise freeze the PvP tab).
+    try {
+      const oppRef = { id: opponent.user_id, name: opponent.handle, tag: opponent.tag, power: opponent.power || 0 };
+      let captured = false, freed = false;
+      if (attackerWon) {
+        if (Game().capturePrisoner) captured = Game().capturePrisoner(oppRef);
+        if (Game().freeCaptor) freed = Game().freeCaptor(oppRef.id);   // beating your captor frees you
+      } else if (Game().addCaptor) {
+        Game().addCaptor(oppRef);                                       // lost your attack → they jail you
+      }
+      const note = attackerWon
+        ? (captured ? '<br><span style="color:var(--pop-yellow)">PRISONER TAKEN</span>' : (freed ? '<br><span style="color:var(--pop-yellow)">YOU BROKE FREE</span>' : ''))
+        : '<br><span style="color:var(--pop-red)">CAPTURED</span>';
+      UI().showOutcome(attackerWon,
+        `<div>${attackerWon ? 'PVP VICTORY' : 'PVP DEFEAT'}<br>vs ${oppName}${note}</div>`);
+      await loadMe();
+    } catch (e) { console.error('pvp post-fight failed', e); }
     opponent = null;
     setBusy(false);
     render();

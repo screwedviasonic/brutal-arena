@@ -1069,7 +1069,12 @@
     const myToken = ++replayToken;
     curTS = fast ? 0.5 : 1;
     if (global.setFighterTimeScale) global.setFighterTimeScale(curTS);
-    const unitEls = setupArena(result, leftBrute, rightBrute);
+    // setup must not throw out of replayBattle — a failure here would leave the
+    // caller's fight-in-progress lock stuck on. Degrade to no visuals; the fight
+    // still resolves (the result is already computed) and the lock clears.
+    let unitEls = {};
+    try { unitEls = setupArena(result, leftBrute, rightBrute) || {}; }
+    catch (e) { console.error('arena setup failed', e); }
     $('#combat-log').innerHTML = '';
     $('#fx-layer').innerHTML = '';
     $('#arena-overlay').classList.add('hidden');
@@ -1278,8 +1283,11 @@
         if (cancelled()) { resolve(false); return; }
         if (i >= events.length) { resolve(true); return; }
         const ev = events[i++];
-        const d = handle(ev);
-        setTimeout(step, Math.max(20, d * ts));
+        let d = 60;
+        // a single malformed event must never kill the clock — skip it and keep going,
+        // otherwise the fight-in-progress lock never clears and the whole UI hangs.
+        try { d = handle(ev); } catch (e) { console.error('replay event failed', ev && ev.type, e); d = 40; }
+        setTimeout(step, Math.max(20, (d || 0) * ts));
       }
       step();
     });

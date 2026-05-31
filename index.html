@@ -82,6 +82,8 @@
         <button class="tab" data-tab="shop"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3 H20 V12 L11 21 L3 13 Z" fill="#ffce3a" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><circle cx="16" cy="8" r="1.9" fill="#fff" stroke="#14110d" stroke-width="1.7"/></svg><span>SHOP</span></button>
         <button class="tab" data-tab="legacy"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 L20.5 11.5 H15.5 L12 8 L8.5 11.5 H3.5 Z" fill="#8338ec" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><path d="M12 11 L20.5 19.5 H15.5 L12 16 L8.5 19.5 H3.5 Z" fill="#8338ec" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/></svg><span>ASCENSION</span></button>
         <button class="tab" data-tab="achievements"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 13 L6 22 L12 18.5 L18 22 L16 13 Z" fill="#e0563f" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="9" r="6.5" fill="#ffce3a" stroke="#14110d" stroke-width="2"/><path d="M12 5.2 l1.4 2.9 3.2.3 -2.4 2.1 .7 3.1 -2.9-1.7 -2.9 1.7 .7-3.1 -2.4-2.1 3.2-.3 Z" fill="#fff" stroke="#14110d" stroke-width="1.2" stroke-linejoin="round"/></svg><span>ACHIEVEMENTS</span></button>
+        <div class="navgroup">INFO</div>
+        <button class="tab" data-tab="help"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="#3aa0d6" stroke="#14110d" stroke-width="2"/><path d="M9 9 a3 3 0 0 1 5.6 1.4 c0 2-2.6 2.2-2.6 4" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="17.6" r="1.5" fill="#fff"/></svg><span>HELP</span></button>
       </nav>
       <div id="content">
 
@@ -203,6 +205,72 @@
         <div class="panel">
           <h3 class="comic-title">TOURNAMENT <span class="ct-sub">WEEKLY</span></h3>
           <div id="tournament-content"></div>
+        </div>
+      </div>
+
+      <!-- HELP TAB -->
+      <div class="tabpane" id="tab-help">
+        <div class="panel help">
+          <h3 class="comic-title">HOW TO PLAY <span class="ct-sub">GUIDE</span></h3>
+          <p class="help-intro">Brutal Arena is an idle fighting game. You raise a comic-book brute, gear it up, and climb every ladder in the building. Fights play out on their own — your job is to build the strongest brute and choose which ladder to push.</p>
+
+          <div class="brute-sec"><span class="brute-sec-tag">THE CORE LOOP</span></div>
+          <ol class="help-loop">
+            <li>Fight in the <b>Arena</b> or <b>Gauntlet</b> to earn XP, gold, and loot.</li>
+            <li>Spend gold &amp; dust in the <b>Forge</b> and <b>Shop</b> to craft and upgrade gear.</li>
+            <li>Equip your best loadout, level up, and push into tougher opponents.</li>
+            <li>Out of stamina? Bank idle XP, spar for Focus, or climb the no-stamina Gauntlet.</li>
+          </ol>
+
+          <div class="brute-sec"><span class="brute-sec-tag">TOP BAR</span></div>
+          <dl class="help-dl">
+            <dt>LV / PWR</dt><dd>Your brute's level and overall power rating (drives matchmaking).</dd>
+            <dt>Gold</dt><dd>Earned from fights. Spend it in the Shop and Forge.</dd>
+            <dt>Dust</dt><dd>From loot and scrapping gear. Fuels crafting and merging at the Forge.</dd>
+            <dt>Stamina</dt><dd>Each Arena fight costs 1 and regenerates over time. Gauntlet and Sparring cost none.</dd>
+            <dt>Legacy</dt><dd>Prestige currency from Ascension. Buys permanent, account-wide perks.</dd>
+            <dt>Name chip</dt><dd>Your leaderboard handle — click to rename (also renames your brute).</dd>
+          </dl>
+
+          <div class="brute-sec"><span class="brute-sec-tag">FIGHT</span></div>
+          <dl class="help-dl">
+            <dt>Arena</dt><dd>Ranked ladder. Win to gain ARP and climb divisions; lose and you drop ARP. Opponents scale with your division. Costs stamina.</dd>
+            <dt>Gauntlet</dt><dd>Endless tower, no stamina — power is the only gate. Win to climb; fall and you drop to your last boss checkpoint. Bosses and milestones pay bonus rewards.</dd>
+            <dt>PvP</dt><dd>Fight other players' defense brutes for rating. Beating someone captures them as a prisoner; losing an attack gets you jailed by the winner.</dd>
+            <dt>Sparring</dt><dd>No-stakes practice fight. Builds <b>Focus</b>, which multiplies your idle XP rate. Gives no direct XP — a thing to do when out of stamina.</dd>
+          </dl>
+
+          <div class="brute-sec"><span class="brute-sec-tag">BRUTE</span></div>
+          <dl class="help-dl">
+            <dt>Brute</dt><dd>Your fighter's sheet: equipped loadout, stats, records, and standings. Reroll appearance here.</dd>
+            <dt>Forge</dt><dd>Craft and upgrade weapons, pets, and skills with gold &amp; dust. Auto-merge duplicates, auto-equip max power, manage your full inventory.</dd>
+            <dt>Collection</dt><dd>Everything you've ever owned, plus masteries — permanent bonuses for using fists, weapon types, pet species, and skill categories.</dd>
+          </dl>
+
+          <div class="brute-sec"><span class="brute-sec-tag">SOCIAL</span></div>
+          <dl class="help-dl">
+            <dt>Players</dt><dd>Search players, browse fighters near your power, add rivals, inspect their full sheet, and challenge them.</dd>
+            <dt>Prison</dt><dd>Prisoners you capture give a battle-XP buff (bigger if they out-power you). Captors holding you sap XP — break free by beating them or paying a bribe.</dd>
+            <dt>Battles</dt><dd>Your recent PvP history: who fought you, attacker or defender, win/loss, and rating change.</dd>
+            <dt>Tournament</dt><dd>Weekly event. Lock a build before Sunday 20:00 UTC; a round-robin runs and most wins takes the crown. Placement pays gold &amp; legacy — claim from last week's results.</dd>
+          </dl>
+
+          <div class="brute-sec"><span class="brute-sec-tag">PROGRESS</span></div>
+          <dl class="help-dl">
+            <dt>Bounties</dt><dd>Rotating objectives that pay bonus rewards. You're alerted when one completes.</dd>
+            <dt>Shop</dt><dd>Rotating gear for gold, plus division-scaled stamina buffs. Refreshes on a timer, or reroll for gold.</dd>
+            <dt>Ascension</dt><dd>Endgame prestige. Hit deep Gauntlet-floor milestones for Legacy and permanent +power per tier — nothing gets wiped.</dd>
+            <dt>Achievements</dt><dd>Long-term goals tracking your milestones across every system.</dd>
+          </dl>
+
+          <div class="brute-sec"><span class="brute-sec-tag">GOOD TO KNOW</span></div>
+          <ul class="help-tips">
+            <li><b>Rarity</b> runs Common → Mythic. Higher rarity means stronger gear and a brighter aura in battle.</li>
+            <li><b>Idle XP</b> banks while you're away (up to a cap) — claim it when you return. Prisoners and Sparring Focus boost the rate.</li>
+            <li><b>Power</b> only counts your <b>equipped</b> gear, so always wear your best loadout.</li>
+            <li>Every level auto-grants one random stat; gear comes from level-up choices and loot drops.</li>
+            <li><b>RESET</b> (top right) wipes everything — only use it to start completely fresh.</li>
+          </ul>
         </div>
       </div>
 

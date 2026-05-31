@@ -709,7 +709,7 @@
     UI.replayBattle(result, state.brute, opp, state.settings.fastFight).then((finished) => {
       if (!finished) { fightInProgress = false; return; }
       resolveGauntlet(won, floor, result, auto);
-    });
+    }).catch((e) => { console.error('gauntlet replay failed', e); fightInProgress = false; renderAll(); });
   }
   function resolveGauntlet(won, floor, result, auto) {
     const isBoss = floor % D.GAUNTLET.bossEvery === 0;
@@ -829,7 +829,7 @@
       if (!finished) return;
       state.sparFocus = Math.min(D.SPAR.maxFocus, (state.sparFocus || 0) + 1);   // no-stakes: always +1 Focus
       save(); renderAll();
-    });
+    }).catch((e) => { console.error('spar replay failed', e); fightInProgress = false; renderAll(); });
   }
 
   /* ---------------- xp / leveling ---------------- */
@@ -931,7 +931,7 @@
     UI.replayBattle(result, state.brute, opponent, state.settings.fastFight).then((finished) => {
       if (!finished) { fightInProgress = false; return; } // replay was cancelled
       resolveFight(playerWon, opponent, result, auto);
-    });
+    }).catch((e) => { console.error('arena replay failed', e); fightInProgress = false; renderAll(); });
   }
 
   function resolveFight(playerWon, opponent, result, auto) {
