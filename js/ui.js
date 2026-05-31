@@ -394,6 +394,21 @@
     });
   }
 
+  /* ---------------- arena rank ---------------- */
+  function renderArenaRank(info) {
+    const el = $('#arena-rank');
+    if (!el || !info) return;
+    const pct = info.isTop ? 100 : Math.min(100, (info.into / info.band) * 100);
+    const next = info.isTop ? null : D.ARENA.divisions[info.idx + 1];
+    el.innerHTML = `
+      <div class="ar-top">
+        <span class="ar-div">${info.name}</span>
+        <span class="muted small">${info.isTop ? fmt(info.arp) + ' ARP' : info.into + ' / ' + info.band + ' ARP'}</span>
+      </div>
+      <div class="ar-bar"><div class="ar-fill" style="width:${pct}%"></div></div>
+      <div class="muted small">${info.isTop ? 'Top division — keep stacking ARP.' : 'Next division: ' + next}</div>`;
+  }
+
   /* ---------------- gauntlet ---------------- */
   function renderGauntlet(g, onClimb, enabled, mutator) {
     const el = $('#gauntlet-content');
@@ -957,7 +972,7 @@
     toast, renderTopbar, showScreen, initTabs, updateFightView,
     renderCreatePreview, renderBruteTab, renderShop, shopCost,
     renderLegacy, legacyPayout, renderTraining,
-    renderForge, renderCraft, renderGauntlet, renderBounties, renderCollection, renderLifetime, setMeta,
+    renderForge, renderCraft, renderArenaRank, renderGauntlet, renderBounties, renderCollection, renderLifetime, setMeta,
     showLevelUp, isModalOpen,
     replayBattle, showOutcome, cancelReplay,
     bruteSummaryHtml, fmt,

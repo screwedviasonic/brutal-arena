@@ -734,3 +734,13 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 .log-line.cl-l { border-left-color: var(--pop-blue); }
 .log-line.cl-r { border-left-color: var(--pop-red); }
 .log-line.cl-start { background: #fff7d6; font-weight: 800; }
+
+/* ===== arena rank (division ladder) ===== */
+.arena-rank-panel { padding: 14px 18px; }
+.ar-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.ar-div { font-family: 'Bangers', sans-serif; font-size: 1.6rem; letter-spacing: 2px; color: var(--pop-red); -webkit-text-stroke: .6px var(--ink); }
+.ar-bar { height: 16px; background: var(--paper2); border: 3px solid var(--ink); border-radius: 4px; overflow: hidden; box-shadow: 2px 2px 0 var(--ink); margin-bottom: 6px; }
+.ar-fill { height: 100%; background: repeating-linear-gradient(45deg, var(--pop-blue) 0 8px, #2a6fd6 8px 16px); transition: width .4s; }
+/* outcome overlay: ARP + promotion lines */
+.arp-line { font-family: 'Anton', sans-serif; letter-spacing: 1px; margin-top: 6px; }
+.promo { margin-top: 8px; font-family: 'Bangers', sans-serif; letter-spacing: 1px; color: var(--pop-yellow); -webkit-text-stroke: .5px var(--ink); font-size: 1.1rem; line-height: 1.2; }

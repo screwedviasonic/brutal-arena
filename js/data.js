@@ -128,6 +128,24 @@
     { id: 'skillSlots', name: 'Open Mind', desc: '+1 equipped skill slot per level', max: 3, cost: 3 },
   ];
 
+  /* ---------------- ARENA (ranked division ladder) ----------------
+   * Stamina-gated ranked career vs NPCs. Wins earn ARP, losses lose some.
+   * Crossing a 100-ARP band promotes you a division; opponents scale with
+   * your division and higher divisions pay more. Distinct from the
+   * Gauntlet's endless free climb.
+   */
+  const ARENA = {
+    divisions: ['Rookie', 'Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond', 'Champion'],
+    bandSize: 100,          // ARP per division
+    winARP: 12,
+    lossARP: 8,
+    // opponent power is set by your DIVISION (rank), not your brute level:
+    baseLevel: 2,           // Rookie opponent level
+    levelPerDiv: 4,         // +levels per division (Champion ~ level 26)
+    statMulPerDiv: 0.10,    // +stats per division on top of level
+    econPerDiv: 0.10,       // +10% gold & XP per division (climb incentive)
+  };
+
   /* ---------------- GAUNTLET (endless tower) ---------------- */
   const GAUNTLET = {
     bossEvery: 5,                 // every Nth floor is a boss
@@ -244,6 +262,6 @@
     NAME_PREFIX, NAME_SUFFIX, NAME_TITLE,
     SKIN_COLORS, OUTFIT_COLORS,
     SHOP_ITEMS, LEGACY_PERKS,
-    GAUNTLET, MASTERY, COLLECTION, BOUNTIES, CRAFT, STAT_DEFS, TRAINING,
+    ARENA, GAUNTLET, MASTERY, COLLECTION, BOUNTIES, CRAFT, STAT_DEFS, TRAINING,
   };
 })(window);

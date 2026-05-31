@@ -39,6 +39,7 @@
       shop: {},
       legacyPerks: {},
       gauntlet: { floor: 1, best: 0, checkpoint: 1 },
+      arena: { arp: 0, best: 0 },   // ranked division ladder (arp + highest division reached)
       lifetime: emptyStats(),   // account-wide tally across every brute
       training: { hp: 0, strength: 0, agility: 0, speed: 0 },  // banked idle stat gains (claimable)
       bounties: null,   // lazily seeded by ensureBounties()
@@ -59,6 +60,7 @@
     s.lifetime = fillStats(s.lifetime);
     if (s.brute) s.brute.career = fillStats(s.brute.career);
     if (!s.gauntlet) s.gauntlet = { floor: 1, best: 0, checkpoint: 1 };
+    if (!s.arena) s.arena = { arp: 0, best: 0 };
     if (!s.collection) s.collection = { weapons: {}, skills: {}, pets: {} };
     if (!s.masteries) s.masteries = { blade: 0, blunt: 0, axe: 0, spear: 0 };
     if (s.brute) migrateBrute(s.brute, computeSkillSlots(s.legacyPerks || {}));
@@ -595,6 +597,19 @@
     });
   }
 
+  /* ---------------- arena rank (division ladder) ---------------- */
+  function arenaDiv(arp) {
+    return Math.min(D.ARENA.divisions.length - 1, Math.floor((arp || 0) / D.ARENA.bandSize));
+  }
+  function arenaInfo() {
+    const A = D.ARENA, arp = (state.arena && state.arena.arp) || 0, idx = arenaDiv(arp);
+    return { idx, name: A.divisions[idx], into: arp - idx * A.bandSize, band: A.bandSize,
+             isTop: idx >= A.divisions.length - 1, arp };
+  }
+  function arenaPromoReward(idx) {
+    return { gold: 60 + idx * 70, dust: 8 + idx * 10, legacy: idx >= 6 ? 1 : 0, drop: idx >= 3 };
+  }
+
   /* ---------------- fighting ---------------- */
   function doFight(auto) {
     if (fightInProgress) return;
@@ -608,7 +623,10 @@
     renderTopbarOnly();
 
     const oppRng = new RNG(randomSeed());
-    const opponent = C.generateOpponent(state.brute.level, oppRng);
+    // opponent power is driven by your arena DIVISION (rank), not your brute level
+    const aidx = arenaDiv(state.arena.arp);
+    const oppLvl = D.ARENA.baseLevel + aidx * D.ARENA.levelPerDiv;
+    const opponent = C.generateOpponent(oppLvl, oppRng, { level: oppLvl, statMul: 1 + aidx * D.ARENA.statMulPerDiv });
     const seed = randomSeed();
     const result = global.Combat.simulateBattle(state.brute, opponent, seed, { leftBonuses: metaBonuses() });
     const playerWon = result.winner === 'left';
@@ -621,11 +639,12 @@
 
   function resolveFight(playerWon, opponent, result, auto) {
     const lvl = opponent.level;
-    let xp = Math.round((playerWon ? 18 : 7) * Math.pow(lvl, 1.15) * xpMul());
+    const econ = 1 + arenaDiv(state.arena.arp) * D.ARENA.econPerDiv;   // higher divisions pay more
+    let xp = Math.round((playerWon ? 18 : 7) * Math.pow(lvl, 1.15) * xpMul() * econ);
     let gold = 0, dust = 0, dropTxt = '';
     if (playerWon) {
       state.brute.wins++;
-      gold = Math.round((10 + lvl * 4 + Math.random() * lvl * 3) * goldMul());
+      gold = Math.round((10 + lvl * 4 + Math.random() * lvl * 3) * goldMul() * econ);
       dust = Math.round(2 + lvl * 0.5);
       state.gold += gold; state.dust += dust;
       // loot drop
@@ -633,14 +652,31 @@
       if (Math.random() < dropChance) dropTxt = ' • ' + lootBadge(dropItem(dropLuck() + 0.04));
     } else {
       state.brute.losses++;
-      gold = Math.round((3 + lvl * 1.5) * goldMul());
+      gold = Math.round((3 + lvl * 1.5) * goldMul() * econ);
       state.gold += gold;
     }
 
     awardMastery(result && result.playerStats);
     syncCollection(state.brute);
 
-    const rewardHtml = `<div>+${UI.fmt(xp)} XP • +🪙 ${UI.fmt(gold)}${dust ? ' • +✦ ' + dust : ''}${dropTxt}</div>`;
+    // ---- ranked ARP + promotions ----
+    const A = D.ARENA;
+    const arpBefore = state.arena.arp || 0;
+    state.arena.arp = Math.max(0, arpBefore + (playerWon ? A.winARP : -A.lossARP));
+    const arpDelta = state.arena.arp - arpBefore;
+    const newIdx = arenaDiv(state.arena.arp);
+    let promoTxt = '';
+    if (newIdx > (state.arena.best || 0)) {
+      state.arena.best = newIdx;
+      const pr = arenaPromoReward(newIdx);
+      state.gold += pr.gold; state.dust += pr.dust; state.legacy += pr.legacy;
+      const pdrop = pr.drop ? ' • ' + lootBadge(dropItem(0.5 + newIdx * 0.06)) : '';
+      promoTxt = `<div class="promo">PROMOTED — ${A.divisions[newIdx].toUpperCase()}!<br>+🪙${pr.gold} • +✦${pr.dust}${pr.legacy ? ' • +🏆' + pr.legacy : ''}${pdrop}</div>`;
+      UI.toast('⬆ Promoted to ' + A.divisions[newIdx] + '!', 'good');
+    }
+    const arpHtml = `<div class="arp-line">${arpDelta >= 0 ? '+' : ''}${arpDelta} ARP • ${A.divisions[newIdx]}</div>`;
+
+    const rewardHtml = `<div>+${UI.fmt(xp)} XP • +🪙 ${UI.fmt(gold)}${dust ? ' • +✦ ' + dust : ''}${dropTxt}</div>${arpHtml}${promoTxt}`;
     UI.showOutcome(playerWon, rewardHtml);
 
     grantXp(xp, true);
@@ -683,6 +719,7 @@
     state.brute = null;
     state.gauntlet.floor = 1;          // new brute starts the climb over (best is kept)
     state.gauntlet.checkpoint = 1;
+    state.arena.arp = 0;               // new brute restarts the arena ladder (best is kept)
     save();
     UI.toast(`🏆 +${payout} legacy earned!`, 'good');
     startCreateScreen();
@@ -759,6 +796,7 @@
     });
     UI.renderCraft(state.shards, state.craftTarget, state.craftTarget ? craftCost(state.craftTarget) : 0,
       { setTarget: setCraftTarget, craft: forgeCraft });
+    UI.renderArenaRank(arenaInfo());
     UI.renderGauntlet(state.gauntlet, climbGauntlet, !fightInProgress, mutatorForFloor(state.gauntlet.floor));
     ensureBounties();
     UI.renderBounties(state.bounties, { claim: claimBounty, reroll: rerollBounty, rerollDust: state.dust });
