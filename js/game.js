@@ -49,6 +49,7 @@
       prison: [],             // captured players: {id,name,tag,power,at} — grant a power-scaled battle-XP buff
       captors: [],            // players who beat you when you attacked — impose an XP penalty until you escape
       tourney: { claimed: {} }, // weekly-tournament reward claims, keyed by tournament_id
+      battlesSeenAt: 0,         // ms of the newest PvP battle the player has viewed (nav "new" dot)
       bounties: null,   // lazily seeded by ensureBounties()
       collection: { weapons: {}, skills: {}, pets: {} },   // base -> highest rarity rank owned
       masteries: { fist: 0, blade: 0, blunt: 0, axe: 0, spear: 0 },
@@ -324,7 +325,7 @@
   }
   function awardMastery(playerStats) {
     if (!playerStats) return;
-    const toastLvl = (label, before, after) => { if (after > before) UI.toast(`${label} Mastery Lv ${after}!`, 'good'); };
+    const toastLvl = (label, before, after) => { if (after > before) UI.toast(`${label} Mastery hits Lv ${after}!`, 'good'); };
     // weapon categories (incl. fists)
     if (playerStats.catHits) {
       for (const cat of D.MASTERY.weaponCats) {
@@ -494,7 +495,7 @@
       }
       if (b.progress > b.target) b.progress = b.target;
       if (b.progress !== before) changed = true;
-      if (b.progress >= b.target && !b.done) { b.done = true; changed = true; UI.toast(`Bounty complete — claim it: ${b.desc}`, 'good'); }
+      if (b.progress >= b.target && !b.done) { b.done = true; changed = true; UI.toast(`Bounty bagged! Step up and claim it: ${b.desc}`, 'good'); }
     }
     if (changed) { save(); updateBountyBadge(); }
   }
@@ -505,6 +506,59 @@
     const n = (state.bounties && state.bounties.list || []).filter(b => b && b.done).length;
     el.textContent = n;
     el.classList.toggle('hidden', n <= 0);
+  }
+
+  /* ---- live info + alerts under each nav-menu button ---- */
+  function setNavSub(id, text, hot) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = text || '';
+    el.classList.toggle('hot', !!hot && !!text);
+  }
+  function setNavBadge(id, show) {
+    const el = document.getElementById(id);
+    if (el) el.classList.toggle('hidden', !show);
+  }
+  function collectionOwned() {
+    const c = state.collection || {};
+    return Object.keys(c.weapons || {}).length + Object.keys(c.skills || {}).length + Object.keys(c.pets || {}).length;
+  }
+  function updateNavInfo() {
+    if (!state || !state.brute) return;
+    const fmt = UI.fmt;
+    const pvp = (global.PVP && global.PVP.navInfo) ? global.PVP.navInfo() : null;
+    // FIGHT
+    setNavSub('nav-arena', arenaInfo().label);
+    const best = (state.gauntlet && state.gauntlet.best) || 0;
+    setNavSub('nav-gauntlet', best > 0 ? 'Floor ' + fmt(best) : '');
+    setNavSub('nav-pvp', (pvp && pvp.rating != null) ? 'RTG ' + pvp.rating : '');
+    const bank = Math.floor(state.training || 0);
+    setNavSub('nav-sparring', bank > 0 ? fmt(bank) + ' XP' : '');
+    // BRUTE
+    setNavSub('nav-brute', 'Lv ' + (state.brute.level || 1) + ' · ' + fmt(Math.round(livePower())));
+    setNavSub('nav-forge', (state.shards || 0) > 0 ? fmt(state.shards) + ' shards' : '');
+    setNavSub('nav-collection', collectionOwned() + ' owned');
+    // SOCIAL
+    setNavSub('nav-prison', (state.prison || []).length ? (state.prison.length + ' held') : '');
+    setNavSub('nav-tournament', (pvp && pvp.tourneyLocked) ? 'Locked in' : '');
+    const battlesNew = !!(pvp && pvp.battlesLatestAt && pvp.battlesLatestAt > (state.battlesSeenAt || 0));
+    setNavBadge('battles-badge', battlesNew);
+    // PROGRESS
+    const asc = ascensionInfo();
+    const canAsc = !!asc.ready && !asc.maxed;
+    setNavBadge('ascend-badge', canAsc);
+    setNavSub('nav-ascension', canAsc ? 'Ready!' : '', true);
+    ensureShop();
+    const dueMs = ((state.shopStock && state.shopStock.lastRefresh) || 0) + D.SHOP.refreshHours * 3600000 - now();
+    setNavSub('nav-shop', '↻ ' + formatDuration(Math.max(0, Math.ceil(dueMs / 1000))));
+    const av = achievementsData();
+    setNavSub('nav-achievements', av.filter(a => a.done).length + '/' + av.length);
+  }
+  // called by PVP when the Battles tab is opened: clear the "new battles" dot
+  function markBattlesSeen() {
+    const pvp = (global.PVP && global.PVP.navInfo) ? global.PVP.navInfo() : null;
+    if (pvp && pvp.battlesLatestAt) { state.battlesSeenAt = pvp.battlesLatestAt; save(); }
+    setNavBadge('battles-badge', false);
   }
   function claimBounty(idx) {
     ensureBounties();
@@ -518,7 +572,7 @@
     if (r.gold) parts.push(`🪙${UI.fmt(r.gold)}`);
     if (r.dust) parts.push(`✦${r.dust}`);
     if (r.legacy) parts.push(`🏆${r.legacy}`);
-    UI.toast(`📜 Claimed: ${parts.join(' • ')}`, 'good');
+    UI.toast(`📜 Loot in the bag: ${parts.join(' • ')}`, 'good');
     state.bounties.list[idx] = rollBounty();
     save(); renderAll();
   }
@@ -527,7 +581,7 @@
     const b = state.bounties.list[idx];
     if (!b || b.done) return;
     const cost = D.BOUNTIES.rerollCost;
-    if (state.dust < cost) { UI.toast('Not enough dust to reroll.', 'bad'); return; }
+    if (state.dust < cost) { UI.toast('Not enough dust for that reroll.', 'bad'); return; }
     state.dust -= cost;
     state.bounties.list[idx] = rollBounty();
     save(); renderAll();
@@ -551,7 +605,7 @@
     const i = eq.skills.indexOf(uid);
     if (i >= 0) { eq.skills.splice(i, 1); }
     else {
-      if (eq.skills.length >= skillSlots()) { UI.toast('All skill slots full — unequip one first.', 'bad'); return; }
+      if (eq.skills.length >= skillSlots()) { UI.toast('Skill slots are jammed full. Drop one first.', 'bad'); return; }
       if (!state.brute.skills.some(s => s.uid === uid)) return;
       eq.skills.push(uid);
     }
@@ -570,35 +624,35 @@
   function forgeUpgrade(uid) {
     const it = findInstance(uid); if (!it) return;
     const cost = global.Items.upgradeCost(it);
-    if (state.gold < cost) { UI.toast('Not enough gold.', 'bad'); return; }
+    if (state.gold < cost) { UI.toast('Pockets empty, champ.', 'bad'); return; }
     state.gold -= cost; global.Items.upgrade(it);
-    UI.toast(`Upgraded to +${it.level}`, 'good'); save(); renderAll();
+    UI.toast(`Beefed up to +${it.level}!`, 'good'); save(); renderAll();
   }
   function forgeReroll(uid) {
     const it = findInstance(uid); if (!it) return;
-    if (!global.Items.canReroll(it)) { UI.toast('Nothing to reroll.', 'bad'); return; }
+    if (!global.Items.canReroll(it)) { UI.toast('Nothing on this one to reroll.', 'bad'); return; }
     const cost = global.Items.rerollCost(it);
-    if (state.dust < cost) { UI.toast('Not enough dust.', 'bad'); return; }
+    if (state.dust < cost) { UI.toast('Not enough dust for that.', 'bad'); return; }
     state.dust -= cost; global.Items.reroll(it, new RNG(randomSeed()));
-    UI.toast(global.Items.kindOf(it) === 'skill' ? 'Potency rerolled' : 'Affixes rerolled', 'good');
+    UI.toast(global.Items.kindOf(it) === 'skill' ? 'Potency rolled fresh!' : 'Affixes rolled fresh!', 'good');
     save(); renderAll();
   }
   function forgeDisenchant(uid) {
     const it = findInstance(uid); if (!it) return;
-    if (isEquipped(uid)) { UI.toast('Unequip it before scrapping.', 'bad'); return; }
+    if (isEquipped(uid)) { UI.toast('Take it off before you scrap it.', 'bad'); return; }
     const inv = inventoryOf(it);
-    if (global.Items.kindOf(it) === 'weapon' && state.brute.weapons.length <= 1) { UI.toast('Cannot scrap your last weapon.', 'bad'); return; }
+    if (global.Items.kindOf(it) === 'weapon' && state.brute.weapons.length <= 1) { UI.toast('No way, that is your last weapon!', 'bad'); return; }
     const d = global.Items.disenchantValue(it);
     const sh = global.Items.shardValue(it);
     state.dust += d; state.shards += sh;
     const i = inv.findIndex(x => x.uid === uid); if (i >= 0) inv.splice(i, 1);
-    UI.toast(`Scrapped (+${d} dust, +${sh} shards)`, 'good'); save(); renderAll();
+    UI.toast(`Smashed for parts (+${d} dust, +${sh} shards)`, 'good'); save(); renderAll();
   }
   function forgeFuse(uid) {
     const it = findInstance(uid); if (!it) return;
     const inv = inventoryOf(it);
     const partner = inv.find(w => global.Items.canFuse(it, w));
-    if (!partner) { UI.toast('Need another identical-rarity copy of the same type to fuse.', 'bad'); return; }
+    if (!partner) { UI.toast('Fusing takes two of the same type at the same rarity.', 'bad'); return; }
     const cost = global.Items.fuseDustCost(it);
     if (state.dust < cost) { UI.toast('Not enough dust to fuse.', 'bad'); return; }
     state.dust -= cost;
@@ -609,7 +663,7 @@
     inv.length = 0; inv.push(...keep);
     collectItem(global.Items.kindOf(fused), fused.base, fused.rarity);
     if (wasEquipped) C.autoEquip(state.brute, skillSlots());
-    UI.toast(`Fused into ${global.Items.rarityName(fused)} ${global.Items.displayName(fused)}!`, 'good');
+    UI.toast(`SMASHED TOGETHER into ${global.Items.rarityName(fused)} ${global.Items.displayName(fused)}!`, 'good');
     save(); renderAll(); refreshIdleBrute();
   }
   // shards needed to craft a base (weapon/pet/skill), scaling with its tier
@@ -629,7 +683,7 @@
     const dict = craftDict(kind);
     if (!base || !dict[base]) { UI.toast('Pick something to craft first.', 'bad'); return; }
     const cost = craftCost(kind, base);
-    if (state.shards < cost) { UI.toast('Not enough shards.', 'bad'); return; }
+    if (state.shards < cost) { UI.toast('Not enough shards for that.', 'bad'); return; }
     state.shards -= cost;
     const rng = new RNG(randomSeed());
     const It = global.Items;
@@ -639,7 +693,7 @@
     if (kind === 'pet') { state.brute.pets.push(item); collectItem('pet', item.base, item.rarity); }
     else if (kind === 'skill') { state.brute.skills.push(item); collectItem('skill', item.base, item.rarity); }
     else addWeaponToBrute(item);
-    UI.toast(`Crafted ${It.rarityName(item)} ${It.displayName(item)}!`, 'good');
+    UI.toast(`Hot off the anvil: ${It.rarityName(item)} ${It.displayName(item)}!`, 'good');
     save(); renderAll();
   }
 
@@ -661,7 +715,7 @@
     const ranked = b.skills.slice().sort((a, c) =>
       (It.rarityRank(c.rarity) - It.rarityRank(a.rarity)) || ((c.level || 0) - (a.level || 0)));
     b.equipped.skills = ranked.slice(0, slots).map(s => s.uid);
-    UI.toast('Equipped your strongest gear', 'good');
+    UI.toast('Suited up in your nastiest gear!', 'good');
     save(); renderAll(); refreshIdleBrute();
   }
   // repeatedly fuse every available duplicate pair of one type (chains up rarities)
@@ -689,8 +743,8 @@
       if (wasEq) C.autoEquip(state.brute, skillSlots());
       fused++;
     }
-    if (fused) { UI.toast(`Auto-merged ${fused} fusion${fused > 1 ? 's' : ''}${ranDry ? ' (out of dust)' : ''}`, 'good'); save(); renderAll(); refreshIdleBrute(); }
-    else UI.toast(ranDry ? 'Not enough dust to fuse.' : 'No duplicates to merge.', 'bad');
+    if (fused) { UI.toast(`Auto-smashed ${fused} fusion${fused > 1 ? 's' : ''}${ranDry ? ' (then ran dry on dust)' : ''}!`, 'good'); save(); renderAll(); refreshIdleBrute(); }
+    else UI.toast(ranDry ? 'Not enough dust to fuse.' : 'No duplicates to smash together.', 'bad');
   }
 
   /* ---------------- gauntlet ---------------- */
@@ -807,10 +861,10 @@
   function claimTraining() {
     if (!state.brute) return;
     const xp = Math.floor(state.training || 0);
-    if (xp <= 0) { UI.toast('No training banked yet — give it some idle time.', 'bad'); return; }
+    if (xp <= 0) { UI.toast('Nothing banked yet. Let it sit and stew a while.', 'bad'); return; }
     state.training = 0;
     grantXp(xp, true);
-    UI.toast('Claimed ' + UI.fmt(xp) + ' training XP', 'good');
+    UI.toast('Cashed in ' + UI.fmt(xp) + ' training XP!', 'good');
     save(); renderAll();
     processLevelUps(() => {});
   }
@@ -838,7 +892,7 @@
     const gained = P.addXp(state.brute, Math.round(amount));
     if (gained > 0) {
       pendingLevels += gained;
-      if (!silent) UI.toast(`✨ Level up! Now level ${state.brute.level}`, 'good');
+      if (!silent) UI.toast(`✨ DING DING! Your brute is now level ${state.brute.level}!`, 'good');
     }
   }
 
@@ -854,7 +908,7 @@
       C.autoEquip(state.brute, skillSlots());   // fill any empty loadout slot with the new item
       syncCollection(state.brute);
       pendingLevels--;
-      UI.toast(`Gained ${choice.icon} ${choice.title}`, 'good');
+      UI.toast(`Snagged ${choice.icon} ${choice.title}!`, 'good');
       renderAll();
       save();
       // chain remaining level-ups, then run the continuation
@@ -904,7 +958,7 @@
     renderAll();
     if (UI.showIdleBrute) UI.showIdleBrute(state.brute);   // refresh the arena idle brute
     if (global.PVP && global.PVP.publishDefense) global.PVP.publishDefense(true);  // update leaderboard snapshot
-    UI.toast('Rolled a fresh look!', 'good');
+    UI.toast('Fresh new look, same bad attitude!', 'good');
   }
 
   /* ---------------- fighting ---------------- */
@@ -912,7 +966,7 @@
     if (fightInProgress) return;
     // manual click resolves any queued level-ups first; auto-fight leaves them queued
     if (!auto && pendingLevels > 0) { processLevelUps(() => {}); return; }
-    if (state.stamina < 1) { if (!auto) UI.toast('⚡ Out of stamina! It regenerates over time.', 'bad'); return; }
+    if (state.stamina < 1) { if (!auto) UI.toast('⚡ Out of gas! Let stamina top back up.', 'bad'); return; }
 
     fightInProgress = true;
     state.stamina--;
@@ -969,8 +1023,8 @@
       const pr = arenaPromoReward(rank);
       state.gold += pr.gold; state.dust += pr.dust; state.legacy += pr.legacy;
       const pdrop = pr.drop ? ' • ' + lootBadge(dropItem(0.5 + rank * 0.06)) : '';
-      promoTxt = `<div class="promo">PROMOTED — ${arenaLabel(newStep).toUpperCase()}!<br>+${pr.gold}g • +${pr.dust} dust${pr.legacy ? ' • +' + pr.legacy + ' legacy' : ''}${pdrop}</div>`;
-      UI.toast('Promoted to ' + arenaLabel(newStep) + '!', 'good');
+      promoTxt = `<div class="promo">MOVING ON UP: ${arenaLabel(newStep).toUpperCase()}!<br>+${pr.gold}g • +${pr.dust} dust${pr.legacy ? ' • +' + pr.legacy + ' legacy' : ''}${pdrop}</div>`;
+      UI.toast('MOVING ON UP to ' + arenaLabel(newStep) + '!', 'good');
     }
     const arpHtml = `<div class="arp-line">${arpDelta >= 0 ? '+' : ''}${arpDelta} ARP • ${arenaLabel(newStep)}</div>`;
 
@@ -1028,17 +1082,17 @@
   function buyShopItem(idx) {
     const s = state.shopStock.list[idx];
     if (!s || s.sold) return;
-    if (state.gold < s.price) { UI.toast('Not enough gold.', 'bad'); return; }
+    if (state.gold < s.price) { UI.toast('Pockets empty, champ.', 'bad'); return; }
     state.gold -= s.price;
     if (s.kind === 'pet') { state.brute.pets.push(s.inst); collectItem('pet', s.inst.base, s.inst.rarity); }
     else if (s.kind === 'skill') { state.brute.skills.push(s.inst); collectItem('skill', s.inst.base, s.inst.rarity); }
     else addWeaponToBrute(s.inst);
     s.sold = true;
-    UI.toast(`Bought ${global.Items.rarityName(s.inst)} ${global.Items.displayName(s.inst)}`, 'good');
+    UI.toast(`Sold! ${global.Items.rarityName(s.inst)} ${global.Items.displayName(s.inst)} is yours.`, 'good');
     save(); renderAll();
   }
   function rerollShop() {
-    if (state.gold < D.SHOP.rerollCost) { UI.toast('Not enough gold to reroll.', 'bad'); return; }
+    if (state.gold < D.SHOP.rerollCost) { UI.toast('Not enough gold to restock the shelves.', 'bad'); return; }
     state.gold -= D.SHOP.rerollCost;
     rollShopStock();
     save(); renderAll();
@@ -1093,10 +1147,10 @@
   function ascend() {
     const info = ascensionInfo();
     if (info.maxed) return;
-    if (!info.ready) { UI.toast(`Reach Gauntlet floor ${info.req} to ascend.`, 'bad'); return; }
+    if (!info.ready) { UI.toast(`Punch up to Gauntlet floor ${info.req} before you can ascend.`, 'bad'); return; }
     state.ascension.tier = info.tier + 1;
     state.legacy += info.legacy;
-    UI.toast(`Ascended to tier ${state.ascension.tier}! +${info.legacy} legacy, +${D.ASCENSION.powerPerTier * 100}% power`, 'good');
+    UI.toast(`ASCENDED to tier ${state.ascension.tier}! +${info.legacy} legacy, +${D.ASCENSION.powerPerTier * 100}% power forever!`, 'good');
     save(); renderAll();
   }
 
@@ -1105,10 +1159,10 @@
     const owned = state.legacyPerks[perkId] || 0;
     if (owned >= perk.max) return;
     const cost = perk.cost * (owned + 1);
-    if (state.legacy < cost) { UI.toast('Not enough legacy.', 'bad'); return; }
+    if (state.legacy < cost) { UI.toast('Not enough legacy for that.', 'bad'); return; }
     state.legacy -= cost;
     state.legacyPerks[perkId] = owned + 1;
-    UI.toast(`Bloodline strengthened: ${perk.name}`, 'good');
+    UI.toast(`Bloodline gets MEANER: ${perk.name}!`, 'good');
     save();
     renderAll();
   }
@@ -1152,7 +1206,7 @@
     const h = (global.PVP && global.PVP.getHandle) ? global.PVP.getHandle() : null;
     if (h) {
       inp.value = h; inp.readOnly = true; inp.classList.add('locked');
-      if (note) note.textContent = 'Your brute carries your name — rename from the top bar anytime.';
+      if (note) note.textContent = 'Your brute fights under your name. Rename it from the top bar anytime.';
     } else {
       inp.readOnly = false; inp.classList.remove('locked'); inp.value = '';
       if (note) note.textContent = '';
@@ -1216,6 +1270,7 @@
     UI.renderShop(state.shopStock, state.gold, { buy: buyShopItem, reroll: rerollShop });
     UI.renderLegacy(state, ascensionInfo(), { ascend: ascend, buyPerk: buyLegacyPerk });
     UI.renderTraining(state.training, trainXpRate(), trainXpCap(), state.sparFocus || 0, { claim: claimTraining, spar: spar });
+    updateNavInfo();
     const btn = $('#btn-fight');
     if (btn) btn.disabled = state.stamina < 1 || fightInProgress;
   }
@@ -1229,6 +1284,7 @@
     refreshBountiesIfDue();
     refreshShopIfDue();
     updateBountyBadge();
+    updateNavInfo();
     save();
   }
 
@@ -1306,7 +1362,7 @@
       syncCollection(state.brute);
       enterGame();
       if (elapsed > 60 && Math.floor(state.training || 0) > 0) {
-        UI.toast(`Welcome back! Training XP banked over ${formatDuration(elapsed)} — claim it in the Brute tab.`, 'good');
+        UI.toast(`Look who's back! Your brute banked training XP over ${formatDuration(elapsed)}. Go cash it in on the Brute tab.`, 'good');
       }
     } else {
       startCreateScreen();
@@ -1342,6 +1398,8 @@
     livePower: () => livePower(),
     tourneyClaimed: (id) => tourneyClaimed(id),
     claimTourney: (id, gold, legacy) => claimTourney(id, gold, legacy),
+    updateNavInfo: () => updateNavInfo(),
+    markBattlesSeen: () => markBattlesSeen(),
   };
 
   function formatDuration(sec) {

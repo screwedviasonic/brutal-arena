@@ -380,7 +380,7 @@
         <span class="gaunt-chip chip-cp">${GICON.trophy}<span class="gc-k">LEGACY</span><span class="gc-v">${fmt(state.legacy)}</span></span>
       </div>
       ${ascBody}
-      <div class="gaunt-rules"><span class="gr-tag">HOW IT WORKS</span><p>No resets — your brute is permanent. Push the Gauntlet to each threshold floor to Ascend: bank Legacy and a permanent global power boost, then spend Legacy on the upgrades below.</p></div>
+      <div class="gaunt-rules"><span class="gr-tag">HOW IT WORKS</span><p>Nothing gets wiped, ever. Your brute is here to stay. Punch up to each threshold floor of the Gauntlet to Ascend: pocket the Legacy plus a permanent global power boost, then blow that Legacy on the upgrades below.</p></div>
       <div class="brute-sec"><span class="brute-sec-tag">LEGACY UPGRADES</span></div>
       <div class="legacy-perks">${perksHtml}</div>`;
 
@@ -403,7 +403,6 @@
     const has = banked > 0;
     const pips = Array.from({ length: D.SPAR.maxFocus }, (_, i) => `<span class="focus-pip${i < Math.round(focus) ? ' on' : ''}"></span>`).join('');
     el.innerHTML = `
-      <p class="muted small"><b>SPAR</b> to build Focus — it speeds your idle XP trickle (no stamina, no direct XP) and fades when you stop. Claim the bank for levels.</p>
       <div class="train-focus"><span class="train-focus-lbl">FOCUS</span><div class="focus-pips">${pips}</div><span class="train-focus-mul">${fmul.toFixed(1)}× rate</span></div>
       <div class="train-readout">
         <div class="train-xp"><span class="train-xp-num">${fmt(banked)}</span><span class="train-xp-lbl">/ ${fmt(cap)} XP</span></div>
@@ -413,7 +412,8 @@
       <div class="train-btns">
         <button id="btn-spar" class="primary-btn gaunt-climb">SPAR</button>
         <button id="btn-claim-train" class="secondary-btn" ${has ? '' : 'disabled'}>CLAIM ${fmt(banked)} XP</button>
-      </div>`;
+      </div>
+      <div class="gaunt-rules"><span class="gr-tag">HOW IT WORKS</span><p>Throwing hands in the <b>SPAR</b> ring builds Focus, which cranks up your idle XP trickle (no stamina, no direct XP) and cools off when you quit. Let the bank fill, then cash it in for levels.</p></div>`;
     const sb = $('#btn-spar'); if (sb) sb.addEventListener('click', h.spar);
     const cb = $('#btn-claim-train'); if (cb && has) cb.addEventListener('click', h.claim);
   }
@@ -522,7 +522,7 @@
         <div class="craft-prog muted small">${costChip(Math.min(shards, cost), 'shard')} / ${fmt(cost)}</div>
         <button id="btn-craft" class="primary-btn gaunt-climb" ${ready ? '' : 'disabled'}>CRAFT ${dict[target].name.toUpperCase()}</button>`;
     } else {
-      detail = '<p class="muted small">Pick a target above to bank shards toward it.</p>';
+      detail = '<p class="muted small">Pick a target up top to start stockpiling shards for it.</p>';
     }
     el.innerHTML = `
       <div class="forge-resbar"><span class="forge-res">${costChip(shards, 'shard')}<span class="fr-reslbl">SHARDS BANKED</span></span></div>
@@ -590,7 +590,7 @@
     const list = lists[forgeFilter];
     const fusable = countFusable(list);
     const seg = (k, label) => `<button class="forge-seg${k === forgeFilter ? ' active' : ''}" data-seg="${k}">${label}<span class="seg-n">${lists[k].length}</span></button>`;
-    const empty = { weapon: 'No weapons yet — win some loot!', pet: 'No pets yet.', skill: 'No skills yet.' }[forgeFilter];
+    const empty = { weapon: 'No weapons yet. Go crack some skulls for loot!', pet: 'No pets in the stable yet.', skill: 'No skills learned yet.' }[forgeFilter];
     // equipped first, then strongest
     const isEq = it => forgeFilter === 'skill' ? (eq.skills || []).includes(it.uid) : forgeFilter === 'pet' ? eq.pet === it.uid : eq.weapon === it.uid;
     const rankVal = it => forgeFilter === 'pet' ? I.petStats(it).power
@@ -625,7 +625,7 @@
     if (!el || !info) return;
     const pct = info.isTop ? 100 : Math.min(100, (info.into / info.band) * 100);
     const progHtml = info.isTop
-      ? `<div class="gaunt-banner milestone">${GICON.crown}<span>TOP RANK</span><span class="gb-sub">Champion I — keep stacking ARP</span></div>`
+      ? `<div class="gaunt-banner milestone">${GICON.crown}<span>TOP RANK</span><span class="gb-sub">Champion I. Keep stacking ARP, kingpin!</span></div>`
       : `<div class="ar-next">
            <span class="gaunt-pill mile-pill">${GICON.flag}<span>NEXT</span><b>${info.nextLabel.toUpperCase()}</b></span>
            <div class="ar-barwrap">
@@ -644,7 +644,7 @@
         </div>
       </div>
       ${progHtml}
-      <div class="gaunt-rules"><span class="gr-tag">HOW IT WORKS</span><p>Win ranked fights to bank ARP and climb divisions; lose and you shed some. Opponent power scales with your division, the payouts grow, and each division reached permanently raises your max stamina and regen speed.</p></div>`;
+      <div class="gaunt-rules"><span class="gr-tag">HOW IT WORKS</span><p>Win ranked scraps to bank ARP and climb the divisions; lose and you cough some back up. The matchups get meaner as you rise and the payouts get fatter, and every division you reach permanently bumps your max stamina and how fast it refills.</p></div>`;
   }
 
   /* ---------------- gauntlet ---------------- */
@@ -712,7 +712,7 @@
         </div>
       </div>
       ${bannerHtml}
-      <div class="gaunt-rules"><span class="gr-tag">HOW IT WORKS</span><p>The tower scales forever. Win to climb; fall and you drop to your last boss checkpoint. No stamina, your power is the only gate.</p></div>
+      <div class="gaunt-rules"><span class="gr-tag">HOW IT WORKS</span><p>The tower climbs forever. Win and you go up; eat the floor and you tumble to your last boss checkpoint. No stamina needed, raw power is the only bouncer at the door.</p></div>
       <div class="gaunt-controls">
         <button id="btn-climb" class="primary-btn gaunt-climb" ${enabled ? '' : 'disabled'}>${nextBoss ? 'FIGHT THE BOSS' : 'CLIMB FLOOR ' + g.floor}</button>
         <label class="switch"><input type="checkbox" id="gaunt-auto" ${settings.autoClimb ? 'checked' : ''} /><span class="switch-track"></span><span class="switch-label">AUTO</span></label>
@@ -745,7 +745,7 @@
   function renderBounties(bounties, h) {
     const el = $('#bounties-content');
     if (!el) return;
-    if (!bounties || !bounties.list.length) { el.innerHTML = '<p class="muted">No bounties yet.</p>'; return; }
+    if (!bounties || !bounties.list.length) { el.innerHTML = '<p class="muted">No bounties on the board yet.</p>'; return; }
     let timerTxt = 'rotating soon';
     const ms = (bounties.lastRefresh + D.BOUNTIES.refreshHours * 3600000) - Date.now();
     if (ms > 0) { const hrs = Math.floor(ms / 3600000), mins = Math.floor((ms % 3600000) / 60000); timerTxt = `rotates in ${hrs > 0 ? hrs + 'h ' : ''}${mins}m`; }

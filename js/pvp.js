@@ -23,6 +23,8 @@
   let myRow = null;     // my ladder row (rating/wins/losses)
   let opponent = null;  // currently matched opponent row
   let busy = false;
+  let latestBattleAt = 0;     // ms of the newest match involving me (drives the nav "new battles" dot)
+  let myTourneyLocked = false; // whether I've locked a build for the current tournament week
 
   const UI = () => global.UI;
   const Game = () => global.Game;
@@ -67,6 +69,7 @@
     render();
     const active = document.querySelector('.tab.active');
     if (active) boardFor(active.dataset.tab);   // populate the board on the starting tab
+    refreshNavRemote();   // freshen the nav "new battles" / "locked in" indicators
   }
 
   function renderAcct() {
@@ -185,7 +188,7 @@
       if (Game().brute()) await publishDefense(true);
       await loadMe();
       renderAcct();
-      toast('Welcome to the ladder, ' + fullName(handle, tag) + '!', 'good');
+      toast('NEW CHALLENGER on the ladder: ' + fullName(handle, tag) + '!', 'good');
     } catch (e) {
       toast('Sign-in failed: ' + (e.message || e), 'bad');
     } finally {
@@ -212,7 +215,7 @@
     // rating/wins/losses intentionally omitted — the DB guard owns those
     const { error } = await sb.from('ladder').upsert(row, { onConflict: 'user_id' });
     if (error) { toast('Publish failed: ' + error.message, 'bad'); return; }
-    if (!silent) toast('Defense brute published (Power ' + power + ').', 'good');
+    if (!silent) toast('Your defender is on the boards (Power ' + power + '). Let them come!', 'good');
     await loadMe();
     render();
   }
@@ -259,7 +262,7 @@
         const any = await sb.from('ladder').select('user_id,rating').neq('user_id', user.id).limit(25);
         pool = (any.data) || [];
       }
-      if (!pool.length) { toast('No opponents yet. Get another player to sign up — or open the game in another browser to test!', 'bad'); opponent = null; }
+      if (!pool.length) { toast('Nobody to throw down with yet. Get another player to sign up, or open the game in a second browser to test!', 'bad'); opponent = null; }
       else {
         const pick = pool[Math.floor(Math.random() * pool.length)];
         opponent = await fetchFull(pick.user_id);
@@ -365,7 +368,7 @@
     }
     if (!user) {
       el.innerHTML = `
-        <p class="muted small">Sign in to publish your brute and battle other players' brutes for ladder rating. Anonymous — no email needed.</p>
+        <p class="muted small">Sign in to put your brute on the boards and throw down with other players for ladder rating. Totally anonymous, no email needed.</p>
         <label class="field"><span>HANDLE (your ladder name)</span>
           <input id="pvp-handle" type="text" maxlength="16" placeholder="e.g. Skullcrusher" /></label>
         <button id="pvp-signin" class="primary-btn gaunt-climb" ${busy ? 'disabled' : ''}>ENTER THE PVP ARENA</button>
@@ -492,7 +495,7 @@
     if (name === 'arena') renderArenaBoard();
     else if (name === 'gauntlet') renderGauntletBoard();
     else if (name === 'players') Promise.all([loadRivals(), loadNearby()]).then(renderPlayers);
-    else if (name === 'battles') loadRecent().then(renderBattles);
+    else if (name === 'battles') loadRecent().then(() => { renderBattles(); if (Game() && Game().markBattlesSeen) Game().markBattlesSeen(); });
     else if (name === 'prison') renderPrison();
     else if (name === 'tournament') loadTournament().then(renderTournament);
   }
@@ -551,6 +554,7 @@
         const opp = names[oppId] || {};
         return { oppId, opp, role: iAttacked ? 'ATK' : 'DEF', won, delta, at: r.created_at };
       });
+      if (recent[0]) bumpBattleTs(recent[0].at);
     } catch (e) { recent = []; }
   }
 
@@ -597,8 +601,8 @@
     try {
       const r = await sb.from('rivals').insert({ owner_id: user.id, rival_id: uid });
       if (r.error) throw r.error;
-      toast('Rival added', 'good'); await loadRivals(); renderPlayers();
-    } catch (e) { rivalsOk = false; toast('Rivals need setup — run pvp/rivals.sql in Supabase.', 'bad'); renderPlayers(); }
+      toast('Rivalry on! Watch your back.', 'good'); await loadRivals(); renderPlayers();
+    } catch (e) { rivalsOk = false; toast('Rivals need setup: run pvp/rivals.sql in Supabase.', 'bad'); renderPlayers(); }
   }
   async function removeRival(uid) {
     if (!user || !sb) return;
@@ -609,13 +613,13 @@
     if (busy) return;
     if (!user) { toast('Sign in first (open the PVP tab).', 'bad'); return; }
     const full = await fetchFull(uid);
-    if (!full || !full.defense) { toast('Could not load that player.', 'bad'); return; }
+    if (!full || !full.defense) { toast('Couldn\'t dig up that fighter.', 'bad'); return; }
     opponent = full;
     attack().then(() => { renderPrison(); Promise.all([loadRivals(), loadRecent()]).then(() => { renderPlayers(); renderBattles(); }); });
   }
   async function inspect(uid) {
     const r = await fetchFull(uid);
-    if (!r || !r.defense) { toast('Nothing to inspect.', 'bad'); return; }
+    if (!r || !r.defense) { toast('Nothing to size up here.', 'bad'); return; }
     const b = r.defense, C = global.Character, I = global.Items, A = global.Avatar;
     const lo = (C && C.loadout) ? C.loadout(b) : { weapon: null, pet: null, skills: [] };
     const s = b.stats || {};
@@ -672,9 +676,9 @@
     const el = $('#players-content'); if (!el) return;
     if (!sb || !user) { el.innerHTML = '<p class="muted">Sign in (open the PVP tab) to find and add rivals.</p>'; return; }
     const rivalsHtml = rivals.length ? rivals.map(playerRow).join('')
-      : `<p class="muted small">${rivalsOk ? 'No rivals yet — search or pick from the list below.' : 'Rivals need setup — run pvp/rivals.sql in Supabase.'}</p>`;
+      : `<p class="muted small">${rivalsOk ? 'No rivals yet. Hunt one down above or grab someone from the list below.' : 'Rivals need setup: run pvp/rivals.sql in Supabase.'}</p>`;
     const nearbyHtml = nearby.length ? nearby.map(playerRow).join('')
-      : `<p class="muted small">No other players in range yet.</p>`;
+      : `<p class="muted small">Nobody else in your weight class yet.</p>`;
     el.innerHTML = `
       <div class="pl-search"><input id="pl-q" type="text" maxlength="20" placeholder="Search players by name…" value="${searchQ.replace(/"/g, '&quot;')}" /><button id="pl-go" class="primary-btn gaunt-climb">SEARCH</button></div>
       ${searchResults.length ? `<div class="brute-sec"><span class="brute-sec-tag">SEARCH RESULTS</span></div><div class="pl-list">${searchResults.map(playerRow).join('')}</div>` : ''}
@@ -704,7 +708,7 @@
     const el = $('#battles-content'); if (!el) return;
     if (!sb || !user) { el.innerHTML = '<p class="muted">Sign in (open the PVP tab) to track your battles.</p>'; return; }
     const recentHtml = recent.length ? recent.map(recentRow).join('')
-      : `<p class="muted small">No battles yet. Fight someone to start your record.</p>`;
+      : `<p class="muted small">No battles on the record yet. Go pick a fight!</p>`;
     el.innerHTML = `
       <div class="brute-sec"><span class="brute-sec-tag">RECENT BATTLES</span></div>
       <div class="pl-list">${recentHtml}</div>`;
@@ -747,7 +751,7 @@
     el.querySelectorAll('[data-cap-fight]').forEach(b => b.addEventListener('click', () => challenge(b.dataset.capFight)));
     el.querySelectorAll('[data-cap-bribe]').forEach(b => b.addEventListener('click', () => {
       const r = Game().bribeCaptor(b.dataset.capBribe);
-      if (r.ok) toast('Bought your freedom for ' + fmt(r.cost) + ' gold.', 'good');
+      if (r.ok) toast('Sprung from the slammer for ' + fmt(r.cost) + ' gold!', 'good');
       else if (r.short) toast('Not enough gold (need ' + fmt(r.cost) + ').', 'bad');
       renderPrison();
     }));
@@ -790,9 +794,9 @@
   async function lockBuild() {
     if (!user) { toast('Sign in first (open the PVP tab).', 'bad'); return; }
     const w = tourneyWindows();
-    if (Date.now() >= w.curDeadline.getTime()) { toast('Entries are closed.', 'bad'); return; }
+    if (Date.now() >= w.curDeadline.getTime()) { toast('Too late, the bell already rang. Entries are closed.', 'bad'); return; }
     const b = Game().brute && Game().brute();
-    if (!b) { toast('No brute to enter.', 'bad'); return; }
+    if (!b) { toast('No brute to throw in the ring.', 'bad'); return; }
     const bonuses = Game().metaBonuses();
     const power = global.Character.powerRating(b, bonuses);
     const row = {
@@ -802,7 +806,9 @@
     };
     const { error } = await sb.from('tournament_entries').upsert(row, { onConflict: 'tournament_id,user_id' });
     if (error) { toast('Lock failed: ' + error.message, 'bad'); return; }
-    toast('Build locked in for this week (Power ' + power + ').', 'good');
+    toast('LOCKED AND LOADED for this week (Power ' + power + ')!', 'good');
+    myTourneyLocked = true;
+    if (Game() && Game().updateNavInfo) Game().updateNavInfo();
     await loadTournament(); renderTournament();
   }
 
@@ -813,6 +819,8 @@
     try {
       const mine = await sb.from('tournament_entries').select('user_id,power,locked_at').eq('tournament_id', w.curId).eq('user_id', user.id).maybeSingle();
       tourney.myEntry = mine.data || null;
+      myTourneyLocked = !!tourney.myEntry;
+      if (Game() && Game().updateNavInfo) Game().updateNavInfo();
       const cnt = await sb.from('tournament_entries').select('user_id', { count: 'exact', head: true }).eq('tournament_id', w.curId);
       tourney.count = cnt.count || 0;
       const res = await sb.from('tournament_results').select('standings').eq('tournament_id', w.prevId).maybeSingle();
@@ -871,10 +879,10 @@
       <div class="trn-entry">
         <span class="pl-av lg2">${av}</span>
         <div class="pl-main"><div class="pl-name">${b ? b.name : 'No brute'}</div>
-          <div class="pl-sub">${entered ? 'Locked at Power ' + fmt(tourney.myEntry.power) + ' — re-lock to update' : 'Current Power ' + fmt(myPower)}</div></div>
+          <div class="pl-sub">${entered ? 'Locked at Power ' + fmt(tourney.myEntry.power) + '. Re-lock to update.' : 'Current Power ' + fmt(myPower)}</div></div>
         <button id="trn-lock" class="primary-btn gaunt-climb">${entered ? 'RE-LOCK' : 'LOCK IN'}</button>
       </div>
-      <p class="muted small">Round-robin runs after Sunday 20:00 UTC — your locked build fights every entrant once, most wins takes the crown. Re-lock any time before the deadline.</p>`;
+      <p class="muted small">The round-robin tears through after Sunday 20:00 UTC: your locked build fights every entrant once, and the most wins takes the crown. Re-lock any time before the bell.</p>`;
 
     // ----- last week's results -----
     const st = tourney.standings;
@@ -899,7 +907,7 @@
         <table class="pvp-lb"><thead><tr><th>#</th><th>Brute</th><th>W-L</th><th>Power</th></tr></thead><tbody>${rows}</tbody></table>`;
     } else {
       html += `<div class="brute-sec"><span class="brute-sec-tag">LAST WEEK'S RESULTS</span></div>
-        <p class="muted small">${st && st.length < 2 ? 'Not enough entrants last week.' : 'No results yet.'}</p>`;
+        <p class="muted small">${st && st.length < 2 ? 'Not enough brave souls entered last week.' : 'No results in yet.'}</p>`;
     }
     el.innerHTML = html;
     const lb = $('#trn-lock'); if (lb) lb.addEventListener('click', lockBuild);
@@ -907,7 +915,7 @@
     if (cb) cb.addEventListener('click', () => {
       const myIdx = st.findIndex(s => s.user_id === user.id);
       const rw = tourneyReward(myIdx, st.length);
-      if (Game().claimTourney(tourney.prevId, rw.gold, rw.legacy)) toast('Claimed ' + fmt(rw.gold) + ' gold' + (rw.legacy ? ' + ' + rw.legacy + ' legacy' : '') + '!', 'good');
+      if (Game().claimTourney(tourney.prevId, rw.gold, rw.legacy)) toast('Purse collected: ' + fmt(rw.gold) + ' gold' + (rw.legacy ? ' + ' + rw.legacy + ' legacy' : '') + '!', 'good');
       renderTournament();
     });
   }
@@ -915,7 +923,35 @@
   // live PvP standing for the brute card (null until the ladder row loads)
   function myStats() { return myRow ? { rating: myRow.rating, wins: myRow.wins, losses: myRow.losses } : null; }
 
-  global.PVP = { init, render, publishDefense, renderArenaBoard, renderGauntletBoard, boardFor, claimName, getHandle, myStats };
+  // values the nav menu shows at a glance (rating / tournament lock / newest battle)
+  function navInfo() {
+    return {
+      rating: myRow ? myRow.rating : null,
+      tourneyLocked: myTourneyLocked,
+      battlesLatestAt: latestBattleAt,
+    };
+  }
+  function bumpBattleTs(iso) { const t = iso ? (Date.parse(iso) || 0) : 0; if (t > latestBattleAt) latestBattleAt = t; }
+  // two tiny one-row queries so the nav dots are accurate the moment you return,
+  // without opening the Battles or Tournament tabs.
+  async function refreshNavRemote() {
+    if (!user || !sb) return;
+    try {
+      const m = await sb.from('matches').select('created_at')
+        .or('attacker.eq.' + user.id + ',defender.eq.' + user.id)
+        .order('created_at', { ascending: false }).limit(1);
+      bumpBattleTs(((m.data || [])[0] || {}).created_at);
+    } catch (e) { /* offline: leave nav as-is */ }
+    try {
+      const w = tourneyWindows();
+      const e = await sb.from('tournament_entries').select('user_id')
+        .eq('tournament_id', w.curId).eq('user_id', user.id).maybeSingle();
+      myTourneyLocked = !!(e && e.data);
+    } catch (e) { /* ignore */ }
+    if (Game() && Game().updateNavInfo) Game().updateNavInfo();
+  }
+
+  global.PVP = { init, render, publishDefense, renderArenaBoard, renderGauntletBoard, boardFor, claimName, getHandle, myStats, navInfo, refreshNavRemote };
 
   // self-initialize (game.js also calls init(); the `inited` guard makes that safe)
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
