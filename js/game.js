@@ -36,6 +36,7 @@
       dust: 0,
       shards: 0,
       craftTarget: null,
+      craftKind: 'weapon',
       shop: {},
       legacyPerks: {},
       gauntlet: { floor: 1, best: 0, checkpoint: 1 },
@@ -56,6 +57,7 @@
     if (s.dust == null) s.dust = 0;
     if (s.shards == null) s.shards = 0;
     if (s.craftTarget === undefined) s.craftTarget = null;
+    if (s.craftKind === undefined) s.craftKind = 'weapon';
     if (typeof s.training !== 'number') s.training = 0;   // legacy stat-bank object -> XP bank
     s.lifetime = fillStats(s.lifetime);
     if (s.brute) s.brute.career = fillStats(s.brute.career);
@@ -373,7 +375,7 @@
     const cost = global.Items.upgradeCost(it);
     if (state.gold < cost) { UI.toast('Not enough gold.', 'bad'); return; }
     state.gold -= cost; global.Items.upgrade(it);
-    UI.toast(`⚒️ Upgraded to +${it.level}`, 'good'); save(); renderAll();
+    UI.toast(`Upgraded to +${it.level}`, 'good'); save(); renderAll();
   }
   function forgeReroll(uid) {
     const it = findInstance(uid); if (!it) return;
@@ -381,7 +383,7 @@
     const cost = global.Items.rerollCost(it);
     if (state.dust < cost) { UI.toast('Not enough dust.', 'bad'); return; }
     state.dust -= cost; global.Items.reroll(it, new RNG(randomSeed()));
-    UI.toast(global.Items.kindOf(it) === 'skill' ? '🎲 Potency rerolled' : '🎲 Affixes rerolled', 'good');
+    UI.toast(global.Items.kindOf(it) === 'skill' ? 'Potency rerolled' : 'Affixes rerolled', 'good');
     save(); renderAll();
   }
   function forgeDisenchant(uid) {
@@ -393,7 +395,7 @@
     const sh = global.Items.shardValue(it);
     state.dust += d; state.shards += sh;
     const i = inv.findIndex(x => x.uid === uid); if (i >= 0) inv.splice(i, 1);
-    UI.toast(`♻️ Scrapped (+${d} dust • +${sh} shards)`, 'good'); save(); renderAll();
+    UI.toast(`Scrapped (+${d} dust, +${sh} shards)`, 'good'); save(); renderAll();
   }
   function forgeFuse(uid) {
     const it = findInstance(uid); if (!it) return;
@@ -415,34 +417,89 @@
       else if (k === 'pet') state.collection.pets[fused.base] = true;
     }
     if (wasEquipped) C.autoEquip(state.brute, skillSlots());
-    UI.toast(`✨ Fused into ${global.Items.rarityName(fused)} ${global.Items.displayName(fused)}!`, 'good');
+    UI.toast(`Fused into ${global.Items.rarityName(fused)} ${global.Items.displayName(fused)}!`, 'good');
     save(); renderAll();
   }
-  // shards needed to craft a given weapon base (scales with its tier)
-  function craftCost(base) {
-    const w = D.WEAPONS[base];
-    const tier = (w && w.tier) || 1;
+  // shards needed to craft a base (weapon/pet/skill), scaling with its tier
+  function craftDict(kind) { return kind === 'pet' ? D.PETS : kind === 'skill' ? D.SKILLS : D.WEAPONS; }
+  function craftCost(kind, base) {
+    const tier = (craftDict(kind)[base] && craftDict(kind)[base].tier) || 1;
     return D.CRAFT.shardBase + tier * D.CRAFT.shardPerTier;
   }
-  function setCraftTarget(base) {
+  function setCraftTarget(kind, base) {
+    state.craftKind = kind || 'weapon';
     state.craftTarget = base || null;
     save(); renderAll();
   }
   function forgeCraft() {
+    const kind = state.craftKind || 'weapon';
     const base = state.craftTarget;
-    if (!base || !D.WEAPONS[base]) { UI.toast('Pick a weapon to craft first.', 'bad'); return; }
-    const cost = craftCost(base);
+    const dict = craftDict(kind);
+    if (!base || !dict[base]) { UI.toast('Pick something to craft first.', 'bad'); return; }
+    const cost = craftCost(kind, base);
     if (state.shards < cost) { UI.toast('Not enough shards.', 'bad'); return; }
     state.shards -= cost;
     const rng = new RNG(randomSeed());
-    let item = global.Items.generateWeapon(base, rng, { luck: D.CRAFT.luck });
-    // guarantee at least the configured minimum rarity
-    if (global.Items.rarityRank(item.rarity) < global.Items.rarityRank(D.CRAFT.minRarity)) {
-      item = global.Items.generateWeapon(base, rng, { rarity: D.CRAFT.minRarity });
-    }
-    addWeaponToBrute(item);
-    UI.toast(`⚒️ Crafted ${global.Items.rarityName(item)} ${global.Items.displayName(item)}!`, 'good');
+    const It = global.Items;
+    const gen = kind === 'pet' ? It.generatePet : kind === 'skill' ? It.generateSkill : It.generateWeapon;
+    let item = gen(base, rng, { luck: D.CRAFT.luck });
+    if (It.rarityRank(item.rarity) < It.rarityRank(D.CRAFT.minRarity)) item = gen(base, rng, { rarity: D.CRAFT.minRarity });
+    if (kind === 'pet') { state.brute.pets.push(item); if (state.collection) state.collection.pets[item.base] = true; }
+    else if (kind === 'skill') { state.brute.skills.push(item); if (state.collection) state.collection.skills[item.base] = true; }
+    else addWeaponToBrute(item);
+    UI.toast(`Crafted ${It.rarityName(item)} ${It.displayName(item)}!`, 'good');
     save(); renderAll();
+  }
+
+  // equip the highest-power weapon, pet, and top skills (max power loadout)
+  function autoEquipBest() {
+    const b = state.brute; if (!b) return;
+    const It = global.Items;
+    if (b.weapons.length) {
+      let best = b.weapons[0], bp = It.stats(best).power;
+      for (const w of b.weapons) { const p = It.stats(w).power; if (p > bp) { bp = p; best = w; } }
+      b.equipped.weapon = best.uid;
+    }
+    if (b.pets.length) {
+      let best = b.pets[0], bp = It.petStats(best).power;
+      for (const p of b.pets) { const pw = It.petStats(p).power; if (pw > bp) { bp = pw; best = p; } }
+      b.equipped.pet = best.uid;
+    }
+    const slots = skillSlots();
+    const ranked = b.skills.slice().sort((a, c) =>
+      (It.rarityRank(c.rarity) - It.rarityRank(a.rarity)) || ((c.level || 0) - (a.level || 0)));
+    b.equipped.skills = ranked.slice(0, slots).map(s => s.uid);
+    UI.toast('Equipped your strongest gear', 'good');
+    save(); renderAll();
+  }
+  // repeatedly fuse every available duplicate pair of one type (chains up rarities)
+  function autoMerge(kind) {
+    const b = state.brute; if (!b) return;
+    const It = global.Items;
+    const inv = kind === 'pet' ? b.pets : kind === 'skill' ? b.skills : b.weapons;
+    let fused = 0, guard = 0, ranDry = false;
+    while (guard++ < 1000) {
+      let a = null, p = null;
+      for (let i = 0; i < inv.length && !a; i++) {
+        for (let j = i + 1; j < inv.length; j++) {
+          if (It.canFuse(inv[i], inv[j])) { a = inv[i]; p = inv[j]; break; }
+        }
+      }
+      if (!a) break;
+      const cost = It.fuseDustCost(a);
+      if (state.dust < cost) { ranDry = true; break; }
+      state.dust -= cost;
+      const wasEq = isEquipped(a.uid) || isEquipped(p.uid);
+      const f = It.fuse(a, p, new RNG(randomSeed()));
+      const keep = inv.filter(w => w.uid !== a.uid && w.uid !== p.uid);
+      keep.push(f); inv.length = 0; inv.push(...keep);
+      collectWeapon(f.base);
+      if (state.collection) { const k = It.kindOf(f); if (k === 'skill') state.collection.skills[f.base] = true; else if (k === 'pet') state.collection.pets[f.base] = true; }
+      if (wasEq) C.autoEquip(state.brute, skillSlots());
+      fused++;
+    }
+    if (fused) { UI.toast(`Auto-merged ${fused} fusion${fused > 1 ? 's' : ''}${ranDry ? ' (out of dust)' : ''}`, 'good'); save(); renderAll(); }
+    else UI.toast(ranDry ? 'Not enough dust to fuse.' : 'No duplicates to merge.', 'bad');
   }
 
   /* ---------------- gauntlet ---------------- */
@@ -835,9 +892,10 @@
     UI.renderForge(state.brute, state.dust, state.gold, {
       upgrade: forgeUpgrade, reroll: forgeReroll, disenchant: forgeDisenchant, fuse: forgeFuse,
       equipWeapon: equipWeapon, equipPet: equipPet, toggleSkill: toggleSkill, skillSlots: skillSlots(),
+      autoEquip: autoEquipBest, autoMerge: autoMerge,
     });
-    UI.renderCraft(state.shards, state.craftTarget, state.craftTarget ? craftCost(state.craftTarget) : 0,
-      { setTarget: setCraftTarget, craft: forgeCraft });
+    UI.renderCraft(state.shards, state.craftKind, state.craftTarget,
+      { setTarget: setCraftTarget, craft: forgeCraft, cost: craftCost });
     UI.renderArenaRank(arenaInfo());
     UI.renderGauntlet(state.gauntlet, climbGauntlet, !fightInProgress, state.settings);
     wireGauntletControls();

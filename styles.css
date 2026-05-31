@@ -606,27 +606,72 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 .rar-mythic { border-color: var(--rar-legendary); animation: legpulse 1.2s ease-in-out infinite; }
 .rar-mythic .choice-rar { color: #ff2d55; }
 
+/* still used by the bounty timer until that tab gets its pass */
+.forge-dust-tag { float: right; font-family: 'Bangers', sans-serif; letter-spacing: 1px; color: var(--pop-purple); font-size: 1rem; -webkit-text-stroke: .3px var(--ink); }
+
 /* ============ FORGE ============ */
-.forge-dust-tag { float: right; font-family: 'Bangers', sans-serif; letter-spacing: 1px; color: var(--pop-purple); font-size: 1.1rem; -webkit-text-stroke: .3px var(--ink); }
+/* cost chips (gold / dust / shard) */
+.cc { display: inline-flex; align-items: center; gap: 3px; font-family: 'Bangers', sans-serif; letter-spacing: .3px; }
+.cc-ico { width: 13px; height: 13px; display: block; flex: none; }
+
+.forge-resbar { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+.forge-res { display: inline-flex; align-items: center; gap: 7px; font-family: 'Bangers', sans-serif; font-size: 1.3rem; color: var(--pop-purple); -webkit-text-stroke: .3px var(--ink); }
+.fr-reslbl { font-family: 'Anton', sans-serif; font-size: .62rem; letter-spacing: 1.5px; color: var(--muted); -webkit-text-stroke: 0; }
+
+/* crafting */
 .forge-craft { display: flex; flex-direction: column; gap: 12px; }
-.craft-pick { display: flex; align-items: center; gap: 10px; }
-.craft-pick span { font-family: 'Anton', sans-serif; letter-spacing: 1px; font-size: .85rem; }
-.craft-pick select { flex: 1; padding: 8px 10px; background: var(--paper2); border: 3px solid var(--ink); border-radius: 6px; color: var(--ink); font-family: 'Archivo'; font-weight: 700; font-size: .95rem; }
-.craft-target { display: flex; align-items: center; gap: 12px; }
-.craft-ico { font-size: 2.2rem; }
+.craft-segs { align-self: flex-start; }
+.craft-segs .forge-seg { padding: 6px 16px; }
+.craft-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 9px; }
+.craft-card { display: flex; flex-direction: column; align-items: center; gap: 5px; cursor: pointer; background: var(--paper2); border: 3px solid var(--ink); border-radius: 8px; padding: 9px 6px; box-shadow: 2px 2px 0 var(--ink); transition: transform .08s, background .12s; }
+.craft-card:hover { transform: translateY(-2px); background: #fff7d6; }
+.craft-card.sel { background: var(--pop-yellow); box-shadow: 0 0 0 2px var(--pop-red), 2px 2px 0 var(--ink); }
+.craft-card:not(.ready) { opacity: .62; }
+.craft-glyph { width: 34px; height: 34px; }
+.cg { width: 100%; height: 100%; display: block; filter: drop-shadow(1.5px 1.5px 0 var(--ink)); }
+.craft-cname { font-family: 'Anton', sans-serif; font-size: .68rem; letter-spacing: .3px; text-align: center; line-height: 1.05; }
+.craft-cfoot { display: flex; align-items: center; gap: 6px; }
+.craft-tier { font-family: 'Anton', sans-serif; font-size: .58rem; letter-spacing: .5px; color: var(--muted); }
+.craft-card .cc { font-size: .82rem; color: var(--pop-purple); }
+.craft-target { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .craft-name { font-family: 'Anton', sans-serif; letter-spacing: .5px; font-size: 1.15rem; }
-.craft-fill { background: repeating-linear-gradient(45deg, var(--pop-blue) 0 8px, #2a6fd6 8px 16px); }
+.craft-need .cc { font-size: 1.2rem; color: var(--pop-purple); }
+.craft-prog { text-align: right; }
+.train-fill.craft-fill { background: repeating-linear-gradient(45deg, var(--pop-blue) 0 10px, #2a6fd6 10px 20px); }
+.train-fill.craft-fill.full { background: repeating-linear-gradient(45deg, var(--pop-green, #1a8f5a) 0 10px, #1fa84480 10px 20px), var(--pop-green, #1a8f5a); }
 #btn-craft { width: 100%; }
-#btn-craft:disabled { opacity: .5; cursor: not-allowed; }
-.forge-list, .forge-list-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
-@media (max-width: 760px) { .forge-list, .forge-list-grid { grid-template-columns: 1fr; } }
-.forge-section { margin-bottom: 18px; }
-.forge-section h4 { font-family: 'Anton', sans-serif; letter-spacing: .5px; font-size: 1.05rem; margin-bottom: 10px; border-bottom: 3px solid var(--ink); padding-bottom: 4px; }
-.forge-item { background: var(--paper2); border: 4px solid var(--ink); border-radius: 10px; padding: 12px; box-shadow: var(--shadow-sm); }
-.forge-item.equipped { background: #fff7d6; box-shadow: 0 0 0 3px var(--pop-yellow), var(--shadow-sm); }
-.fi-btns { grid-template-columns: repeat(5, 1fr); }
-.forge-btn.eq { background: var(--pop-green); color: #fff; }
-.forge-btn.eq.on { background: var(--pop-blue); }
+
+/* forge toolbar: type segments + dust */
+.forge-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.forge-segs { display: inline-flex; border: 3px solid var(--ink); border-radius: 8px; overflow: hidden; box-shadow: var(--shadow-sm); }
+.forge-seg { display: inline-flex; align-items: center; gap: 6px; background: var(--panel); color: var(--ink); border: none; border-right: 3px solid var(--ink); padding: 7px 14px; cursor: pointer; font-family: 'Bangers', sans-serif; letter-spacing: 1px; font-size: 1rem; }
+.forge-seg:last-child { border-right: none; }
+.forge-seg:hover { background: var(--pop-yellow); }
+.forge-seg.active { background: var(--pop-red); color: #fff; }
+.seg-n { font-family: 'Anton', sans-serif; font-size: .64rem; background: rgba(0,0,0,.16); border-radius: 999px; padding: 1px 7px; letter-spacing: .5px; }
+.forge-seg.active .seg-n { background: rgba(0,0,0,.28); }
+
+/* auto tools */
+.forge-tools { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.forge-tool { display: inline-flex; align-items: center; gap: 7px; background: var(--ink); color: var(--paper); border: 3px solid var(--ink); box-shadow: var(--shadow-sm); border-radius: 7px; padding: 7px 14px; cursor: pointer; font-family: 'Anton', sans-serif; letter-spacing: 1px; font-size: .82rem; transition: transform .08s, background .12s; }
+.forge-tool:hover:not(:disabled) { background: var(--pop-purple); transform: translateY(-1px); }
+.forge-tool:disabled { opacity: .4; cursor: not-allowed; }
+.forge-tool .seg-n { background: rgba(255,255,255,.22); }
+.forge-slotnote { font-family: 'Anton', sans-serif; font-size: .72rem; letter-spacing: 1px; color: var(--muted); margin-left: auto; }
+
+/* compact item rows */
+.forge-rows { display: flex; flex-direction: column; gap: 8px; }
+.forge-empty { padding: 6px 2px; }
+.forge-row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; background: #fff; border: 2px solid var(--ink); border-left: 6px solid var(--ink); border-radius: 7px; padding: 8px 11px; box-shadow: 2px 2px 0 rgba(0,0,0,.13); }
+.forge-row.equipped { background: #fff7d6; box-shadow: 0 0 0 2px var(--pop-yellow), 2px 2px 0 rgba(0,0,0,.13); }
+.fr-main { flex: 1; min-width: 180px; }
+.fr-name { font-family: 'Anton', sans-serif; letter-spacing: .3px; font-size: 1.02rem; display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.fr-lvl { font-family: 'Bangers', sans-serif; color: var(--pop-red); -webkit-text-stroke: .3px var(--ink); }
+.fr-rar { font-family: 'Anton', sans-serif; font-size: .56rem; letter-spacing: 1px; color: #fff; border: 2px solid var(--ink); border-radius: 4px; padding: 2px 6px; -webkit-text-stroke: .3px var(--ink); }
+.fr-sub { color: var(--muted); font-size: .82rem; margin-top: 2px; }
+.fr-affixes { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+.fr-affix { font-size: .68rem; font-weight: 700; background: #efe6cc; border: 1.5px solid var(--ink); border-radius: 4px; padding: 1px 6px; }
+.fr-acts { display: flex; gap: 6px; flex-wrap: wrap; }
 
 /* loadout summary */
 .loadout { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 8px 0 4px; }
@@ -638,16 +683,14 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 .lo-skill { font-size: 1.2rem; }
 .eq-tag { font-size: .65rem; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; background: var(--pop-blue); color: #fff; border-radius: 4px; padding: 1px 6px; vertical-align: middle; }
 .inv-item.equipped { box-shadow: inset 0 0 0 2px var(--pop-blue); }
-.fi-head { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; }
-.fi-head .ii-ico { font-size: 1.8rem; }
-.fi-affixes { min-height: 24px; margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 3px; }
-.fi-btns { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-.forge-btn { display: flex; flex-direction: column; align-items: center; gap: 1px; background: var(--pop-yellow); color: var(--ink); border: 3px solid var(--ink); border-radius: 6px; padding: 7px 4px; font-family: 'Anton', sans-serif; font-size: .82rem; letter-spacing: .3px; cursor: pointer; box-shadow: 2px 2px 0 var(--ink); transition: transform .07s, box-shadow .07s; }
-.forge-btn small { font-family: 'Archivo'; font-weight: 700; font-size: .68rem; }
+.forge-btn { display: inline-flex; align-items: center; gap: 5px; background: var(--pop-yellow); color: var(--ink); border: 2.5px solid var(--ink); border-radius: 6px; padding: 6px 9px; font-family: 'Anton', sans-serif; font-size: .72rem; letter-spacing: .4px; cursor: pointer; box-shadow: 2px 2px 0 var(--ink); transition: transform .07s, box-shadow .07s; }
+.forge-btn .cc { font-size: .82rem; }
+.forge-btn.eq { background: var(--pop-green); color: #fff; }
+.forge-btn.eq.on { background: var(--pop-blue); }
 .forge-btn.de { background: #d9cdb4; }
 .forge-btn:hover:not(:disabled) { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--ink); }
 .forge-btn:active:not(:disabled) { transform: translate(2px,2px); box-shadow: 0 0 0 var(--ink); }
-.forge-btn:disabled { opacity: .45; cursor: not-allowed; box-shadow: 2px 2px 0 var(--muted); }
+.forge-btn:disabled { opacity: .42; cursor: not-allowed; box-shadow: 2px 2px 0 var(--muted); }
 
 /* ============ GAUNTLET ============ */
 .gaunt-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }

@@ -352,83 +352,200 @@
   }
 
   /* ---------------- forge: target crafting ---------------- */
-  function renderCraft(shards, target, cost, h) {
+  // tiny inline cost icons (no emoji)
+  const MINI = {
+    gold:  `<svg viewBox="0 0 24 24" class="cc-ico"><circle cx="12" cy="12" r="9" fill="#ffce3a" stroke="#14110d" stroke-width="2.6"/><circle cx="12" cy="12" r="4.6" fill="none" stroke="#14110d" stroke-width="1.6" opacity=".5"/></svg>`,
+    dust:  `<svg viewBox="0 0 24 24" class="cc-ico"><path d="M12 2 L13.8 9.5 L21 11.2 L13.8 13 L12 21 L10.2 13 L3 11.2 L10.2 9.5 Z" fill="#7fd8ff" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/></svg>`,
+    shard: `<svg viewBox="0 0 24 24" class="cc-ico"><path d="M12 3 L20 9 L14.5 21 L4 14 Z" fill="#b06bff" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/></svg>`,
+  };
+  function costChip(n, type) { return `<span class="cc">${MINI[type] || ''}${fmt(n)}</span>`; }
+  let forgeFilter = 'weapon';   // which gear type the Forge is showing
+  let _forgeArgs = null;        // cached for re-render on filter switch
+
+  // per-item comic glyphs (inner SVG paths; craftGlyph wraps them)
+  const WGLYPH = {
+    knife: '<path d="M6 18 L15 9 L18 6 L18 9 L9 18 Z" fill="#cfd4da" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><path d="M5 19 L8 16 L10 18 L7 21 Z" fill="#8a5a2b" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/>',
+    sai: '<g stroke-linecap="round"><path d="M12 2 V13 M8 5 V10.5 M16 5 V10.5" stroke="#14110d" stroke-width="5"/><path d="M8 10.5 Q8 13 12 13 Q16 13 16 10.5" fill="none" stroke="#14110d" stroke-width="5"/><path d="M12 2 V13 M8 5 V10.5 M16 5 V10.5" stroke="#cfd4da" stroke-width="2.6"/><path d="M8 10.5 Q8 13 12 13 Q16 13 16 10.5" fill="none" stroke="#cfd4da" stroke-width="2.6"/></g><rect x="10.8" y="13" width="2.4" height="8" rx="1" fill="#8a5a2b" stroke="#14110d" stroke-width="1.6"/>',
+    fan: '<path d="M12 20 L5 9 A8 8 0 0 1 19 9 Z" fill="#e0563f" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><path d="M12 20 L8.5 11 M12 20 L12 9.5 M12 20 L15.5 11" stroke="#14110d" stroke-width="1.4"/><circle cx="12" cy="20" r="1.5" fill="#14110d"/>',
+    baton: '<rect x="4" y="11" width="16" height="3.6" rx="1.8" transform="rotate(-32 12 12.8)" fill="#2b2230" stroke="#14110d" stroke-width="2"/>',
+    mug: '<rect x="6" y="6" width="9" height="13" rx="1.6" fill="#ffce3a" stroke="#14110d" stroke-width="2"/><rect x="6" y="6" width="9" height="3.4" fill="#fff" stroke="#14110d" stroke-width="2"/><path d="M15 9 H18 A2.4 2.4 0 0 1 18 14.5 H15" fill="none" stroke="#14110d" stroke-width="2"/>',
+    fryingpan: '<circle cx="9.5" cy="13" r="6.2" fill="#3a3530" stroke="#14110d" stroke-width="2"/><rect x="15" y="11.4" width="7.5" height="3.2" rx="1.6" fill="#8a5a2b" stroke="#14110d" stroke-width="2"/>',
+    club: '<path d="M5 19 L8.5 15.5 L17 7 C19.5 4.5 19.5 8.5 18.5 9.5 L9.5 18 C8.5 19 6 20 5 19 Z" fill="#8a5a2b" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/>',
+    sword: '<path d="M5 19 L16 8 L19 5 L19 8 L8 19 Z" fill="#cfd4da" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><path d="M3 16 L8 21" stroke="#ffce3a" stroke-width="3.4" stroke-linecap="round"/>',
+    scimitar: '<path d="M5 20 C5 11 11 4 20 4 C16 9 15 15 10 20 Z" fill="#cfd4da" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><path d="M4 19 L9 20 L8 15 Z" fill="#8a5a2b" stroke="#14110d" stroke-width="1.6" stroke-linejoin="round"/>',
+    whip: '<path d="M4 6 C11 5 12 11 7 12 C3 13 4 18 10 17 C15 16 18 18 20 20" fill="none" stroke="#8a5a2b" stroke-width="3.2" stroke-linecap="round"/><circle cx="4" cy="6" r="1.8" fill="#8a5a2b" stroke="#14110d" stroke-width="1.5"/>',
+    trident: '<g stroke-linecap="round"><path d="M5 4 V9 M12 2.5 V9 M19 4 V9" stroke="#14110d" stroke-width="5"/><path d="M5 9 Q5 12 12 12 Q19 12 19 9" fill="none" stroke="#14110d" stroke-width="5"/><path d="M5 4 V9 M12 2.5 V9 M19 4 V9" stroke="#cfd4da" stroke-width="2.6"/><path d="M5 9 Q5 12 12 12 Q19 12 19 9" fill="none" stroke="#cfd4da" stroke-width="2.6"/></g><rect x="10.8" y="12" width="2.4" height="9" rx="1" fill="#8a5a2b" stroke="#14110d" stroke-width="1.6"/>',
+    axe: '<rect x="10.6" y="3" width="2.6" height="18" rx="1" fill="#8a5a2b" stroke="#14110d" stroke-width="1.8"/><path d="M13 4 C18.5 4 20.5 8.5 19 12.5 L13 11 Z" fill="#cfd4da" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/>',
+    morningstar: '<rect x="10.8" y="11" width="2.4" height="10" rx="1" fill="#8a5a2b" stroke="#14110d" stroke-width="1.6"/><path d="M12 1.5 V4 M12 10 V12.5 M5.5 7 H8 M16 7 H18.5 M7.4 2.4 L9.2 4.2 M16.6 2.4 L14.8 4.2 M7.4 11.6 L9.2 9.8 M16.6 11.6 L14.8 9.8" stroke="#14110d" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="7" r="4.3" fill="#8a8472" stroke="#14110d" stroke-width="2"/>',
+    halberd: '<rect x="10.8" y="3" width="2.4" height="18" rx="1" fill="#8a5a2b" stroke="#14110d" stroke-width="1.6"/><path d="M12 1.5 L14.2 6 L12 5 L9.8 6 Z" fill="#cfd4da" stroke="#14110d" stroke-width="1.6" stroke-linejoin="round"/><path d="M13 6 C17.5 6 19 9.5 17.8 12.5 L13 11 Z" fill="#cfd4da" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/>',
+    broadsword: '<path d="M9.6 2 L14.4 2 L13.4 14 L10.6 14 Z" fill="#cfd4da" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><rect x="6.5" y="13.6" width="11" height="2.6" rx="1" fill="#14110d"/><rect x="10.8" y="16" width="2.4" height="5" rx="1" fill="#8a5a2b" stroke="#14110d" stroke-width="1.6"/>',
+    lightsaber: '<rect x="10.4" y="2" width="3.2" height="14" rx="1.6" fill="#5ec6ff" stroke="#14110d" stroke-width="2"/><rect x="9.8" y="15.5" width="4.4" height="5.5" rx="1.2" fill="#2b2230" stroke="#14110d" stroke-width="2"/><rect x="11.2" y="3.5" width="1.6" height="10" rx=".8" fill="#eafaff"/>',
+  };
+  const PGLYPH = {
+    dog: '<ellipse cx="12" cy="14.5" rx="6" ry="5.3" fill="#cd9a5b" stroke="#14110d" stroke-width="2"/><path d="M6.5 8 L5 14 L9.5 12 Z" fill="#b07c43" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><path d="M17.5 8 L19 14 L14.5 12 Z" fill="#b07c43" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><circle cx="10" cy="14" r="1" fill="#14110d"/><circle cx="14" cy="14" r="1" fill="#14110d"/><circle cx="12" cy="16.5" r="1.4" fill="#14110d"/>',
+    wolf: '<ellipse cx="12" cy="15" rx="5.6" ry="5" fill="#8a8f96" stroke="#14110d" stroke-width="2"/><path d="M6.5 6 L9.5 12.5 L5.5 12 Z" fill="#8a8f96" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><path d="M17.5 6 L14.5 12.5 L18.5 12 Z" fill="#8a8f96" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><circle cx="10" cy="14" r="1" fill="#14110d"/><circle cx="14" cy="14" r="1" fill="#14110d"/><path d="M12 16 L10.5 18 H13.5 Z" fill="#14110d"/>',
+    panther: '<ellipse cx="12" cy="14.5" rx="5.8" ry="5.2" fill="#2b2230" stroke="#14110d" stroke-width="2"/><path d="M7 7.5 L9.5 12.5 L6 12 Z" fill="#2b2230" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><path d="M17 7.5 L14.5 12.5 L18 12 Z" fill="#2b2230" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><circle cx="10" cy="14" r="1.1" fill="#ffd23f"/><circle cx="14" cy="14" r="1.1" fill="#ffd23f"/>',
+    bear: '<ellipse cx="12" cy="14.5" rx="7" ry="6" fill="#7a4a2b" stroke="#14110d" stroke-width="2"/><circle cx="6.5" cy="8" r="2.6" fill="#7a4a2b" stroke="#14110d" stroke-width="2"/><circle cx="17.5" cy="8" r="2.6" fill="#7a4a2b" stroke="#14110d" stroke-width="2"/><circle cx="9.5" cy="13.5" r="1" fill="#14110d"/><circle cx="14.5" cy="13.5" r="1" fill="#14110d"/><ellipse cx="12" cy="16.5" rx="2.4" ry="1.8" fill="#5a3420" stroke="#14110d" stroke-width="1.6"/><circle cx="12" cy="16" r=".8" fill="#14110d"/>',
+  };
+  const SCON = {
+    dumbbell: '<rect x="9" y="10.4" width="6" height="3.2" fill="#8a8472" stroke="#14110d" stroke-width="2"/><rect x="3.5" y="7" width="4" height="10" rx="1.5" fill="#6b7077" stroke="#14110d" stroke-width="2"/><rect x="16.5" y="7" width="4" height="10" rx="1.5" fill="#6b7077" stroke="#14110d" stroke-width="2"/>',
+    cat: '<path d="M6 9 L7 5 L10 8 H14 L17 5 L18 9 C19 11 19 17 12 18 C5 17 5 11 6 9 Z" fill="#8a8472" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><circle cx="9.5" cy="12" r="1" fill="#14110d"/><circle cx="14.5" cy="12" r="1" fill="#14110d"/>',
+    bolt: '<path d="M13 2 L4 14 H11 L10 22 L20 9 H13 Z" fill="#ffce3a" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/>',
+    heart: '<path d="M12 21 C4 15 4 8 8 6 C10.5 4.7 12 7 12 7 C12 7 13.5 4.7 16 6 C20 8 20 15 12 21 Z" fill="#e0563f" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/>',
+    brick: '<rect x="4" y="6" width="16" height="12" rx="1" fill="#b5562f" stroke="#14110d" stroke-width="2"/><path d="M4 12 H20 M12 6 V12 M8 12 V18 M16 12 V18" stroke="#14110d" stroke-width="1.6"/>',
+    shield: '<path d="M12 3 L20 6 V12 C20 17 16 20 12 21 C8 20 4 17 4 12 V6 Z" fill="#3aa0d6" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/>',
+    fist: '<path d="M6 12 V8.5 A1.5 1.5 0 0 1 9 8.5 V7.5 A1.5 1.5 0 0 1 12 7.5 A1.5 1.5 0 0 1 15 7.5 V8.5 A1.5 1.5 0 0 1 18 9.5 V15 A5 5 0 0 1 8 16 L6 13 Z" fill="#e0a06b" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/>',
+    medal: '<path d="M9 2 L11 9 L8 9 Z M15 2 L16 9 L13 9 Z" fill="#e0563f" stroke="#14110d" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="14" r="5.5" fill="#ffce3a" stroke="#14110d" stroke-width="2"/><path d="M12 11 l1.1 2.3 2.6.3 -1.9 1.8 .5 2.5 -2.3-1.3 -2.3 1.3 .5-2.5 -1.9-1.8 2.6-.3 Z" fill="#fff" stroke="#14110d" stroke-width="1" stroke-linejoin="round"/>',
+    swirl: '<path d="M12 4 A8 8 0 1 1 4 12" fill="none" stroke="#5ec6ff" stroke-width="3" stroke-linecap="round"/><path d="M4 12 L2.5 8.5 M4 12 L7.5 10.5" stroke="#5ec6ff" stroke-width="3" stroke-linecap="round"/>',
+    eye: '<path d="M3 12 C7 6 17 6 21 12 C17 18 7 18 3 12 Z" fill="#fff" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" fill="#3aa0d6" stroke="#14110d" stroke-width="1.6"/><circle cx="12" cy="12" r="1" fill="#14110d"/>',
+    flame: '<path d="M12 2 C14 7 19 9 19 14 a7 7 0 0 1 -14 0 C5 10 9 9 9 5 C10.5 7 12 6 12 2 Z" fill="#ff7b00" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/>',
+    hammer: '<rect x="4.5" y="5" width="11" height="6" rx="1.5" fill="#8a8472" stroke="#14110d" stroke-width="2"/><rect x="8.5" y="10" width="2.6" height="10" rx="1" transform="rotate(20 9.8 15)" fill="#8a5a2b" stroke="#14110d" stroke-width="1.8"/>',
+    bomb: '<circle cx="11" cy="15" r="6" fill="#2b2230" stroke="#14110d" stroke-width="2"/><rect x="13" y="5" width="3" height="3" fill="#2b2230" stroke="#14110d" stroke-width="1.6"/><path d="M15 5 C17 3 19 4 19 6" fill="none" stroke="#ff7b00" stroke-width="2" stroke-linecap="round"/><circle cx="19" cy="6" r="1.4" fill="#ffce3a"/>',
+    net: '<circle cx="12" cy="12" r="8.5" fill="none" stroke="#14110d" stroke-width="2"/><path d="M12 3.5 V20.5 M3.5 12 H20.5 M6 6 L18 18 M18 6 L6 18" stroke="#14110d" stroke-width="1.4"/>',
+    flask: '<path d="M10 3 H14 V8 L18 17 A2 2 0 0 1 16 20 H8 A2 2 0 0 1 6 17 L10 8 Z" fill="#8338ec" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><rect x="9.5" y="2" width="5" height="2" fill="#14110d"/>',
+    wrench: '<path d="M16 4 A4.5 4.5 0 0 0 10 9 L4 15 A2.5 2.5 0 0 0 8 19 L14 13 A4.5 4.5 0 0 0 19 7 L16 9 L14 7 Z" fill="#8a8472" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/>',
+    hand: '<path d="M7 12 V7.5 A1.4 1.4 0 0 1 9.8 7.5 V6.5 A1.4 1.4 0 0 1 12.6 6.5 A1.4 1.4 0 0 1 15.4 6.8 V11 L17 9.5 A1.6 1.6 0 0 1 19 11.5 L15 17 A5 5 0 0 1 7 15 Z" fill="#e0a06b" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/>',
+  };
+  const SKILL_GLYPH = {
+    herculean: 'dumbbell', feline: 'cat', lightning: 'bolt', vitality: 'heart', immortal: 'heart',
+    toughened: 'brick', armor: 'shield', martial: 'fist', weaponmaster: 'medal', ballet: 'swirl',
+    shield: 'shield', sixthsense: 'eye', hostility: 'flame', determination: 'flame', relentless: 'swirl',
+    fierce: 'flame', hammer: 'hammer', bomb: 'bomb', net: 'net', potion: 'flask', sabotage: 'wrench', thief: 'hand',
+  };
+  function craftGlyph(kind, base) {
+    let inner;
+    if (kind === 'pet') inner = PGLYPH[base];
+    else if (kind === 'skill') inner = SCON[SKILL_GLYPH[base] || ((D.SKILLS[base] || {}).kind === 'active' ? 'bolt' : 'shield')];
+    else inner = WGLYPH[base];
+    if (!inner) inner = SCON.medal;   // safe fallback
+    return `<svg viewBox="0 0 24 24" class="cg" aria-hidden="true">${inner}</svg>`;
+  }
+
+  function renderCraft(shards, kind, target, h) {
     const el = $('#forge-craft');
     if (!el) return;
-    const sd = $('#forge-shards'); if (sd) sd.textContent = fmt(shards);
-    // weapon picker, grouped/sorted by tier
-    const opts = D.DROPPABLE_WEAPONS.slice().sort((a, b) => a.tier - b.tier)
-      .map(w => `<option value="${w.id}" ${w.id === target ? 'selected' : ''}>${w.icon} ${w.name} (T${w.tier})</option>`).join('');
-    let body;
-    if (!target) {
-      body = '<p class="muted small">Choose a weapon above to start banking shards toward it.</p>';
-    } else {
-      const w = D.WEAPONS[target];
+    kind = kind || 'weapon';
+    const lists = { weapon: D.DROPPABLE_WEAPONS, pet: D.ALL_PETS, skill: D.ALL_SKILLS };
+    const dicts = { weapon: D.WEAPONS, pet: D.PETS, skill: D.SKILLS };
+    const list = (lists[kind] || lists.weapon).slice().sort((a, b) => a.tier - b.tier);
+    const seg = (k, label) => `<button class="forge-seg${k === kind ? ' active' : ''}" data-cseg="${k}">${label}</button>`;
+    const cards = list.map(o => {
+      const cost = h.cost(kind, o.id);
+      const sel = o.id === target;
+      return `<button class="craft-card${sel ? ' sel' : ''}${shards >= cost ? ' ready' : ''}" data-cbase="${o.id}" title="${o.name} — T${o.tier}">
+        <span class="craft-glyph">${craftGlyph(kind, o.id)}</span>
+        <span class="craft-cname">${o.name}</span>
+        <span class="craft-cfoot"><span class="craft-tier">T${o.tier}</span>${costChip(cost, 'shard')}</span>
+      </button>`;
+    }).join('');
+    let detail;
+    const dict = dicts[kind] || D.WEAPONS;
+    if (target && dict[target]) {
+      const cost = h.cost(kind, target);
       const pct = Math.min(100, (shards / cost) * 100);
       const ready = shards >= cost;
-      body = `<div class="craft-target">
-          <span class="craft-ico">${w.icon}</span>
-          <div class="craft-info">
-            <div class="craft-name">${w.name}</div>
-            <div class="muted small">Crafts at ${I.RARITY[D.CRAFT.minRarity].name}+ quality</div>
-          </div>
+      detail = `
+        <div class="craft-target">
+          <div class="craft-info"><div class="craft-name">${dict[target].name}</div>
+            <div class="muted small">Crafts at ${I.RARITY[D.CRAFT.minRarity].name}+ quality</div></div>
+          <span class="craft-need">${costChip(cost, 'shard')}</span>
         </div>
-        <div class="bounty-bar"><div class="bounty-fill craft-fill" style="width:${pct}%"></div>
-          <span class="bounty-count">🧩 ${fmt(Math.min(shards, cost))} / ${cost}</span></div>
-        <button id="btn-craft" class="primary-btn" ${ready ? '' : 'disabled'}>⚒️ CRAFT ${w.name.toUpperCase()}</button>`;
+        <div class="train-bar"><div class="train-fill craft-fill${ready ? ' full' : ''}" style="width:${pct}%"></div></div>
+        <div class="craft-prog muted small">${costChip(Math.min(shards, cost), 'shard')} / ${fmt(cost)}</div>
+        <button id="btn-craft" class="primary-btn gaunt-climb" ${ready ? '' : 'disabled'}>CRAFT ${dict[target].name.toUpperCase()}</button>`;
+    } else {
+      detail = '<p class="muted small">Pick a target above to bank shards toward it.</p>';
     }
-    el.innerHTML = `<label class="craft-pick"><span>TARGET</span>
-        <select id="craft-select"><option value="">— none —</option>${opts}</select></label>${body}`;
-    const sel = $('#craft-select');
-    if (sel) sel.addEventListener('change', () => h.setTarget(sel.value));
+    el.innerHTML = `
+      <div class="forge-resbar"><span class="forge-res">${costChip(shards, 'shard')}<span class="fr-reslbl">SHARDS BANKED</span></span></div>
+      <div class="forge-segs craft-segs">${seg('weapon', 'WEAPONS')}${seg('pet', 'PETS')}${seg('skill', 'SKILLS')}</div>
+      <div class="craft-grid">${cards}</div>
+      ${detail}`;
+    el.querySelectorAll('[data-cseg]').forEach(b => b.addEventListener('click', () => h.setTarget(b.dataset.cseg, null)));
+    el.querySelectorAll('[data-cbase]').forEach(b => b.addEventListener('click', () => h.setTarget(kind, b.dataset.cbase)));
     const cb = $('#btn-craft');
-    if (cb && shards >= cost) cb.addEventListener('click', h.craft);
+    if (cb && !cb.disabled) cb.addEventListener('click', h.craft);
   }
 
   /* ---------------- forge (weapons / pets / skills) ---------------- */
   function instSubline(it, kind) {
-    if (kind === 'pet') { const s = I.petStats(it); return `${I.rarityName(it)} • ❤️${s.hp} 💪${s.strength} 🤸${s.agility} • ⚡${s.power}`; }
-    if (kind === 'skill') { const sk = D.SKILLS[it.base] || {}; return `${I.rarityName(it)} • ${sk.kind === 'active' ? 'Active' : 'Passive'}`; }
-    const s = I.stats(it); return `${I.rarityName(it)} • ${Math.round(s.dmg)} dmg • ⚡${s.power}`;
+    if (kind === 'pet') { const s = I.petStats(it); return `${Math.round(s.hp)} HP · ${Math.round(s.strength)} STR · PWR ${s.power}`; }
+    if (kind === 'skill') { const sk = D.SKILLS[it.base] || {}; return `${sk.kind === 'active' ? 'Active' : 'Passive'}${sk.desc ? ' · ' + sk.desc : ''}`; }
+    const s = I.stats(it); return `${Math.round(s.dmg)} dmg · PWR ${s.power}`;
   }
-  function forgeCard(it, kind, dust, gold, eq, slots) {
-    const upCost = I.upgradeCost(it), rrCost = I.rerollCost(it), fuCost = I.fuseDustCost(it), deVal = I.disenchantValue(it);
-    const aff = I.affixLines(it).map(a => `<span class="affix">${a}</span>`).join(' ') || '<span class="muted small">no bonuses</span>';
+  // count how many fuse pairs are currently available in a list
+  function countFusable(list) {
+    let pairs = 0; const used = {};
+    for (let i = 0; i < list.length; i++) {
+      if (used[i]) continue;
+      for (let j = i + 1; j < list.length; j++) {
+        if (!used[j] && I.canFuse(list[i], list[j])) { pairs++; used[i] = used[j] = true; break; }
+      }
+    }
+    return pairs;
+  }
+  function forgeRow(it, kind, dust, gold, eq, list) {
+    const col = I.color(it);
     const equipped = kind === 'skill' ? (eq.skills || []).includes(it.uid) : (kind === 'pet' ? eq.pet === it.uid : eq.weapon === it.uid);
     const equipAct = kind === 'skill' ? 'toggleSkill' : (kind === 'pet' ? 'equipPet' : 'equipWeapon');
-    const equipLabel = equipped ? (kind === 'skill' ? '➖ Unequip' : '✓ Equipped') : '➕ Equip';
-    const equipDisabled = equipped && kind !== 'skill';   // weapon/pet equip button is just an indicator when equipped
+    const upCost = I.upgradeCost(it), rrCost = I.rerollCost(it), fuCost = I.fuseDustCost(it), deVal = I.disenchantValue(it);
     const canRR = I.canReroll(it);
-    return `<div class="forge-item ${equipped ? 'equipped' : ''}" style="border-color:${I.color(it)}">
-      <div class="fi-head"><span class="ii-ico">${I.icon(it)}</span>
-        <div><div class="ii-name" style="color:${I.color(it)}">${I.displayName(it)}</div>
-        <div class="ii-sub">${instSubline(it, kind)}</div></div></div>
-      <div class="fi-affixes">${aff}</div>
-      <div class="fi-btns">
-        <button class="forge-btn eq ${equipped ? 'on' : ''}" data-act="${equipAct}" data-uid="${it.uid}" ${equipDisabled ? 'disabled' : ''}>${equipLabel}</button>
-        <button class="forge-btn" data-act="upgrade" data-uid="${it.uid}" ${gold < upCost ? 'disabled' : ''}>⚒️ +${(it.level || 0) + 1}<small>🪙${fmt(upCost)}</small></button>
-        <button class="forge-btn" data-act="reroll" data-uid="${it.uid}" ${(dust < rrCost || !canRR) ? 'disabled' : ''}>🎲 Reroll<small>✦${rrCost}</small></button>
-        <button class="forge-btn" data-act="fuse" data-uid="${it.uid}" ${dust < fuCost ? 'disabled' : ''}>✨ Fuse<small>✦${fuCost}</small></button>
-        <button class="forge-btn de" data-act="disenchant" data-uid="${it.uid}" ${equipped ? 'disabled' : ''}>♻️ Scrap<small>+✦${deVal}</small></button>
+    const hasPartner = list.some(o => o.uid !== it.uid && I.canFuse(it, o));
+    const aff = I.affixLines(it).map(a => `<span class="fr-affix">${a}</span>`).join('');
+    const lvl = it.level ? `<span class="fr-lvl">+${it.level}</span>` : '';
+    const eqLabel = equipped ? (kind === 'skill' ? 'UNEQUIP' : 'EQUIPPED') : 'EQUIP';
+    return `<div class="forge-row${equipped ? ' equipped' : ''}" style="border-left-color:${col}">
+      <div class="fr-main">
+        <div class="fr-name" style="color:${col}">${I.displayName(it)}${lvl}<span class="fr-rar" style="background:${col}">${I.rarityName(it)}</span></div>
+        <div class="fr-sub">${instSubline(it, kind)}</div>
+        ${aff ? `<div class="fr-affixes">${aff}</div>` : ''}
+      </div>
+      <div class="fr-acts">
+        <button class="forge-btn eq${equipped ? ' on' : ''}" data-act="${equipAct}" data-uid="${it.uid}" ${equipped && kind !== 'skill' ? 'disabled' : ''}>${eqLabel}</button>
+        <button class="forge-btn" data-act="upgrade" data-uid="${it.uid}" ${gold < upCost ? 'disabled' : ''} title="Upgrade to +${(it.level || 0) + 1}">UP ${costChip(upCost, 'gold')}</button>
+        <button class="forge-btn" data-act="reroll" data-uid="${it.uid}" ${(dust < rrCost || !canRR) ? 'disabled' : ''} title="Reroll bonuses">RR ${costChip(rrCost, 'dust')}</button>
+        <button class="forge-btn" data-act="fuse" data-uid="${it.uid}" ${(dust < fuCost || !hasPartner) ? 'disabled' : ''} title="${hasPartner ? 'Fuse with a duplicate' : 'Need another same-rarity copy'}">FUSE ${costChip(fuCost, 'dust')}</button>
+        <button class="forge-btn de" data-act="disenchant" data-uid="${it.uid}" ${equipped ? 'disabled' : ''} title="Scrap for dust + shards">SCRAP ${costChip(deVal, 'dust')}</button>
       </div></div>`;
   }
   function renderForge(brute, dust, gold, h) {
+    _forgeArgs = [brute, dust, gold, h];
     const el = $('#forge-list');
     if (!el) return;
-    const dd = $('#forge-dust'); if (dd) dd.textContent = fmt(dust);
     const eq = brute.equipped || { weapon: null, pet: null, skills: [] };
     const slots = h.skillSlots || 3;
-    const sec = (title, sub, list, kind, empty) =>
-      `<div class="forge-section"><h4>${title} <span class="muted small">${sub}</span></h4>
-        <div class="forge-list-grid">${list.map(it => forgeCard(it, kind, dust, gold, eq, slots)).join('') || '<p class="muted small">' + empty + '</p>'}</div></div>`;
-    el.innerHTML =
-      sec('⚔️ Weapons', '— equip 1', brute.weapons, 'weapon', 'No weapons yet — win some loot!') +
-      sec('🐾 Pets', '— equip 1', brute.pets, 'pet', 'No pets yet.') +
-      sec('✨ Skills', `— ${eq.skills.length}/${slots} slots equipped`, brute.skills, 'skill', 'No skills yet.');
-    el.querySelectorAll('.forge-btn').forEach(b => {
-      if (b.disabled) return;
-      b.addEventListener('click', () => h[b.dataset.act](b.dataset.uid));
-    });
+    const lists = { weapon: brute.weapons, pet: brute.pets, skill: brute.skills };
+    if (!lists[forgeFilter]) forgeFilter = 'weapon';
+    const list = lists[forgeFilter];
+    const fusable = countFusable(list);
+    const seg = (k, label) => `<button class="forge-seg${k === forgeFilter ? ' active' : ''}" data-seg="${k}">${label}<span class="seg-n">${lists[k].length}</span></button>`;
+    const empty = { weapon: 'No weapons yet — win some loot!', pet: 'No pets yet.', skill: 'No skills yet.' }[forgeFilter];
+    // equipped first, then strongest
+    const isEq = it => forgeFilter === 'skill' ? (eq.skills || []).includes(it.uid) : forgeFilter === 'pet' ? eq.pet === it.uid : eq.weapon === it.uid;
+    const rankVal = it => forgeFilter === 'pet' ? I.petStats(it).power
+      : forgeFilter === 'skill' ? (I.rarityRank(it.rarity) * 100 + (it.level || 0))
+      : I.stats(it).power;
+    const sorted = list.slice().sort((a, b) => (isEq(b) ? 1 : 0) - (isEq(a) ? 1 : 0) || rankVal(b) - rankVal(a));
+    const rows = list.length
+      ? sorted.map(it => forgeRow(it, forgeFilter, dust, gold, eq, list)).join('')
+      : `<p class="muted small forge-empty">${empty}</p>`;
+    el.innerHTML = `
+      <div class="forge-bar">
+        <div class="forge-segs">${seg('weapon', 'WEAPONS')}${seg('pet', 'PETS')}${seg('skill', 'SKILLS')}</div>
+        <span class="forge-res forge-res-dust">${costChip(dust, 'dust')}<span class="fr-reslbl">DUST</span></span>
+      </div>
+      <div class="forge-tools">
+        <button class="forge-tool" data-act="autoEquip" title="Equip your highest-power weapon, pet & skills">MAX POWER</button>
+        <button class="forge-tool" data-act="autoMerge" data-kind="${forgeFilter}" ${fusable ? '' : 'disabled'} title="Fuse every duplicate ${forgeFilter}">AUTO-MERGE${fusable ? `<span class="seg-n">${fusable}</span>` : ''}</button>
+        ${forgeFilter === 'skill' ? `<span class="forge-slotnote">${(eq.skills || []).length}/${slots} slots</span>` : ''}
+      </div>
+      <div class="forge-rows">${rows}</div>`;
+    el.querySelectorAll('.forge-seg').forEach(b => b.addEventListener('click', () => {
+      forgeFilter = b.dataset.seg;
+      if (_forgeArgs) renderForge.apply(null, _forgeArgs);
+    }));
+    el.querySelectorAll('.forge-tool').forEach(b => { if (!b.disabled) b.addEventListener('click', () => h[b.dataset.act](b.dataset.kind)); });
+    el.querySelectorAll('.forge-btn').forEach(b => { if (!b.disabled) b.addEventListener('click', () => h[b.dataset.act](b.dataset.uid)); });
   }
 
   /* ---------------- arena rank ---------------- */
