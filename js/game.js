@@ -925,8 +925,10 @@
     wireEvents();
 
     state = migrate(load()) || defaultState();
+    // AUTO never persists across reloads (don't resume fighting unattended); FAST is a kept preference
+    if (state.settings) { state.settings.autoFight = false; state.settings.autoClimb = false; }
     // restore settings toggles
-    $('#auto-fight').checked = !!(state.settings && state.settings.autoFight);
+    $('#auto-fight').checked = false;
     $('#fast-fight').checked = !!(state.settings && state.settings.fastFight);
 
     const elapsed = applyElapsed();
