@@ -401,22 +401,68 @@
     if (!el || !info) return;
     const pct = info.isTop ? 100 : Math.min(100, (info.into / info.band) * 100);
     const next = info.isTop ? null : D.ARENA.divisions[info.idx + 1];
-    const key = info.name.toLowerCase();
+    const progHtml = info.isTop
+      ? `<div class="gaunt-banner milestone">${GICON.crown}<span>TOP DIVISION</span><span class="gb-sub">keep stacking ARP</span></div>`
+      : `<div class="ar-next">
+           <span class="gaunt-pill mile-pill">${GICON.flag}<span>NEXT</span><b>${next.toUpperCase()}</b></span>
+           <div class="ar-barwrap">
+             <div class="ar-bar"><div class="ar-fill" style="width:${pct}%"></div></div>
+             <span class="ar-barlabel">${info.into} / ${info.band} ARP</span>
+           </div>
+         </div>`;
     el.innerHTML = `
-      <div class="ar-head">
-        <img class="rank-ico" src="assets/ui/rank/${key}.png" alt="${info.name}" />
-        <div class="ar-headtext">
-          <div class="ar-top">
-            <span class="ar-div">${info.name}</span>
-            <span class="muted small">${info.isTop ? fmt(info.arp) + ' ARP' : info.into + ' / ' + info.band + ' ARP'}</span>
-          </div>
-          <div class="ar-bar"><div class="ar-fill" style="width:${pct}%"></div></div>
-          <div class="muted small">${info.isTop ? 'Top division — keep stacking ARP.' : 'Next division: ' + next}</div>
+      <div class="gaunt-top">
+        <div class="ar-divline">
+          <span class="ar-medal">${rankIcon(info.name)}</span>
+          <div class="gaunt-floor ar-divname">${info.name.toUpperCase()}</div>
         </div>
-      </div>`;
+        <div class="gaunt-stats">
+          <span class="gaunt-chip chip-best">${GICON.chevron}<span class="gc-k">ARP</span><span class="gc-v">${fmt(info.arp)}</span></span>
+        </div>
+      </div>
+      ${progHtml}
+      <div class="gaunt-rules"><span class="gr-tag">HOW IT WORKS</span><p>Win ranked fights to bank ARP and climb divisions; lose and you shed some. Opponent power scales with your division, and the higher you sit the bigger the payouts.</p></div>`;
   }
 
   /* ---------------- gauntlet ---------------- */
+  // small inked comic glyphs (no emoji)
+  const GICON = {
+    peak:  `<svg viewBox="0 0 24 24" class="gicon"><path d="M2 21 L9 6 L13 14 L16 9 L22 21 Z" fill="var(--pop-yellow)" stroke="var(--ink)" stroke-width="2.4" stroke-linejoin="round"/><path d="M9 6 L11 9 L8 10 Z" fill="#fff" stroke="var(--ink)" stroke-width="1.4" stroke-linejoin="round"/></svg>`,
+    flag:  `<svg viewBox="0 0 24 24" class="gicon"><path d="M6 3 V22" stroke="var(--ink)" stroke-width="2.6" stroke-linecap="round"/><path d="M6 4 H19 L15.5 8.5 L19 13 H6 Z" fill="var(--pop-green,#2bb673)" stroke="var(--ink)" stroke-width="2.2" stroke-linejoin="round"/></svg>`,
+    crown: `<svg viewBox="0 0 24 24" class="gicon"><path d="M3 18 L4.5 7 L9 12 L12 4.5 L15 12 L19.5 7 L21 18 Z" fill="var(--pop-yellow)" stroke="var(--ink)" stroke-width="2.2" stroke-linejoin="round"/><rect x="3" y="17.5" width="18" height="3.5" rx="1" fill="var(--ink)"/></svg>`,
+    star:  `<svg viewBox="0 0 24 24" class="gicon"><path d="M12 2.5 L14.7 9 L21.5 9.6 L16.3 14 L18 20.7 L12 17 L6 20.7 L7.7 14 L2.5 9.6 L9.3 9 Z" fill="#fff" stroke="var(--ink)" stroke-width="2.2" stroke-linejoin="round"/></svg>`,
+    bolt:  `<svg viewBox="0 0 24 24" class="gicon"><path d="M13 2 L4 14 H11 L10 22 L20 9 H13 Z" fill="var(--pop-orange)" stroke="var(--ink)" stroke-width="2.2" stroke-linejoin="round"/></svg>`,
+    chevron: `<svg viewBox="0 0 24 24" class="gicon"><path d="M12 3 L21 11 H16 L12 7.5 L8 11 H3 Z" fill="var(--pop-blue)" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/><path d="M12 11 L21 19 H16 L12 15.5 L8 19 H3 Z" fill="var(--pop-blue)" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/></svg>`,
+  };
+
+  /* ---- procedural comic rank badges (replaces the AI medal PNGs) ---- */
+  const RANK_META = {
+    rookie:   { metal: '#9aa0a8', emblem: 'pip'   },
+    bronze:   { metal: '#cd7f32', emblem: 'star'  },
+    silver:   { metal: '#cdd3d9', emblem: 'star'  },
+    gold:     { metal: '#ffce3a', emblem: 'star'  },
+    platinum: { metal: '#86e4d6', emblem: 'star2' },
+    diamond:  { metal: '#5ec6ff', emblem: 'gem'   },
+    champion: { metal: '#ff5a5f', emblem: 'crown' },
+  };
+  const RANK_EMBLEM = {
+    // all centered on (24,19)
+    pip:   `<circle cx="24" cy="19" r="4.4" fill="#fff" stroke="#14110d" stroke-width="1.5"/>`,
+    star:  `<path d="M24 11 l2.2 4.7 5.1 .5 -3.8 3.4 1.1 5 -4.6-2.7 -4.6 2.7 1.1-5 -3.8-3.4 5.1-.5 Z" fill="#fff" stroke="#14110d" stroke-width="1.4" stroke-linejoin="round"/>`,
+    star2: `<path d="M24 10 l1.9 4 4.4 .4 -3.3 2.9 1 4.3 -4-2.3 -4 2.3 1-4.3 -3.3-2.9 4.4-.4 Z" fill="#fff" stroke="#14110d" stroke-width="1.3" stroke-linejoin="round"/><circle cx="16.5" cy="25" r="2" fill="#fff" stroke="#14110d" stroke-width="1.1"/><circle cx="31.5" cy="25" r="2" fill="#fff" stroke="#14110d" stroke-width="1.1"/>`,
+    gem:   `<g stroke="#14110d" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round"><path d="M18 13 H30 L34 18 L24 28 L14 18 Z" fill="#eafaff"/><path d="M14 18 H34 M18 13 L24 28 M30 13 L24 28" fill="none"/></g>`,
+    crown: `<g stroke="#14110d" stroke-width="1.6" stroke-linejoin="round"><path d="M13 25 L15 12 L19.5 18.5 L24 10 L28.5 18.5 L33 12 L35 25 Z" fill="#ffd23f"/><rect x="13" y="24" width="22" height="3.4" rx="1.2" fill="#14110d"/></g>`,
+  };
+  function rankIcon(name) {
+    const k = (name || '').toLowerCase();
+    const d = RANK_META[k] || RANK_META.rookie;
+    return `<svg viewBox="0 0 48 48" class="rankglyph" aria-hidden="true">
+      <path d="M17 27 L13 45 L21 40 L24 46 L27 40 L35 45 L31 27 Z" fill="#b23a2e" stroke="#14110d" stroke-width="2.4" stroke-linejoin="round"/>
+      <circle cx="24" cy="19" r="14.5" fill="${d.metal}" stroke="#14110d" stroke-width="3"/>
+      <circle cx="24" cy="19" r="10.5" fill="none" stroke="#14110d" stroke-width="1.4" opacity=".4"/>
+      ${RANK_EMBLEM[d.emblem]}
+    </svg>`;
+  }
   function renderGauntlet(g, onClimb, enabled, mutator) {
     const el = $('#gauntlet-content');
     if (!el) return;
@@ -424,22 +470,29 @@
     const isMilestone = (g.floor % D.GAUNTLET.milestoneEvery) === 0;
     const toBoss = D.GAUNTLET.bossEvery - ((g.floor - 1) % D.GAUNTLET.bossEvery);
     const toMilestone = D.GAUNTLET.milestoneEvery - ((g.floor - 1) % D.GAUNTLET.milestoneEvery);
-    const bannerCls = isMilestone ? 'milestone' : (nextBoss ? 'boss' : '');
-    const bannerTxt = isMilestone ? '🏆 MILESTONE FLOOR — bonus Legacy + loot + dust'
-      : nextBoss ? '👑 BOSS FLOOR — guaranteed rare loot'
-      : 'Next boss in ' + toBoss + ' floor' + (toBoss > 1 ? 's' : '') + ' • 🏆 milestone in ' + toMilestone;
+    const bannerHtml = isMilestone
+      ? `<div class="gaunt-banner milestone">${GICON.star}<span>MILESTONE FLOOR</span><span class="gb-sub">bonus Legacy, loot &amp; dust</span></div>`
+      : nextBoss
+        ? `<div class="gaunt-banner boss">${GICON.crown}<span>BOSS FLOOR</span><span class="gb-sub">guaranteed rare loot</span></div>`
+        : `<div class="gaunt-prog">
+             <span class="gaunt-pill boss-pill">${GICON.crown}<span>BOSS IN</span><b>${toBoss}</b></span>
+             <span class="gaunt-pill mile-pill">${GICON.star}<span>MILESTONE IN</span><b>${toMilestone}</b></span>
+           </div>`;
     const mutHtml = mutator
-      ? `<div class="gaunt-mut"><span class="gaunt-mut-ico">${mutator.icon}</span><b>${mutator.label}:</b> ${mutator.desc}</div>`
+      ? `<div class="gaunt-mut">${GICON.bolt}<span class="gaunt-mut-tag">MODIFIER</span><b>${mutator.label}</b><span class="gm-desc">${mutator.desc}</span></div>`
       : '';
     el.innerHTML = `
       <div class="gaunt-top">
         <div class="gaunt-floor">FLOOR <b>${g.floor}</b></div>
-        <div class="gaunt-best">🏔️ Best ${g.best} &nbsp; 🚩 Checkpoint ${g.checkpoint || 1}</div>
+        <div class="gaunt-stats">
+          <span class="gaunt-chip chip-best">${GICON.peak}<span class="gc-k">BEST</span><span class="gc-v">${g.best}</span></span>
+          <span class="gaunt-chip chip-cp">${GICON.flag}<span class="gc-k">CHECKPOINT</span><span class="gc-v">${g.checkpoint || 1}</span></span>
+        </div>
       </div>
-      <div class="gaunt-next ${bannerCls}">${bannerTxt}</div>
+      ${bannerHtml}
       ${mutHtml}
-      <p class="muted small">The Gauntlet scales forever. Win to climb; fall and you drop to your last boss checkpoint. Costs no stamina — your power is the only gate.</p>
-      <button id="btn-climb" class="primary-btn" ${enabled ? '' : 'disabled'}>${nextBoss ? '⚔️ FIGHT THE BOSS' : '⬆️ CLIMB FLOOR ' + g.floor}</button>`;
+      <div class="gaunt-rules"><span class="gr-tag">HOW IT WORKS</span><p>The tower scales forever. Win to climb; fall and you drop to your last boss checkpoint. No stamina, your power is the only gate.</p></div>
+      <button id="btn-climb" class="primary-btn gaunt-climb" ${enabled ? '' : 'disabled'}>${nextBoss ? 'FIGHT THE BOSS' : 'CLIMB FLOOR ' + g.floor}</button>`;
     const btn = $('#btn-climb');
     if (btn && enabled) btn.addEventListener('click', onClimb);
   }
@@ -999,7 +1052,7 @@
     toast, renderTopbar, showScreen, initTabs, updateFightView,
     renderCreatePreview, renderBruteTab, renderShop, shopCost,
     renderLegacy, legacyPayout, renderTraining,
-    renderForge, renderCraft, renderArenaRank, renderGauntlet, renderBounties, renderCollection, renderLifetime, setMeta,
+    renderForge, renderCraft, renderArenaRank, renderGauntlet, renderBounties, renderCollection, renderLifetime, setMeta, rankIcon,
     showLevelUp, isModalOpen,
     replayBattle, showOutcome, cancelReplay, showIdleBrute,
     bruteSummaryHtml, fmt,

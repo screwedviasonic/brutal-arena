@@ -374,13 +374,15 @@
     const empty = n => `<tr><td colspan="${n}" class="muted">No entries yet.</td></tr>`;
     // brute portrait + name#tag
     const who = r => `<td class="lb-who">${r.defense && global.Avatar ? `<span class="lb-av">${global.Avatar.svg(r.defense)}</span>` : ''}${fullName(r.handle, r.tag)}</td>`;
-    const divCell = arp => { const n = arenaDivName(arp); return `<td><img class="lb-rank-ico" src="assets/ui/rank/${n.toLowerCase()}.png" alt="" /> ${n}</td>`; };
+    const divCell = arp => { const n = arenaDivName(arp); const ico = (UI() && UI().rankIcon) ? UI().rankIcon(n) : ''; return `<td><span class="lb-rank-ico">${ico}</span> ${n}</td>`; };
+    const arpIco = `<svg viewBox="0 0 24 24" class="lb-arp-ico" aria-hidden="true"><path d="M12 3 L21 11 H16 L12 7.5 L8 11 H3 Z" fill="var(--pop-blue)" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/><path d="M12 11 L21 19 H16 L12 15.5 L8 19 H3 Z" fill="var(--pop-blue)" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/></svg>`;
+    const arpCell = v => `<td><span class="lb-arp">${arpIco}${v || 0}</span></td>`;
 
     // per-board config: column, header, value-cells, my live value, colspan
     const cfg = {
       arena:    { title: 'ARENA LEADERBOARD', col: 'arp', sel: 'user_id,handle,tag,arp,defense', span: 4,
                   head: '<th>#</th><th>Brute</th><th>Division</th><th>ARP</th>',
-                  cells: r => `${divCell(r.arp)}<td>${r.arp || 0}</td>`, mine: () => `${divCell(Game().arp())}<td>${Game().arp()}</td>`, myVal: () => Game().arp() },
+                  cells: r => `${divCell(r.arp)}${arpCell(r.arp)}`, mine: () => `${divCell(Game().arp())}${arpCell(Game().arp())}`, myVal: () => Game().arp() },
       gauntlet: { title: 'GAUNTLET LEADERBOARD', col: 'gauntlet_best', sel: 'user_id,handle,tag,gauntlet_best,defense', span: 3,
                   head: '<th>#</th><th>Brute</th><th>Best Floor</th>',
                   cells: r => `<td>${r.gauntlet_best || 0}</td>`, mine: () => `<td>${Game().gauntletBest()}</td>`, myVal: () => Game().gauntletBest() },

@@ -577,16 +577,64 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 .forge-btn:disabled { opacity: .45; cursor: not-allowed; box-shadow: 2px 2px 0 var(--muted); }
 
 /* ============ GAUNTLET ============ */
-.gaunt-top { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.gaunt-top { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
 .gaunt-floor { font-family: 'Bangers', sans-serif; font-size: 2.4rem; letter-spacing: 2px; color: var(--pop-red); -webkit-text-stroke: 1px var(--ink); }
 .gaunt-floor b { color: var(--pop-yellow); -webkit-text-stroke: 1.5px var(--ink); }
-.gaunt-best { font-weight: 700; color: var(--muted); }
-.gaunt-next { font-family: 'Anton', sans-serif; letter-spacing: 1px; padding: 8px 14px; border: 3px solid var(--ink); border-radius: 8px; background: var(--paper2); display: inline-block; margin-bottom: 12px; box-shadow: var(--shadow-sm); }
-.gaunt-next.boss { background: var(--pop-red); color: #fff; animation: legpulse 1s ease-in-out infinite; }
-.gaunt-next.milestone { background: var(--pop-purple); color: #fff; animation: legpulse 1s ease-in-out infinite; }
-.gaunt-mut { display: flex; align-items: center; gap: 8px; padding: 8px 14px; margin-bottom: 12px; border: 3px dashed var(--ink); border-radius: 8px; background: #fff7d6; font-size: .95rem; }
-.gaunt-mut-ico { font-size: 1.4rem; }
-.gaunt-mut b { color: var(--pop-orange); -webkit-text-stroke: .3px var(--ink); }
+
+/* section header in the logo (Bangers) font — shared by Gauntlet & Arena */
+.comic-title {
+  font-family: 'Bangers', sans-serif; letter-spacing: 2px;
+  font-size: 2rem; line-height: 1; color: var(--pop-red);
+  -webkit-text-stroke: 1px var(--ink); text-shadow: 2px 2px 0 #fff;
+  transform: rotate(-2deg); transform-origin: left center;
+}
+.comic-title .ct-sub {
+  display: inline-block; vertical-align: middle; margin-left: 8px; transform: rotate(2deg);
+  font-family: 'Anton', sans-serif; font-size: .62rem; letter-spacing: 2px;
+  color: #fff; -webkit-text-stroke: 0; text-shadow: none;
+  background: var(--ink); border: 2px solid var(--ink); border-radius: 5px;
+  padding: 3px 9px; box-shadow: 2px 2px 0 rgba(0,0,0,.25);
+}
+
+.gicon { width: 18px; height: 18px; display: block; flex: none; }
+
+/* stat chips (best / checkpoint) — inked ticket with a colored value end */
+.gaunt-stats { display: flex; gap: 10px; flex-wrap: wrap; }
+.gaunt-chip { display: inline-flex; align-items: stretch; border: 3px solid var(--ink); border-radius: 999px; background: #fff; box-shadow: var(--shadow-sm); overflow: hidden; transform: rotate(-1deg); }
+.gaunt-chip:nth-child(2) { transform: rotate(1deg); }
+.gaunt-chip .gicon { align-self: center; margin: 0 2px 0 9px; }
+.gaunt-chip .gc-k { display: inline-flex; align-items: center; font-family: 'Anton', sans-serif; font-size: .66rem; letter-spacing: 1.5px; color: var(--muted); padding: 0 9px 0 5px; }
+.gaunt-chip .gc-v { display: inline-flex; align-items: center; font-family: 'Bangers', sans-serif; font-size: 1.3rem; line-height: 1; padding: 2px 13px; border-left: 3px solid var(--ink); }
+.gaunt-chip.chip-best .gc-v { background: #fff4cc; color: var(--pop-red); -webkit-text-stroke: .4px var(--ink); }
+.gaunt-chip.chip-cp   .gc-v { background: #d8f3e3; color: #1a8f5a; -webkit-text-stroke: .4px var(--ink); }
+
+/* boss / milestone countdown pills */
+.gaunt-prog { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+.gaunt-pill { display: inline-flex; align-items: center; gap: 7px; font-family: 'Anton', sans-serif; letter-spacing: 1px; font-size: .82rem; color: var(--muted); padding: 6px 14px; border: 3px solid var(--ink); border-radius: 8px; background: var(--paper2); box-shadow: var(--shadow-sm); }
+.gaunt-pill b { font-family: 'Bangers', sans-serif; font-size: 1.35rem; line-height: 1; -webkit-text-stroke: .5px var(--ink); }
+.gaunt-pill.boss-pill { transform: rotate(-1deg); }
+.gaunt-pill.boss-pill b { color: var(--pop-red); }
+.gaunt-pill.mile-pill { transform: rotate(1deg); }
+.gaunt-pill.mile-pill b { color: var(--pop-purple); }
+
+/* live boss / milestone banner */
+.gaunt-banner { display: inline-flex; align-items: center; gap: 10px; font-family: 'Bangers', sans-serif; letter-spacing: 1.5px; font-size: 1.35rem; color: #fff; padding: 9px 18px; border: 3px solid var(--ink); border-radius: 10px; margin-bottom: 12px; box-shadow: var(--shadow-sm); transform: rotate(-1deg); }
+.gaunt-banner .gicon { width: 22px; height: 22px; }
+.gaunt-banner .gb-sub { font-family: 'Archivo', sans-serif; font-weight: 800; font-size: .68rem; letter-spacing: .5px; text-transform: uppercase; background: rgba(0,0,0,.22); padding: 3px 8px; border-radius: 5px; }
+.gaunt-banner.boss { background: var(--pop-red); animation: legpulse 1s ease-in-out infinite; }
+.gaunt-banner.milestone { background: var(--pop-purple); animation: legpulse 1s ease-in-out infinite; }
+
+/* floor modifier */
+.gaunt-mut { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 14px; margin-bottom: 12px; border: 3px dashed var(--ink); border-radius: 8px; background: #fff7d6; }
+.gaunt-mut-tag { font-family: 'Anton', sans-serif; font-size: .66rem; letter-spacing: 1.5px; background: var(--pop-orange); color: #fff; border: 2px solid var(--ink); border-radius: 6px; padding: 3px 9px; -webkit-text-stroke: .3px var(--ink); }
+.gaunt-mut b { font-family: 'Anton', sans-serif; letter-spacing: .5px; color: var(--pop-orange); -webkit-text-stroke: .3px var(--ink); }
+.gaunt-mut .gm-desc { color: var(--muted); font-size: .9rem; }
+
+/* "how it works" note card */
+.gaunt-rules { position: relative; background: var(--paper2); border: 3px solid var(--ink); border-radius: 8px; padding: 12px 14px 10px; margin: 0 0 14px; box-shadow: var(--shadow-sm); }
+.gaunt-rules .gr-tag { position: absolute; top: -11px; left: 12px; font-family: 'Anton', sans-serif; font-size: .62rem; letter-spacing: 1.5px; background: var(--ink); color: var(--paper); padding: 2px 9px; border-radius: 5px; }
+.gaunt-rules p { margin: 0; color: var(--ink); font-size: .86rem; line-height: 1.4; opacity: .82; }
+.gaunt-climb { font-family: 'Bangers', sans-serif; letter-spacing: 2px; font-size: 1.3rem; }
 #btn-climb { display: block; width: 100%; margin-top: 8px; }
 
 /* ============ BOUNTIES ============ */
@@ -655,7 +703,10 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 .pvp-lb td:first-child { font-family: 'Bangers', sans-serif; color: var(--pop-red-d); font-size: 1.1rem; width: 2.4em; text-align: center; }
 .pvp-lb tr.me { background: var(--pop-yellow) !important; }
 .pvp-lb tr.me td { font-weight: 800; }
-.lb-rank-ico { width: 22px; height: 22px; vertical-align: middle; margin-right: 6px; filter: drop-shadow(1px 1px 0 var(--ink)); }
+.lb-rank-ico { display: inline-block; width: 24px; height: 24px; vertical-align: middle; margin-right: 6px; }
+.lb-rank-ico .rankglyph { filter: none; }
+.lb-arp { display: inline-flex; align-items: center; gap: 5px; }
+.lb-arp-ico { width: 16px; height: 16px; display: block; flex: none; }
 
 /* top-3 medal flare (others stay red via td:first-child default) */
 .pvp-lb tr.rank-1 { background: linear-gradient(90deg, rgba(232,178,35,.22), transparent 70%); }
@@ -770,12 +821,16 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 .log-line.cl-r { border-left-color: var(--pop-red); }
 .log-line.cl-start { background: #fff7d6; font-weight: 800; }
 
-/* ===== arena rank (division ladder) ===== */
-.arena-rank-panel { padding: 14px 18px; }
-.ar-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
-.ar-div { font-family: 'Bangers', sans-serif; font-size: 1.6rem; letter-spacing: 2px; color: var(--pop-red); -webkit-text-stroke: .6px var(--ink); }
-.ar-bar { height: 16px; background: var(--paper2); border: 3px solid var(--ink); border-radius: 4px; overflow: hidden; box-shadow: 2px 2px 0 var(--ink); margin-bottom: 6px; }
+/* ===== arena rank (division ladder) — comic styling ===== */
+.ar-divline { display: flex; align-items: center; gap: 12px; }
+.ar-medal { display: inline-flex; width: 56px; height: 56px; flex-shrink: 0; }
+.rankglyph { width: 100%; height: 100%; display: block; overflow: visible; filter: drop-shadow(2px 2px 0 var(--ink)); }
+.ar-divname { font-size: 2.2rem; } /* inherits .gaunt-floor (Bangers red/yellow) */
+.ar-next { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.ar-barwrap { flex: 1; min-width: 180px; }
+.ar-bar { height: 16px; background: var(--paper2); border: 3px solid var(--ink); border-radius: 4px; overflow: hidden; box-shadow: 2px 2px 0 var(--ink); }
 .ar-fill { height: 100%; background: repeating-linear-gradient(45deg, var(--pop-blue) 0 8px, #2a6fd6 8px 16px); transition: width .4s; }
+.ar-barlabel { display: block; margin-top: 4px; font-family: 'Anton', sans-serif; font-size: .72rem; letter-spacing: 1px; color: var(--muted); }
 /* outcome overlay: ARP + promotion lines */
 .arp-line { font-family: 'Anton', sans-serif; letter-spacing: 1px; margin-top: 6px; }
 .promo { margin-top: 8px; font-family: 'Bangers', sans-serif; letter-spacing: 1px; color: var(--pop-yellow); -webkit-text-stroke: .5px var(--ink); font-size: 1.1rem; line-height: 1.2; }
@@ -789,10 +844,8 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 .lb-mode:hover { background: var(--pop-yellow); }
 .lb-mode.active { background: var(--ink); color: var(--paper2); }
 
-/* rank medal in the arena rank panel */
-.ar-head { display: flex; align-items: center; gap: 14px; }
+/* rank medal (leaderboard rows still use .rank-ico) */
 .rank-ico { width: 58px; height: 58px; object-fit: contain; flex-shrink: 0; filter: drop-shadow(2px 2px 0 var(--ink)); }
-.ar-headtext { flex: 1; min-width: 0; }
 
 /* live brute portrait as the BRUTE nav icon */
 .nav-avatar { display: inline-flex; width: 34px; height: 34px; border: 2px solid var(--ink); border-radius: 6px; overflow: hidden; background: var(--paper2); flex-shrink: 0; }
@@ -813,10 +866,7 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 
 .field input.locked { opacity: .8; cursor: not-allowed; background: var(--paper); }
 
-/* combined arena panel: controls | rank, side by side */
-.arena-main { display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
-.arena-main .arena-controls { margin: 0; }
-.arena-main #arena-rank { flex: 1; min-width: 260px; border-left: 3px dashed var(--ink); padding-left: 22px; }
-@media (max-width: 680px) {
-  .arena-main #arena-rank { border-left: none; padding-left: 0; border-top: 3px dashed var(--ink); padding-top: 14px; width: 100%; }
-}
+/* arena main panel: vertical stack (rank info, then fight controls) */
+.arena-main .comic-title { margin-bottom: 14px; }
+.arena-main .arena-controls { margin-top: 14px; }
+.arena-main .arena-controls .primary-btn { flex: 1; min-width: 200px; }
