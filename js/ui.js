@@ -763,8 +763,7 @@
     const ov = $('#arena-overlay'); if (ov) ov.classList.add('hidden');
     const rig = document.querySelector('[data-rig="idle"]');
     const lo = C.loadout ? C.loadout(brute) : null;
-    const wcat = (lo && lo.weapon) ? catOf(lo.weapon.base) : 'fist';
-    if (rig && global.Fighter) fighters.idle = new global.Fighter(rig, brute, 'right', wcat);
+    if (rig && global.Fighter) fighters.idle = new global.Fighter(rig, brute, 'right', (lo && lo.weapon) || null);
   }
 
   function setupArena(result, leftBrute, rightBrute) {
@@ -799,10 +798,11 @@
     if (!rig) return;
     if (u.type === 'brute') {
       const lo = C.loadout ? C.loadout(brute) : null;
-      const wcat = (lo && lo.weapon) ? catOf(lo.weapon.base) : 'fist';
-      if (global.Fighter) fighters[u.id] = new global.Fighter(rig, brute, facing, wcat);
+      if (global.Fighter) fighters[u.id] = new global.Fighter(rig, brute, facing, (lo && lo.weapon) || null);
     } else if (global.PetFighter) {
-      fighters[u.id] = new global.PetFighter(rig, u.petId, facing);
+      const lo = C.loadout ? C.loadout(brute) : null;
+      const petRarity = (lo && lo.pet && lo.pet.base === u.petId) ? lo.pet.rarity : 'common';
+      fighters[u.id] = new global.PetFighter(rig, u.petId, facing, petRarity);
     }
   }
 

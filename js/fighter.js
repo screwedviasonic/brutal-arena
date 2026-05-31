@@ -28,32 +28,50 @@
     axe: 'axe', halberd: 'spear', trident: 'spear',
   };
 
-  function weaponShape(cat) {
-    switch (cat) {
-      case 'blade':
-        return `<rect x="-8" y="-3" width="16" height="6" rx="2" fill="#7a5230" stroke="#14110d" stroke-width="3"/>
-                <path d="M-3.5,2 L3.5,2 L2,46 L0,54 L-2,46 Z" fill="#eef3f8" stroke="#14110d" stroke-width="3" stroke-linejoin="round"/>`;
-      case 'blunt':
-        return `<rect x="-3.5" y="0" width="7" height="40" rx="3" fill="#6b4a2a" stroke="#14110d" stroke-width="3"/>
-                <circle cx="0" cy="47" r="10" fill="#9aa0a8" stroke="#14110d" stroke-width="3.5"/>
-                <circle cx="-4" cy="44" r="1.6" fill="#14110d"/><circle cx="4" cy="50" r="1.6" fill="#14110d"/>`;
-      case 'axe':
-        return `<rect x="-3.5" y="0" width="7" height="50" rx="3" fill="#6b4a2a" stroke="#14110d" stroke-width="3"/>
-                <path d="M3,16 Q26,18 20,42 Q12,36 3,40 Z" fill="#aab0b8" stroke="#14110d" stroke-width="3.5" stroke-linejoin="round"/>`;
-      case 'spear':
-        return `<rect x="-2.5" y="-6" width="5" height="58" rx="2" fill="#6b4a2a" stroke="#14110d" stroke-width="3"/>
-                <path d="M-4,50 L4,50 L0,66 Z" fill="#cfd6de" stroke="#14110d" stroke-width="3" stroke-linejoin="round"/>`;
-      default:
-        return '';
-    }
+  // per-weapon held shapes (hand at origin, weapon extends +y away from the fist)
+  const WEAPON_SHAPE = {
+    knife: '<rect x="-7" y="-3" width="14" height="6" rx="2" fill="#7a5230" stroke="#14110d" stroke-width="3"/><path d="M-3,2 L3,2 L1.5,34 L0,40 L-1.5,34 Z" fill="#eef3f8" stroke="#14110d" stroke-width="3" stroke-linejoin="round"/>',
+    sword: '<rect x="-8" y="-3" width="16" height="6" rx="2" fill="#7a5230" stroke="#14110d" stroke-width="3"/><path d="M-3.5,2 L3.5,2 L2,46 L0,54 L-2,46 Z" fill="#eef3f8" stroke="#14110d" stroke-width="3" stroke-linejoin="round"/>',
+    broadsword: '<rect x="-10" y="-3" width="20" height="6" rx="2" fill="#7a5230" stroke="#14110d" stroke-width="3"/><path d="M-5,2 L5,2 L4,42 L0,52 L-4,42 Z" fill="#dfe6ee" stroke="#14110d" stroke-width="3" stroke-linejoin="round"/>',
+    scimitar: '<rect x="-7" y="-3" width="14" height="6" rx="2" fill="#7a5230" stroke="#14110d" stroke-width="3"/><path d="M-3,2 C-3,2 16,16 5,52 C3,44 -2,38 -2,28 Z" fill="#eef3f8" stroke="#14110d" stroke-width="3" stroke-linejoin="round"/>',
+    sai: '<rect x="-4" y="-2" width="8" height="12" rx="3" fill="#6b4a2a" stroke="#14110d" stroke-width="3"/><g stroke-linecap="round"><path d="M0,8 V50 M-9,16 V30 M9,16 V30" stroke="#14110d" stroke-width="8"/><path d="M-9,16 Q0,10 9,16" fill="none" stroke="#14110d" stroke-width="8"/><path d="M0,8 V50 M-9,16 V30 M9,16 V30" stroke="#cfd6de" stroke-width="4.5"/><path d="M-9,16 Q0,10 9,16" fill="none" stroke="#cfd6de" stroke-width="4.5"/></g>',
+    fan: '<rect x="-3" y="-2" width="6" height="14" rx="3" fill="#6b4a2a" stroke="#14110d" stroke-width="3"/><path d="M0,10 L-22,44 A26 26 0 0 0 22,44 Z" fill="#e0563f" stroke="#14110d" stroke-width="3" stroke-linejoin="round"/><path d="M0,12 L-12,42 M0,12 L0,46 M0,12 L12,42" stroke="#14110d" stroke-width="2"/>',
+    whip: '<path d="M0,0 C-14,12 14,20 0,32 C-12,42 12,48 6,60" fill="none" stroke="#6b4a2a" stroke-width="6" stroke-linecap="round"/><path d="M0,0 C-14,12 14,20 0,32 C-12,42 12,48 6,60" fill="none" stroke="#3a2a1a" stroke-width="2.4" stroke-linecap="round"/>',
+    lightsaber: '<rect x="-5" y="-4" width="10" height="16" rx="3" fill="#2b2230" stroke="#14110d" stroke-width="3"/><rect x="-4" y="12" width="8" height="44" rx="4" fill="#7fd8ff" stroke="#14110d" stroke-width="3"/><rect x="-1.6" y="14" width="3.2" height="40" rx="1.6" fill="#eafaff"/>',
+    baton: '<rect x="-3.5" y="0" width="7" height="36" rx="3" fill="#2b2230" stroke="#14110d" stroke-width="3"/>',
+    club: '<path d="M-4,0 L4,0 L8,46 C8,55 -8,55 -8,46 Z" fill="#6b4a2a" stroke="#14110d" stroke-width="3" stroke-linejoin="round"/><circle cx="-3" cy="40" r="1.8" fill="#3a2a1a"/><circle cx="3" cy="47" r="1.8" fill="#3a2a1a"/>',
+    mug: '<rect x="-3.5" y="0" width="7" height="20" rx="3" fill="#6b4a2a" stroke="#14110d" stroke-width="3"/><rect x="-11" y="20" width="22" height="26" rx="4" fill="#ffce3a" stroke="#14110d" stroke-width="3"/><rect x="-11" y="20" width="22" height="7" fill="#fff" stroke="#14110d" stroke-width="3"/><path d="M11,26 H17 A4 4 0 0 1 17 40 H11" fill="none" stroke="#14110d" stroke-width="3"/>',
+    fryingpan: '<rect x="-3.5" y="0" width="7" height="24" rx="3" fill="#6b4a2a" stroke="#14110d" stroke-width="3"/><circle cx="0" cy="42" r="14" fill="#3a3530" stroke="#14110d" stroke-width="3.5"/>',
+    morningstar: '<rect x="-3.5" y="0" width="7" height="32" rx="3" fill="#6b4a2a" stroke="#14110d" stroke-width="3"/><path d="M0,31 V37 M0,55 V61 M-15,46 H-9 M9,46 H15 M-10,36 L-6,40 M10,36 L6,40 M-10,56 L-6,52 M10,56 L6,52" stroke="#14110d" stroke-width="3" stroke-linecap="round"/><circle cx="0" cy="46" r="11" fill="#9aa0a8" stroke="#14110d" stroke-width="3.5"/>',
+    axe: '<rect x="-3.5" y="-6" width="7" height="56" rx="3" fill="#6b4a2a" stroke="#14110d" stroke-width="3"/><path d="M3,10 Q26,12 20,36 Q12,30 3,34 Z" fill="#aab0b8" stroke="#14110d" stroke-width="3.5" stroke-linejoin="round"/>',
+    trident: '<rect x="-2.5" y="-6" width="5" height="52" rx="2" fill="#6b4a2a" stroke="#14110d" stroke-width="3"/><g stroke-linecap="round"><path d="M0,66 V46 M-10,60 V48 M10,60 V48" stroke="#14110d" stroke-width="7"/><path d="M-10,48 Q0,54 10,48" fill="none" stroke="#14110d" stroke-width="7"/><path d="M0,66 V46 M-10,60 V48 M10,60 V48" stroke="#cfd6de" stroke-width="3.5"/><path d="M-10,48 Q0,54 10,48" fill="none" stroke="#cfd6de" stroke-width="3.5"/></g>',
+    halberd: '<rect x="-2.5" y="-6" width="5" height="60" rx="2" fill="#6b4a2a" stroke="#14110d" stroke-width="3"/><path d="M-4,58 L4,58 L0,70 Z" fill="#cfd6de" stroke="#14110d" stroke-width="3" stroke-linejoin="round"/><path d="M3,30 Q24,32 18,52 Q11,47 3,50 Z" fill="#aab0b8" stroke="#14110d" stroke-width="3.5" stroke-linejoin="round"/>',
+  };
+  // category fallback for any unmapped base
+  const CAT_SHAPE = {
+    blade: WEAPON_SHAPE.sword, blunt: WEAPON_SHAPE.club, axe: WEAPON_SHAPE.axe, spear: WEAPON_SHAPE.trident,
+  };
+  function weaponShape(base) { return WEAPON_SHAPE[base] || CAT_SHAPE[WEAPON_CAT[base]] || ''; }
+
+  // rarity aura: a colored glow on the weapon (common = none)
+  const AURA = { uncommon: '#2dc653', rare: '#3a86ff', epic: '#a855f7', legendary: '#ff9e00', mythic: '#ff2d55' };
+  function auraFilter(rarity, scale) {
+    const c = AURA[rarity];
+    if (!c) return '';
+    const s = scale || 1;
+    const strong = rarity === 'legendary' || rarity === 'mythic';
+    return `drop-shadow(0 0 ${(strong ? 4 : 3) * s}px ${c}) drop-shadow(0 0 ${(strong ? 9 : 5) * s}px ${c})`;
   }
 
   class Fighter {
-    constructor(mount, brute, facing, weaponCat) {
+    constructor(mount, brute, facing, weapon) {
       this.brute = brute;
       this.facing = facing || 'right';
       this.dead = false;
       this.currentCat = 'fist';
+      // weapon: an item instance {base, rarity}, or null/'fist' for unarmed
+      if (weapon && typeof weapon === 'object') { this.weaponBase = weapon.base || 'fist'; this.weaponRarity = weapon.rarity || 'common'; }
+      else { this.weaponBase = (weapon && weapon !== 'fist') ? weapon : 'fist'; this.weaponRarity = 'common'; }
       this.skin = (brute.appearance && brute.appearance.skin) || '#c98b5e';
       this.outfit = (brute.appearance && brute.appearance.outfit) || '#b3261e';
       this.armRest = 14;     // resting front-arm angle (deg)
@@ -76,7 +94,7 @@
       this.frontArm.style.transform = `rotate(${this.armRest}deg)`;
       this.backArm.style.transform = `rotate(${this.backRest}deg)`;
       // hold the equipped weapon from the start (so the fighter visibly wields it)
-      this.setWeaponNow(weaponCat || 'fist');
+      this.setWeaponNow(this.weaponBase, this.weaponRarity);
 
       this._idle();
     }
@@ -148,21 +166,28 @@
     }
 
     /* ----- moves ----- */
-    setWeaponNow(cat) {
-      cat = cat || 'fist';
-      if (cat === 'fist') { this.weapon.style.display = 'none'; this.fist.style.display = ''; }
-      else { this.weapon.innerHTML = weaponShape(cat); this.weapon.style.display = ''; this.fist.style.display = 'none'; }
-      this.currentCat = cat;
+    setWeaponNow(base, rarity) {
+      base = base || 'fist';
+      if (base === 'fist') {
+        this.weapon.style.display = 'none'; this.weapon.style.filter = ''; this.fist.style.display = '';
+        this.currentCat = 'fist';
+      } else {
+        this.weapon.innerHTML = weaponShape(base);
+        this.weapon.style.filter = auraFilter(rarity != null ? rarity : this.weaponRarity);
+        this.weapon.style.display = ''; this.fist.style.display = 'none';
+        this.weaponBase = base;
+        this.currentCat = WEAPON_CAT[base] || 'blade';
+      }
     }
 
+    // the fighter always wields its equipped weapon; only flourish if not yet shown
     async drawWeapon(cat) {
       if (this.dead) return;
       cat = cat || 'fist';
       if (cat === this.currentCat) return;
       if (cat === 'fist') { this.setWeaponNow('fist'); return; }
-      // raise up & back, produce the weapon, settle — the "pull out" beat
       await this._rot(this.frontArm, this.armRest, 120, 130, 'ease-out');
-      this.setWeaponNow(cat);
+      this.setWeaponNow(this.weaponBase, this.weaponRarity);
       await this._rot(this.frontArm, 120, this.armRest, 150, 'ease-in');
     }
 
@@ -264,7 +289,7 @@
   }
 
   class PetFighter {
-    constructor(mount, species, facing) {
+    constructor(mount, species, facing, rarity) {
       this.species = PET_LOOK[species] ? species : 'dog';
       this.facing = facing || 'right';
       this.dead = false;
@@ -276,6 +301,7 @@
       if (this.facing === 'left') mount.classList.add('flip');
       mount.innerHTML = this._svg();
       this.svg = mount.querySelector('svg');
+      if (this.svg) this.svg.style.filter = auraFilter(rarity, 1.7);   // rarity glow around the pet
       this.root = mount.querySelector('.p-root');
       this.bob = mount.querySelector('.p-bob');
       this.head = mount.querySelector('.p-head');

@@ -343,11 +343,11 @@
   }
   function equipWeapon(uid) {
     if (!state.brute.weapons.some(w => w.uid === uid)) return;
-    state.brute.equipped.weapon = uid; save(); renderAll();
+    state.brute.equipped.weapon = uid; save(); renderAll(); refreshIdleBrute();
   }
   function equipPet(uid) {
     if (uid && !state.brute.pets.some(p => p.uid === uid)) return;
-    state.brute.equipped.pet = uid || null; save(); renderAll();
+    state.brute.equipped.pet = uid || null; save(); renderAll(); refreshIdleBrute();
   }
   function toggleSkill(uid) {
     const eq = state.brute.equipped;
@@ -358,7 +358,7 @@
       if (!state.brute.skills.some(s => s.uid === uid)) return;
       eq.skills.push(uid);
     }
-    save(); renderAll();
+    save(); renderAll(); refreshIdleBrute();
   }
 
   /* ---------------- forge (works on weapons, pets & skills) ---------------- */
@@ -418,7 +418,7 @@
     }
     if (wasEquipped) C.autoEquip(state.brute, skillSlots());
     UI.toast(`Fused into ${global.Items.rarityName(fused)} ${global.Items.displayName(fused)}!`, 'good');
-    save(); renderAll();
+    save(); renderAll(); refreshIdleBrute();
   }
   // shards needed to craft a base (weapon/pet/skill), scaling with its tier
   function craftDict(kind) { return kind === 'pet' ? D.PETS : kind === 'skill' ? D.SKILLS : D.WEAPONS; }
@@ -470,7 +470,7 @@
       (It.rarityRank(c.rarity) - It.rarityRank(a.rarity)) || ((c.level || 0) - (a.level || 0)));
     b.equipped.skills = ranked.slice(0, slots).map(s => s.uid);
     UI.toast('Equipped your strongest gear', 'good');
-    save(); renderAll();
+    save(); renderAll(); refreshIdleBrute();
   }
   // repeatedly fuse every available duplicate pair of one type (chains up rarities)
   function autoMerge(kind) {
@@ -498,7 +498,7 @@
       if (wasEq) C.autoEquip(state.brute, skillSlots());
       fused++;
     }
-    if (fused) { UI.toast(`Auto-merged ${fused} fusion${fused > 1 ? 's' : ''}${ranDry ? ' (out of dust)' : ''}`, 'good'); save(); renderAll(); }
+    if (fused) { UI.toast(`Auto-merged ${fused} fusion${fused > 1 ? 's' : ''}${ranDry ? ' (out of dust)' : ''}`, 'good'); save(); renderAll(); refreshIdleBrute(); }
     else UI.toast(ranDry ? 'Not enough dust to fuse.' : 'No duplicates to merge.', 'bad');
   }
 
@@ -867,6 +867,10 @@
     setTimeout(() => {
       if (!fightInProgress && state.brute && !UI.isModalOpen()) UI.showIdleBrute(state.brute);
     }, 3000);
+  }
+  // immediately re-mount the idle arena brute (so loadout/look changes show at once)
+  function refreshIdleBrute() {
+    if (!fightInProgress && state.brute && UI.showIdleBrute) UI.showIdleBrute(state.brute);
   }
 
   /* ---------------- rendering ---------------- */
