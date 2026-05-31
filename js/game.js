@@ -10,6 +10,7 @@
   const C = global.Character;
   const P = global.Progression;
   const SAVE_KEY = 'brutal_arena_save_v1';
+  const GAME_VERSION = '0.9.0';     // displayed on the About tab; bump on release
   const STAMINA_BASE = 6;
   const STAMINA_REGEN_BASE = 45;   // seconds per point at 0 upgrades
   const OFFLINE_CAP_SEC = 8 * 3600;
@@ -1348,6 +1349,7 @@
   function boot() {
     UI.initTabs();
     wireEvents();
+    const verEl = $('#about-version'); if (verEl) verEl.textContent = 'v' + GAME_VERSION;
 
     state = migrate(load()) || defaultState();
     // AUTO never persists across reloads (don't resume fighting unattended); FAST is a kept preference

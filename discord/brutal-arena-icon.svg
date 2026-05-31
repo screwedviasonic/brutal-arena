@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Bangers&amp;display=swap');
+      .logo { font-family: 'Bangers', 'Anton', sans-serif; }
+    </style>
+    <!-- halftone dots, comic-paper feel -->
+    <pattern id="halftone" width="11" height="11" patternUnits="userSpaceOnUse">
+      <circle cx="2.2" cy="2.2" r="1.5" fill="#14110d" opacity="0.13"/>
+    </pattern>
+    <clipPath id="disc"><circle cx="256" cy="256" r="248"/></clipPath>
+  </defs>
+
+  <!-- badge base (corners stay transparent so it reads as a round sticker) -->
+  <g clip-path="url(#disc)">
+    <rect x="0" y="0" width="512" height="512" fill="#f6efdd"/>
+    <rect x="0" y="0" width="512" height="512" fill="url(#halftone)"/>
+    <!-- a yellow comic burst behind the wordmark for punch -->
+    <g transform="translate(256 256)">
+      <path fill="#ffd23f" stroke="#14110d" stroke-width="7" stroke-linejoin="round"
+        d="M0,-205 38,-150 104,-178 92,-107 168,-104 117,-52 196,-8 120,18 158,86 84,74 78,150 18,108 -22,182 -54,108 -128,140 -110,64 -190,58 -132,4 -196,-44 -120,-58 -150,-128 -78,-100 -64,-176 -8,-128 Z"
+        opacity="0.92"/>
+    </g>
+    <!-- thick ink ring frame -->
+    <circle cx="256" cy="256" r="242" fill="none" stroke="#14110d" stroke-width="13"/>
+    <circle cx="256" cy="256" r="226" fill="none" stroke="#14110d" stroke-width="4"/>
+  </g>
+
+  <!-- the wordmark, stacked + tilted like the in-game logo -->
+  <g class="logo" text-anchor="middle" transform="rotate(-4 256 256)">
+    <text x="256" y="232" font-size="96" fill="#14110d" stroke="#14110d" stroke-width="2"
+      letter-spacing="2" paint-order="stroke">BRUTAL</text>
+    <!-- hard offset shadow for ARENA -->
+    <text x="261" y="349" font-size="118" fill="#14110d" letter-spacing="3">ARENA</text>
+    <text x="256" y="344" font-size="118" fill="#ffd23f" stroke="#14110d" stroke-width="4"
+      letter-spacing="3" paint-order="stroke">ARENA</text>
+  </g>
+</svg>

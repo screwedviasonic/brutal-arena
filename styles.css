@@ -152,6 +152,22 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 .help-card .hc-desc { font-size: .8rem; line-height: 1.32; color: var(--muted); }
 .help-facts p + p { margin-top: 7px; }
 
+/* about tab */
+.about-discord {
+  display: flex; align-items: center; gap: 14px; text-decoration: none;
+  background: #5865f2; color: #fff; border: 3px solid var(--ink); border-radius: 10px;
+  box-shadow: var(--shadow-sm); padding: 13px 16px; margin: 12px 0 4px;
+  transition: transform .08s, box-shadow .08s;
+}
+.about-discord:hover { transform: translate(-1px, -1px); box-shadow: var(--shadow); }
+.about-discord .ad-logo { width: 42px; height: 42px; flex: none; filter: drop-shadow(2px 2px 0 rgba(0,0,0,.35)); }
+.about-discord .ad-txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.about-discord .ad-txt b { font-family: 'Bangers', 'Anton', sans-serif; letter-spacing: 1px; font-size: 1.3rem; line-height: 1.05; }
+.about-discord .ad-txt span { font-size: .82rem; opacity: .92; }
+.about-discord .ad-go { margin-left: auto; font-family: 'Bangers', sans-serif; font-size: 1.3rem; flex: none; }
+.about-foot { margin: 18px 0 2px; text-align: center; font-size: .76rem; color: var(--muted); letter-spacing: .3px; }
+.about-foot #about-version { font-family: 'Anton', sans-serif; color: var(--ink); }
+
 /* inspect modal */
 .inspect-card { position: relative; max-width: 440px; text-align: left; }
 .inspect-close { position: absolute; top: 8px; right: 10px; background: none; border: none; font-family: 'Anton', sans-serif; font-size: 1.2rem; color: var(--ink); cursor: pointer; }
