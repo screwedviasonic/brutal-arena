@@ -111,23 +111,20 @@
   const SKIN_COLORS = ['#e7b58f', '#c98b5e', '#8d5a3a', '#a3c586', '#7fa8c9', '#c98fb8', '#b0b0b0', '#d4a373'];
   const OUTFIT_COLORS = ['#b3261e', '#1e63b3', '#2e8b57', '#8b5cf6', '#d97706', '#0d9488', '#be123c', '#4b5563'];
 
-  /* ---------------- SHOP ----------------
-   * Permanent gold sinks. cost grows per level owned.
+  /* ---------------- SHOP (rotating item stock, gold sink) ----------------
+   * A few slots, each a rolled weapon/pet/skill (base + rarity). Auto-rotates
+   * on a timer; you can also pay gold to reroll the whole stock.
    */
-  const SHOP_ITEMS = [
-    { id: 'staminaMax', name: 'Bigger Lungs', icon: '⚡', desc: '+1 max stamina', max: 30, baseCost: 40, growth: 1.45,
-      effect: 'Increases your maximum stamina by 1.' },
-    { id: 'staminaRegen', name: 'Endurance Training', icon: '⏱️', desc: '-6s stamina regen time', max: 20, baseCost: 60, growth: 1.5,
-      effect: 'Stamina refills faster.' },
-    { id: 'trainer', name: 'Hire Trainer', icon: '🏋️', desc: '+idle XP rate & cap', max: 50, baseCost: 30, growth: 1.35,
-      effect: 'Banks more idle XP per second and raises the training cap. Claim it in the Brute tab.' },
-    { id: 'goldFind', name: 'Looter', icon: '💰', desc: '+15% gold from fights', max: 20, baseCost: 80, growth: 1.5,
-      effect: 'Win more gold from every victory.' },
-    { id: 'xpBoost', name: 'War College', icon: '📚', desc: '+10% XP from fights', max: 20, baseCost: 90, growth: 1.5,
-      effect: 'Gain more XP from every fight.' },
-    { id: 'dropLuck', name: "Scavenger's Eye", icon: '🍀', desc: '+8% better level-up reward odds', max: 15, baseCost: 120, growth: 1.6,
-      effect: 'Improves the rarity of weapons/skills offered on level up.' },
-  ];
+  const SHOP = {
+    slots: 6,
+    refreshHours: 3,
+    rerollCost: 60,          // gold to reroll the stock
+    priceBase: 35,
+    pricePerTier: 28,
+    rarityMul: { common: 1, uncommon: 1.6, rare: 2.7, epic: 4.6, legendary: 8, mythic: 14 },
+    rarityWeights: { common: 48, uncommon: 30, rare: 15, epic: 5, legendary: 1.5, mythic: 0.3 },
+    kindWeights: { weapon: 3, pet: 1, skill: 2 },
+  };
 
   /* ---------------- LEGACY PERKS (permanent, account-wide) ----------------
    * Legacy is earned by Ascending (see ASCENSION). Perks permanently buff
@@ -135,14 +132,14 @@
    */
   const LEGACY_PERKS = [
     { id: 'might', name: 'Savage Bloodline', desc: '+4% to all stats per level', max: 15, cost: 1 },
-    { id: 'vigor', name: 'Iron Lungs', desc: '+2 max stamina per level', max: 10, cost: 2 },
+    { id: 'trainer', name: 'Drill Sergeant', desc: '+idle XP rate & cap per level', max: 10, cost: 2 },
     { id: 'goldMul', name: 'Merchant Ancestry', desc: '+20% gold gain per level', max: 10, cost: 1 },
     { id: 'xpMul', name: 'Veteran Blood', desc: '+15% XP gain per level', max: 10, cost: 1 },
     { id: 'fortune', name: "Warlord's Luck", desc: '+10% better loot per level', max: 10, cost: 2 },
     { id: 'skillSlots', name: 'Open Mind', desc: '+1 equipped skill slot per level', max: 3, cost: 4 },
   ];
   // perk ids that no longer exist — their spent legacy is refunded on load
-  const LEGACY_PERKS_RETIRED = { startStats: 1, startWeapon: 2, startSkill: 3 };
+  const LEGACY_PERKS_RETIRED = { startStats: 1, startWeapon: 2, startSkill: 3, vigor: 2 };
 
   /* ---------------- ASCENSION (endgame, replaces prestige) ----------------
    * Reaching a new deepest Gauntlet floor unlocks the next Ascension: bank
@@ -172,6 +169,8 @@
     levelPerDiv: 4,         // +levels per division (Champion ~ level 26)
     statMulPerDiv: 0.10,    // +stats per division on top of level
     econPerDiv: 0.10,       // +10% gold & XP per division (climb incentive)
+    staminaPerDiv: 1,       // +1 max stamina per division reached (best)
+    regenPerDiv: 4,         // -4s stamina regen time per division reached
   };
 
   /* ---------------- GAUNTLET (endless tower) ---------------- */
@@ -311,7 +310,7 @@
     PETS, ALL_PETS,
     NAME_PREFIX, NAME_SUFFIX, NAME_TITLE,
     SKIN_COLORS, OUTFIT_COLORS,
-    SHOP_ITEMS, LEGACY_PERKS, LEGACY_PERKS_RETIRED, ASCENSION,
+    SHOP, LEGACY_PERKS, LEGACY_PERKS_RETIRED, ASCENSION,
     ARENA, GAUNTLET, MASTERY, COLLECTION, BOUNTIES, CRAFT, STAT_DEFS, TRAINING, ACHIEVEMENTS,
   };
 })(window);

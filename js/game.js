@@ -37,7 +37,8 @@
       shards: 0,
       craftTarget: null,
       craftKind: 'weapon',
-      shop: {},
+      shop: {},                 // legacy (old upgrade counts) — unused
+      shopStock: { list: [], lastRefresh: 0 },
       legacyPerks: {},
       gauntlet: { floor: 1, best: 0, checkpoint: 1 },
       arena: { arp: 0, best: 0 },   // ranked division ladder (arp + highest division reached)
@@ -67,6 +68,7 @@
     if (!s.gauntlet) s.gauntlet = { floor: 1, best: 0, checkpoint: 1 };
     if (!s.arena) s.arena = { arp: 0, best: 0 };
     if (!s.ascension) s.ascension = { tier: 0 };
+    if (!s.shopStock) s.shopStock = { list: [], lastRefresh: 0 };
     // refund legacy spent on retired perks, then drop them
     if (s.legacyPerks) {
       for (const id in D.LEGACY_PERKS_RETIRED) {
@@ -129,19 +131,17 @@
   }
 
   /* ---------------- derived values ---------------- */
-  function staminaMax() { return STAMINA_BASE + (state.shop.staminaMax || 0) + (state.legacyPerks.vigor || 0) * 2; }
+  // max stamina + regen now scale with your highest Arena division reached
+  function arenaStaminaBonus() { return ((state.arena && state.arena.best) || 0) * D.ARENA.staminaPerDiv; }
+  function staminaMax() { return STAMINA_BASE + arenaStaminaBonus(); }
   function staminaRegenTime() {
-    return Math.max(6, STAMINA_REGEN_BASE - (state.shop.staminaRegen || 0) * 6);
+    return Math.max(6, STAMINA_REGEN_BASE - ((state.arena && state.arena.best) || 0) * D.ARENA.regenPerDiv);
   }
-  function trainXpRate() { return D.TRAINING.baseXpSec + (state.shop.trainer || 0) * D.TRAINING.xpPerTrainerSec; }
-  function trainXpCap() { return D.TRAINING.capBase + (state.shop.trainer || 0) * D.TRAINING.capPerTrainer; }
-  function goldMul() {
-    return (1 + (state.shop.goldFind || 0) * 0.15) * (1 + (state.legacyPerks.goldMul || 0) * 0.20);
-  }
-  function xpMul() {
-    return (1 + (state.shop.xpBoost || 0) * 0.10) * (1 + (state.legacyPerks.xpMul || 0) * 0.15);
-  }
-  function dropLuck() { return (state.shop.dropLuck || 0) * 0.08 + (state.legacyPerks.fortune || 0) * 0.10; }
+  function trainXpRate() { return D.TRAINING.baseXpSec + (state.legacyPerks.trainer || 0) * D.TRAINING.xpPerTrainerSec; }
+  function trainXpCap() { return D.TRAINING.capBase + (state.legacyPerks.trainer || 0) * D.TRAINING.capPerTrainer; }
+  function goldMul() { return 1 + (state.legacyPerks.goldMul || 0) * 0.20; }
+  function xpMul() { return 1 + (state.legacyPerks.xpMul || 0) * 0.15; }
+  function dropLuck() { return (state.legacyPerks.fortune || 0) * 0.10; }
   function legacyPerksForCreate() { return state.legacyPerks; }
 
   /* ---------------- masteries & collection (account-wide meta) ---------------- */
@@ -800,7 +800,7 @@
       dust = Math.round(2 + lvl * 0.5);
       state.gold += gold; state.dust += dust;
       // loot drop
-      const dropChance = 0.16 + (state.shop.dropLuck || 0) * 0.03;
+      const dropChance = 0.16 + (state.legacyPerks.fortune || 0) * 0.02;
       if (Math.random() < dropChance) dropTxt = ' • ' + lootBadge(dropItem(dropLuck() + 0.04));
     } else {
       state.brute.losses++;
@@ -853,15 +853,49 @@
     }
   }
 
-  /* ---------------- shop ---------------- */
-  function buyShop(item, cost) {
-    if (state.gold < cost) { UI.toast('Not enough gold.', 'bad'); return; }
-    state.gold -= cost;
-    state.shop[item.id] = (state.shop[item.id] || 0) + 1;
-    if (item.id === 'staminaMax') { /* max grew; allow regen toward it */ }
-    UI.toast(`Bought ${item.icon} ${item.name}`, 'good');
-    save();
-    renderAll();
+  /* ---------------- shop (rotating item stock) ---------------- */
+  function rollShopItem() {
+    const rng = new RNG(randomSeed());
+    const S = D.SHOP, It = global.Items;
+    const kind = rng.weighted(Object.keys(S.kindWeights).map(k => ({ item: k, weight: S.kindWeights[k] })));
+    const rarity = rng.weighted(Object.keys(S.rarityWeights).map(r => ({ item: r, weight: S.rarityWeights[r] })));
+    let base, inst, tier;
+    if (kind === 'pet') { base = rng.pick(D.ALL_PETS); inst = It.generatePet(base.id, rng, { rarity }); tier = base.tier; }
+    else if (kind === 'skill') { base = rng.pick(D.ALL_SKILLS); inst = It.generateSkill(base.id, rng, { rarity }); tier = base.tier; }
+    else { base = rng.pick(D.DROPPABLE_WEAPONS); inst = It.generateWeapon(base.id, rng, { rarity }); tier = base.tier; }
+    const price = Math.round((S.priceBase + (tier || 1) * S.pricePerTier) * (S.rarityMul[rarity] || 1));
+    return { kind, inst, price, sold: false };
+  }
+  function rollShopStock() {
+    state.shopStock.list = [];
+    for (let i = 0; i < D.SHOP.slots; i++) state.shopStock.list.push(rollShopItem());
+    state.shopStock.lastRefresh = now();
+  }
+  function ensureShop() {
+    if (!state.shopStock) state.shopStock = { list: [], lastRefresh: 0 };
+    if (!state.shopStock.list.length) rollShopStock();
+  }
+  function refreshShopIfDue() {
+    ensureShop();
+    if (now() >= state.shopStock.lastRefresh + D.SHOP.refreshHours * 3600 * 1000) rollShopStock();
+  }
+  function buyShopItem(idx) {
+    const s = state.shopStock.list[idx];
+    if (!s || s.sold) return;
+    if (state.gold < s.price) { UI.toast('Not enough gold.', 'bad'); return; }
+    state.gold -= s.price;
+    if (s.kind === 'pet') { state.brute.pets.push(s.inst); collectItem('pet', s.inst.base, s.inst.rarity); }
+    else if (s.kind === 'skill') { state.brute.skills.push(s.inst); collectItem('skill', s.inst.base, s.inst.rarity); }
+    else addWeaponToBrute(s.inst);
+    s.sold = true;
+    UI.toast(`Bought ${global.Items.rarityName(s.inst)} ${global.Items.displayName(s.inst)}`, 'good');
+    save(); renderAll();
+  }
+  function rerollShop() {
+    if (state.gold < D.SHOP.rerollCost) { UI.toast('Not enough gold to reroll.', 'bad'); return; }
+    state.gold -= D.SHOP.rerollCost;
+    rollShopStock();
+    save(); renderAll();
   }
 
   /* ---------------- ascension (endgame) ---------------- */
@@ -1029,14 +1063,12 @@
     UI.renderBounties(state.bounties, { claim: claimBounty, reroll: rerollBounty, rerollDust: state.dust });
     UI.renderCollection(state);
     UI.renderAchievements(achievementsData());
-    UI.renderShop(stateForShop(), buyShop);
+    ensureShop();
+    UI.renderShop(state.shopStock, state.gold, { buy: buyShopItem, reroll: rerollShop });
     UI.renderLegacy(state, ascensionInfo(), { ascend: ascend, buyPerk: buyLegacyPerk });
     UI.renderTraining(state.training, trainXpRate(), trainXpCap(), claimTraining);
     const btn = $('#btn-fight');
     if (btn) btn.disabled = state.stamina < 1 || fightInProgress;
-  }
-  function stateForShop() {
-    return { gold: state.gold, shop: state.shop };
   }
 
   /* ---------------- the loop ---------------- */
@@ -1046,6 +1078,7 @@
     const btn = $('#btn-fight');
     if (btn) btn.disabled = state.stamina < 1 || fightInProgress;
     refreshBountiesIfDue();
+    refreshShopIfDue();
     save();
   }
 

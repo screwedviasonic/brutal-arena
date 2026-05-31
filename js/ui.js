@@ -304,30 +304,40 @@
   }
 
   /* ---------------- shop ---------------- */
-  function renderShop(state, onBuy) {
-    const list = $('#shop-list');
-    list.innerHTML = '';
-    for (const item of D.SHOP_ITEMS) {
-      const owned = state.shop[item.id] || 0;
-      const maxed = owned >= item.max;
-      const cost = shopCost(item, owned);
-      const card = document.createElement('div');
-      card.className = 'shop-item' + (maxed ? ' maxed' : '');
-      card.innerHTML = `
-        <div class="si-ico">${item.icon}</div>
-        <div class="si-body">
-          <div class="si-name">${item.name} <span class="si-owned">${owned}/${item.max}</span></div>
-          <div class="si-desc">${item.desc}</div>
-          <div class="si-effect muted small">${item.effect}</div>
+  function renderShop(stock, gold, h) {
+    const el = $('#shop-list');
+    if (!el) return;
+    let timerTxt = 'restocking soon';
+    const ms = (stock.lastRefresh + D.SHOP.refreshHours * 3600000) - Date.now();
+    if (ms > 0) { const hrs = Math.floor(ms / 3600000), mins = Math.floor((ms % 3600000) / 60000); timerTxt = `restocks in ${hrs > 0 ? hrs + 'h ' : ''}${mins}m`; }
+    const subOf = (kind, inst) => kind === 'pet' ? `${Math.round(I.petStats(inst).hp)} HP · ${Math.round(I.petStats(inst).strength)} STR`
+      : kind === 'skill' ? ((D.SKILLS[inst.base] || {}).kind === 'active' ? 'Active skill' : 'Passive skill')
+      : `${Math.round(I.stats(inst).dmg)} dmg · PWR ${I.stats(inst).power}`;
+    const catOf = (kind, inst) => kind === 'skill' ? D.SKILL_CAT_NAMES[D.skillCatOf(inst.base)]
+      : kind === 'pet' ? 'Companion' : (D.CAT_NAMES[(D.WEAPONS[inst.base] || {}).cat] || '');
+    const cards = (stock.list || []).map((s, i) => {
+      if (!s) return '';
+      if (s.sold) return `<div class="shop-card sold"><span class="shop-sold">SOLD</span></div>`;
+      const inst = s.inst, col = I.color(inst), afford = gold >= s.price;
+      return `<div class="shop-card" style="border-left-color:${col}">
+        <span class="shop-glyph">${craftGlyph(s.kind, inst.base)}</span>
+        <div class="shop-cbody">
+          <div class="shop-cname" style="color:${col}">${I.displayName(inst)}<span class="fr-rar" style="background:${col}">${I.rarityName(inst)}</span></div>
+          <div class="shop-csub">${catOf(s.kind, inst)} · ${subOf(s.kind, inst)}</div>
         </div>
-        <button class="buy-btn ${maxed || state.gold < cost ? 'disabled' : ''}" ${maxed ? 'disabled' : ''}>
-          ${maxed ? 'MAX' : '🪙 ' + fmt(cost)}
-        </button>`;
-      if (!maxed) card.querySelector('.buy-btn').addEventListener('click', () => onBuy(item, cost));
-      list.appendChild(card);
-    }
+        <button class="buy-btn shop-buy${afford ? '' : ' disabled'}" data-idx="${i}" ${afford ? '' : 'disabled'}>${costChip(s.price, 'gold')}</button>
+      </div>`;
+    }).join('');
+    const rerollAfford = gold >= D.SHOP.rerollCost;
+    el.innerHTML = `
+      <div class="shop-bar">
+        <span class="bounty-timer">${timerTxt}</span>
+        <button class="forge-tool shop-reroll" ${rerollAfford ? '' : 'disabled'}>REROLL STOCK ${costChip(D.SHOP.rerollCost, 'gold')}</button>
+      </div>
+      <div class="shop-grid">${cards}</div>`;
+    el.querySelectorAll('.shop-buy').forEach(b => { if (!b.disabled) b.addEventListener('click', () => h.buy(+b.dataset.idx)); });
+    const rr = el.querySelector('.shop-reroll'); if (rr && !rr.disabled) rr.addEventListener('click', h.reroll);
   }
-  function shopCost(item, owned) { return Math.floor(item.baseCost * Math.pow(item.growth, owned)); }
 
   /* ---------------- legacy / ascension ---------------- */
   function renderLegacy(state, asc, h) {
@@ -619,7 +629,7 @@
         </div>
       </div>
       ${progHtml}
-      <div class="gaunt-rules"><span class="gr-tag">HOW IT WORKS</span><p>Win ranked fights to bank ARP and climb divisions; lose and you shed some. Opponent power scales with your division, and the higher you sit the bigger the payouts.</p></div>`;
+      <div class="gaunt-rules"><span class="gr-tag">HOW IT WORKS</span><p>Win ranked fights to bank ARP and climb divisions; lose and you shed some. Opponent power scales with your division, the payouts grow, and each division reached permanently raises your max stamina and regen speed.</p></div>`;
   }
 
   /* ---------------- gauntlet ---------------- */
@@ -1283,7 +1293,7 @@
 
   global.UI = {
     toast, renderTopbar, showScreen, initTabs, updateFightView,
-    renderCreatePreview, renderBruteTab, renderShop, shopCost,
+    renderCreatePreview, renderBruteTab, renderShop,
     renderLegacy, renderTraining,
     renderForge, renderCraft, renderArenaRank, renderGauntlet, renderBounties, renderCollection, renderAchievements, setMeta, rankIcon,
     showLevelUp, isModalOpen,
