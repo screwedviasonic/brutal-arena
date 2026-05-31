@@ -45,6 +45,14 @@
     $('#res-stamina-max').textContent = state.staminaMax;
     $('#res-legacy').textContent = fmt(state.legacy);
     const d = $('#res-dust'); if (d) d.textContent = fmt(state.dust || 0);
+    const tb = $('#topbar-brute');
+    if (tb) {
+      if (state.level != null) {
+        tb.classList.remove('hidden');
+        $('#tb-lv').textContent = 'LV ' + state.level;
+        $('#tb-pwr').textContent = 'PWR ' + fmt(state.power || 0);
+      } else tb.classList.add('hidden');
+    }
   }
   function flash(el) { if (!el) return; el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
 

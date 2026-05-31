@@ -395,9 +395,17 @@
       }
       if (b.progress > b.target) b.progress = b.target;
       if (b.progress !== before) changed = true;
-      if (b.progress >= b.target && !b.done) { b.done = true; changed = true; UI.toast(`📜 Bounty ready to claim: ${b.desc}`, 'good'); }
+      if (b.progress >= b.target && !b.done) { b.done = true; changed = true; UI.toast(`Bounty complete — claim it: ${b.desc}`, 'good'); }
     }
-    if (changed) save();
+    if (changed) { save(); updateBountyBadge(); }
+  }
+  // persistent alert on the BOUNTIES nav tab: how many are ready to claim
+  function updateBountyBadge() {
+    const el = $('#bounty-badge');
+    if (!el) return;
+    const n = (state.bounties && state.bounties.list || []).filter(b => b && b.done).length;
+    el.textContent = n;
+    el.classList.toggle('hidden', n <= 0);
   }
   function claimBounty(idx) {
     ensureBounties();
@@ -1073,6 +1081,8 @@
     UI.renderTopbar({
       gold: state.gold, legacy: state.legacy, dust: state.dust,
       stamina: state.stamina, staminaMax: staminaMax(),
+      level: state.brute ? state.brute.level : null,
+      power: state.brute ? C.powerRating(state.brute, metaBonuses()) : null,
     });
     const lvlBtn = $('#btn-levelup');
     if (lvlBtn) {
@@ -1100,6 +1110,7 @@
     wireGauntletControls();
     ensureBounties();
     UI.renderBounties(state.bounties, { claim: claimBounty, reroll: rerollBounty, rerollDust: state.dust });
+    updateBountyBadge();
     UI.renderCollection(state);
     UI.renderAchievements(achievementsData());
     ensureShop();
@@ -1118,6 +1129,7 @@
     if (btn) btn.disabled = state.stamina < 1 || fightInProgress;
     refreshBountiesIfDue();
     refreshShopIfDue();
+    updateBountyBadge();
     save();
   }
 

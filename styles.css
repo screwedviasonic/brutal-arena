@@ -103,6 +103,11 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 }
 .res-ico { width: 26px; height: 26px; object-fit: contain; display: block; image-rendering: auto; filter: drop-shadow(1.5px 1.5px 0 var(--ink)); }
 .res-sub { color: var(--muted); }
+/* topbar level + power readout */
+.topbar-brute { display: inline-flex; align-items: stretch; border: 3px solid var(--ink); border-radius: 6px; overflow: hidden; box-shadow: var(--shadow-sm); }
+.tb-lv, .tb-pwr { display: inline-flex; align-items: center; font-family: 'Anton', sans-serif; letter-spacing: 1px; font-size: .82rem; padding: 6px 11px; }
+.tb-lv { background: var(--ink); color: var(--pop-yellow); }
+.tb-pwr { background: var(--panel); color: var(--pop-red); -webkit-text-stroke: .3px var(--ink); }
 .res.flash { animation: resflash .5s; }
 @keyframes resflash { 0%,100% { background: var(--panel); } 40% { background: var(--pop-yellow); transform: scale(1.08) rotate(-2deg); } }
 
@@ -204,11 +209,19 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 }
 .navgroup:first-child { margin-top: 0; }
 .tab {
+  position: relative;
   display: flex; align-items: center; gap: 11px; width: 100%; text-align: left;
   background: var(--panel); color: var(--ink); border: 3px solid var(--ink); box-shadow: var(--shadow-sm);
   padding: 8px 12px; border-radius: 8px; cursor: pointer;
   font-family: 'Anton', sans-serif; letter-spacing: .5px; font-size: 1rem;
   transition: transform .08s, box-shadow .08s, background .15s;
+}
+.nav-badge {
+  position: absolute; top: -7px; right: -7px; min-width: 21px; height: 21px; padding: 0 5px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--pop-green, #1a8f5a); color: #fff; border: 2.5px solid var(--ink); border-radius: 999px;
+  font-family: 'Bangers', sans-serif; font-size: .82rem; letter-spacing: .5px;
+  box-shadow: 1.5px 1.5px 0 var(--ink); animation: legpulse 1.2s ease-in-out infinite;
 }
 .tab-ico { width: 30px; height: 30px; object-fit: contain; flex-shrink: 0; filter: drop-shadow(1.5px 1.5px 0 var(--ink)); }
 .tab:hover { background: var(--pop-yellow); transform: translateX(2px); }
