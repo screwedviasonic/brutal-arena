@@ -760,11 +760,28 @@
     syncCollection(state.brute);
     save();
     enterGame();
+    // brute name == username: first brute claims the account name; prestige keeps it
+    if (global.PVP && global.PVP.claimName) global.PVP.claimName(state.brute.name);
   }
 
   function startCreateScreen() {
     UI.showScreen('screen-create');
     rollCandidate();
+    setupNameField();
+  }
+  // first brute: free name input; prestige (you already have a username): locked to it
+  function setupNameField() {
+    const inp = $('#create-name');
+    if (!inp) return;
+    const note = $('#create-name-note');
+    const h = (global.PVP && global.PVP.getHandle) ? global.PVP.getHandle() : null;
+    if (h) {
+      inp.value = h; inp.readOnly = true; inp.classList.add('locked');
+      if (note) note.textContent = 'Your brute carries your name — rename from the top bar anytime.';
+    } else {
+      inp.readOnly = false; inp.classList.remove('locked'); inp.value = '';
+      if (note) note.textContent = '';
+    }
   }
 
   function enterGame() {
@@ -788,6 +805,8 @@
     renderTopbarOnly();
     if (!state.brute) return;
     ensureStats();
+    const navIco = $('#nav-brute-ico');
+    if (navIco && global.Avatar) navIco.innerHTML = global.Avatar.svg(state.brute);
     UI.setMeta(metaBonuses());
     UI.renderBruteTab(state.brute);
     UI.renderForge(state.brute, state.dust, state.gold, {
@@ -887,6 +906,9 @@
     metaBonuses: () => metaBonuses(),
     fast: () => !!(state && state.settings && state.settings.fastFight),
     activateTab: activateTab,
+    arp: () => (state && state.arena && state.arena.arp) || 0,
+    gauntletBest: () => (state && state.gauntlet && state.gauntlet.best) || 0,
+    setBruteName: (n) => { if (state && state.brute && n) { state.brute.name = n; save(); renderAll(); } },
   };
 
   function formatDuration(sec) {

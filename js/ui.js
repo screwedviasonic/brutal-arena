@@ -67,6 +67,7 @@
         tab.classList.add('active');
         $('#tab-' + tab.dataset.tab).classList.add('active');
         updateFightView(tab.dataset.tab);
+        if (global.PVP && global.PVP.boardFor) global.PVP.boardFor(tab.dataset.tab);
       });
     });
     const active = document.querySelector('.tab.active');
@@ -400,13 +401,19 @@
     if (!el || !info) return;
     const pct = info.isTop ? 100 : Math.min(100, (info.into / info.band) * 100);
     const next = info.isTop ? null : D.ARENA.divisions[info.idx + 1];
+    const key = info.name.toLowerCase();
     el.innerHTML = `
-      <div class="ar-top">
-        <span class="ar-div">${info.name}</span>
-        <span class="muted small">${info.isTop ? fmt(info.arp) + ' ARP' : info.into + ' / ' + info.band + ' ARP'}</span>
-      </div>
-      <div class="ar-bar"><div class="ar-fill" style="width:${pct}%"></div></div>
-      <div class="muted small">${info.isTop ? 'Top division — keep stacking ARP.' : 'Next division: ' + next}</div>`;
+      <div class="ar-head">
+        <img class="rank-ico" src="assets/ui/rank/${key}.png" alt="${info.name}" />
+        <div class="ar-headtext">
+          <div class="ar-top">
+            <span class="ar-div">${info.name}</span>
+            <span class="muted small">${info.isTop ? fmt(info.arp) + ' ARP' : info.into + ' / ' + info.band + ' ARP'}</span>
+          </div>
+          <div class="ar-bar"><div class="ar-fill" style="width:${pct}%"></div></div>
+          <div class="muted small">${info.isTop ? 'Top division — keep stacking ARP.' : 'Next division: ' + next}</div>
+        </div>
+      </div>`;
   }
 
   /* ---------------- gauntlet ---------------- */

@@ -32,6 +32,7 @@
         </div>
       </div>
       <button id="btn-levelup" class="levelup-btn hidden" title="Choose your level-up rewards">LEVEL UP</button>
+      <button id="acct-chip" class="acct-chip hidden" title="Your leaderboard name — click to rename"></button>
       <button id="btn-reset" class="ghost-btn" title="Wipe all progress">RESET</button>
     </header>
 
@@ -47,6 +48,7 @@
           <span>NAME</span>
           <input id="create-name" type="text" maxlength="16" placeholder="Brute name" />
         </label>
+        <p id="create-name-note" class="muted small"></p>
         <div class="create-actions">
           <button id="btn-reroll" class="secondary-btn">🎲 REROLL</button>
           <button id="btn-begin" class="primary-btn">ENTER THE ARENA ▶</button>
@@ -63,7 +65,7 @@
         <button class="tab" data-tab="gauntlet"><img class="tab-ico" src="assets/ui/nav/gauntlet.png" alt="" /><span>GAUNTLET</span></button>
         <button class="tab" data-tab="pvp"><img class="tab-ico" src="assets/ui/nav/pvp.png" alt="" /><span>PVP</span></button>
         <div class="navgroup">BRUTE</div>
-        <button class="tab" data-tab="brute"><img class="tab-ico" src="assets/ui/nav/brute.png" alt="" /><span>BRUTE</span></button>
+        <button class="tab" data-tab="brute"><span class="tab-ico nav-avatar" id="nav-brute-ico"></span><span>BRUTE</span></button>
         <button class="tab" data-tab="forge"><img class="tab-ico" src="assets/ui/nav/forge.png" alt="" /><span>FORGE</span></button>
         <button class="tab" data-tab="collection"><img class="tab-ico" src="assets/ui/nav/collection.png" alt="" /><span>COLLECTION</span></button>
         <button class="tab" data-tab="stats"><img class="tab-ico" src="assets/ui/nav/stats.png" alt="" /><span>STATS</span></button>
@@ -97,7 +99,6 @@
 
       <!-- ARENA TAB (controls for the shared stage) -->
       <div class="tabpane active" id="tab-arena">
-        <div class="panel arena-rank-panel"><div id="arena-rank"></div></div>
         <div class="panel">
           <div class="arena-controls">
             <button id="btn-fight" class="primary-btn">FIND A FIGHT <span class="cost">1<img class="cost-ico" src="assets/ui/stamina.png" alt="stamina" /></span></button>
@@ -109,6 +110,8 @@
             </label>
           </div>
         </div>
+        <div class="panel arena-rank-panel"><div id="arena-rank"></div></div>
+        <div class="panel" id="arena-leaderboard"></div>
       </div>
 
       <!-- GAUNTLET TAB -->
@@ -117,6 +120,7 @@
           <h3>THE GAUNTLET <span class="muted small">— endless tower</span></h3>
           <div id="gauntlet-content"></div>
         </div>
+        <div class="panel" id="gauntlet-leaderboard"></div>
       </div>
 
       <!-- PVP TAB -->
@@ -201,6 +205,20 @@
       <h2 id="levelup-title" class="title-pop">LEVEL UP!</h2>
       <p class="muted">Choose your reward:</p>
       <div id="levelup-choices" class="choices"></div>
+    </div>
+  </div>
+
+  <!-- ============ RENAME MODAL ============ -->
+  <div id="rename-modal" class="modal hidden">
+    <div class="modal-card">
+      <h2 class="title-pop">CHANGE NAME</h2>
+      <p class="muted">Renames your brute and leaderboard name. Your <b id="rename-tag">#0000</b> stays the same.</p>
+      <label class="field"><span>NAME</span>
+        <input id="rename-input" type="text" maxlength="16" placeholder="Your name" /></label>
+      <div class="create-actions">
+        <button id="rename-cancel" class="secondary-btn">CANCEL</button>
+        <button id="rename-save" class="primary-btn">SAVE</button>
+      </div>
     </div>
   </div>
 

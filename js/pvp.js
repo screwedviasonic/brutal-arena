@@ -18,7 +18,8 @@
 
   let sb = null;        // supabase client
   let user = null;      // auth user
-  let handle = null;    // my display name
+  let handle = null;    // my display name (not unique)
+  let tag = null;       // my #tag discriminator (e.g. 1234)
   let myRow = null;     // my ladder row (rating/wins/losses)
   let opponent = null;  // currently matched opponent row
   let busy = false;
@@ -28,6 +29,8 @@
   const toast = (m, t) => global.UI && global.UI.toast(m, t);
 
   function configured() { return cfg && cfg.url && cfg.key && global.supabase; }
+  const randTag = () => String(Math.floor(1 + Math.random() * 9998)).padStart(4, '0');
+  const fullName = (h, t) => (h || '?') + '#' + (t || '0000');
 
   let inited = false;
   async function init() {
@@ -43,55 +46,138 @@
       if (data && data.session) {
         user = data.session.user;
         await loadMe();
+      } else {
+        await autoSignIn();   // seamless anonymous account — you're on the boards by default
       }
     } catch (e) {
       toast('PvP init error: ' + (e.message || e), 'bad');
     }
+    renderAcct();
+    wireRename();
+    const chip = document.querySelector('#acct-chip');
+    if (chip && !chip._wired) { chip._wired = true; chip.addEventListener('click', openRename); }
     render();
+    const active = document.querySelector('.tab.active');
+    if (active) boardFor(active.dataset.tab);   // populate the board on the starting tab
+  }
+
+  function renderAcct() {
+    const el = document.querySelector('#acct-chip');
+    if (!el) return;
+    if (user && handle) { el.textContent = fullName(handle, tag); el.classList.remove('hidden'); }
+    else el.classList.add('hidden');
+  }
+
+  /* ---------------- in-app rename modal ---------------- */
+  function openRename() {
+    const m = $('#rename-modal'), inp = $('#rename-input'), t = $('#rename-tag');
+    if (!m || !inp) return;
+    inp.value = handle || '';
+    if (t) t.textContent = '#' + (tag || '0000');
+    m.classList.remove('hidden');
+    inp.focus(); inp.select();
+  }
+  function closeRename() { const m = $('#rename-modal'); if (m) m.classList.add('hidden'); }
+  function wireRename() {
+    const m = $('#rename-modal'); if (!m || m._wired) return; m._wired = true;
+    const inp = $('#rename-input');
+    const commit = () => { const v = (inp.value || '').trim(); if (v) setHandle(v); closeRename(); };
+    const save = $('#rename-save'), cancel = $('#rename-cancel');
+    if (save) save.addEventListener('click', commit);
+    if (cancel) cancel.addEventListener('click', closeRename);
+    if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') commit(); else if (e.key === 'Escape') closeRename(); });
+    m.addEventListener('click', e => { if (e.target === m) closeRename(); });   // click backdrop to close
+  }
+
+  // create/refresh the private account row (names repeat freely; the #tag differentiates)
+  async function ensureAccount(wanted) {
+    handle = ((wanted || '').slice(0, 16)) || ('Brute' + Math.floor(1000 + Math.random() * 9000));
+    tag = tag || randTag();
+    await sb.from('accounts').upsert(
+      { user_id: user.id, handle, tag, save: Game().state(), updated_at: new Date().toISOString() }, { onConflict: 'user_id' });
+  }
+
+  // silent anonymous sign-in on first load
+  async function autoSignIn() {
+    try {
+      const { data, error } = await sb.auth.signInAnonymously();
+      if (error) throw error;
+      user = data.user;
+      const b = Game().brute();
+      if (b) {                              // returning brute: ensure account + ladder row
+        await ensureAccount(b.name);
+        await publishDefense(true);
+      }
+      // brand-new players have no name yet — the account is created when they
+      // name their first brute (claimName from beginGame). No random handle.
+      await loadMe();
+    } catch (e) { /* anon auth off / offline — boards stay read-only */ }
+  }
+
+  // brute name == username. First brute creates the account; later renames sync.
+  async function claimName(name) {
+    if (!user || !sb || !name) return;
+    name = name.slice(0, 16);
+    if (!handle) {                          // first brute ever: create the account with this name
+      await ensureAccount(name);
+      if (Game().brute && Game().brute()) await publishDefense(true);
+      await loadMe(); renderAcct();
+    } else if (name !== handle) {           // renamed
+      await setHandle(name);
+    } else {                                // prestige with same locked name: refresh snapshot
+      if (Game().brute && Game().brute()) await publishDefense(true);
+      renderAcct();
+    }
+  }
+  function getHandle() { return handle; }
+
+  // rename: change the name part only — the #tag stays, so no collisions.
+  // also renames the brute itself so the two stay in sync.
+  async function setHandle(n) {
+    if (!user || !n) return;
+    handle = n.slice(0, 16);
+    if (Game().setBruteName) Game().setBruteName(handle);   // brute name follows leaderboard name
+    try {
+      await sb.from('accounts').update({ handle }).eq('user_id', user.id);
+      if (Game().brute && Game().brute()) await publishDefense(true);   // syncs ladder + new-name snapshot
+      else await sb.from('ladder').update({ handle }).eq('user_id', user.id);
+    } catch (e) { toast('Rename failed: ' + (e.message || e), 'bad'); return; }
+    toast('Renamed to ' + fullName(handle, tag), 'good');
+    renderAcct(); render();
   }
 
   async function loadMe() {
     if (!user) return;
-    const acc = await sb.from('accounts').select('handle').eq('user_id', user.id).maybeSingle();
-    if (acc.data) handle = acc.data.handle;
+    const acc = await sb.from('accounts').select('handle,tag').eq('user_id', user.id).maybeSingle();
+    if (acc.data) { handle = acc.data.handle; tag = acc.data.tag; }
+    if (!tag) {   // backfill a tag for accounts created before tags existed
+      tag = randTag();
+      await sb.from('accounts').update({ tag }).eq('user_id', user.id);
+      await sb.from('ladder').update({ tag }).eq('user_id', user.id);
+    }
     const lad = await sb.from('ladder').select('*').eq('user_id', user.id).maybeSingle();
     myRow = lad.data || null;
   }
 
-  /* ---------------- sign in / register ---------------- */
+  /* ---------------- sign in / register (manual fallback) ---------------- */
   async function signIn() {
     if (!sb) return;
-    if (!Game().brute()) { toast('Create a brute first, then enter the PvP arena.', 'bad'); return; }
     const input = $('#pvp-handle');
-    const wanted = (input && input.value.trim()) || ('Brute' + Math.floor(1000 + Math.random() * 9000));
     setBusy(true);
     try {
       const { data, error } = await sb.auth.signInAnonymously();
       if (error) throw error;
       user = data.user;
-      handle = wanted.slice(0, 16);
-      // create private account row + public ladder row
-      const accErr = (await sb.from('accounts').upsert(
-        { user_id: user.id, handle, save: Game().state(), updated_at: new Date().toISOString() },
-        { onConflict: 'user_id' })).error;
-      if (accErr && accErr.code === '23505') { // handle taken
-        handle = handle + Math.floor(10 + Math.random() * 89);
-        await sb.from('accounts').upsert({ user_id: user.id, handle, save: Game().state() }, { onConflict: 'user_id' });
-      }
-      await publishDefense(true);
+      await ensureAccount(input && input.value.trim());
+      if (Game().brute()) await publishDefense(true);
       await loadMe();
-      toast('⚔️ Welcome to the ladder, ' + handle + '!', 'good');
+      renderAcct();
+      toast('⚔️ Welcome to the ladder, ' + fullName(handle, tag) + '!', 'good');
     } catch (e) {
       toast('Sign-in failed: ' + (e.message || e), 'bad');
     } finally {
       setBusy(false); render();
     }
-  }
-
-  async function signOut() {
-    if (sb) await sb.auth.signOut();
-    user = null; myRow = null; handle = null; opponent = null;
-    render();
   }
 
   /* ---------------- publish defense snapshot ---------------- */
@@ -103,8 +189,10 @@
     const bonuses = Game().metaBonuses();
     const power = global.Character.powerRating(b, bonuses);
     const row = {
-      user_id: user.id, handle: handle, defense: snapshot,
-      defense_bonuses: bonuses, power: power, updated_at: new Date().toISOString(),
+      user_id: user.id, handle: handle, tag: tag, defense: snapshot,
+      defense_bonuses: bonuses, power: power,
+      arp: Game().arp ? Game().arp() : 0, gauntlet_best: Game().gauntletBest ? Game().gauntletBest() : 0,
+      updated_at: new Date().toISOString(),
     };
     // rating/wins/losses intentionally omitted — the DB guard owns those
     const { error } = await sb.from('ladder').upsert(row, { onConflict: 'user_id' });
@@ -112,6 +200,23 @@
     if (!silent) toast('🛡️ Defense brute published (Power ' + power + ').', 'good');
     await loadMe();
     render();
+  }
+
+  // push just the PvE bragging stats (arena rank + gauntlet floor) for the boards
+  async function publishStats() {
+    if (!user || !sb) return;
+    try {
+      await sb.from('ladder').update({
+        arp: Game().arp ? Game().arp() : 0,
+        gauntlet_best: Game().gauntletBest ? Game().gauntletBest() : 0,
+        updated_at: new Date().toISOString(),
+      }).eq('user_id', user.id);
+    } catch (e) {}
+  }
+  function arenaDivName(arp) {
+    const A = global.GAMEDATA && global.GAMEDATA.ARENA;
+    if (!A) return '-';
+    return A.divisions[Math.min(A.divisions.length - 1, Math.floor((arp || 0) / A.bandSize))];
   }
 
   /* ---------------- matchmaking ---------------- */
@@ -168,7 +273,7 @@
     }
 
     // animate the (authoritative) fight in the shared stage (already visible on the PVP tab)
-    const oppName = opponent.handle;
+    const oppName = fullName(opponent.handle, opponent.tag);
     try { await UI().replayBattle(result, me, opponent.defense, Game().fast()); } catch (e) {}
     UI().showOutcome(attackerWon,
       `<div>${attackerWon ? '🏆 PVP VICTORY' : '☠️ PVP DEFEAT'}<br>vs ${oppName}</div>`);
@@ -198,7 +303,8 @@
         <p class="muted small">Sign in to publish your brute and battle other players' brutes for ladder rating. Anonymous — no email needed.</p>
         <label class="field"><span>HANDLE (your ladder name)</span>
           <input id="pvp-handle" type="text" maxlength="16" placeholder="e.g. Skullcrusher" /></label>
-        <button id="pvp-signin" class="primary-btn" ${busy ? 'disabled' : ''}>⚔️ ENTER THE PVP ARENA</button>`;
+        <button id="pvp-signin" class="primary-btn" ${busy ? 'disabled' : ''}>⚔️ ENTER THE PVP ARENA</button>
+        <div id="pvp-leaderboard"></div>`;
       $('#pvp-signin').addEventListener('click', signIn);
       renderLeaderboard();
       return;
@@ -207,7 +313,7 @@
     const r = myRow || { rating: 1000, wins: 0, losses: 0, power: 0 };
     const oppHtml = opponent ? `
       <div class="pvp-opp">
-        <div class="pvp-opp-head">OPPONENT: <b>${opponent.handle}</b> <span class="muted small">★ ${opponent.rating} • ⚡${opponent.power}</span></div>
+        <div class="pvp-opp-head">OPPONENT: <b>${fullName(opponent.handle, opponent.tag)}</b> <span class="muted small">★ ${opponent.rating} • ⚡${opponent.power}</span></div>
         <div class="pvp-opp-card">${opponentSummary(opponent.defense)}</div>
         <div class="pvp-fight-btns">
           <button id="pvp-attack" class="primary-btn" ${busy ? 'disabled' : ''}>⚔️ ATTACK</button>
@@ -219,14 +325,13 @@
     el.innerHTML = `
       <div class="pvp-me">
         <div class="pvp-rating">★ <b>${r.rating}</b><span class="muted small"> rating</span></div>
-        <div class="muted">${handle} &nbsp;•&nbsp; 🏅 ${r.wins}W / ${r.losses}L &nbsp;•&nbsp; ⚡ Power ${r.power}</div>
+        <div class="muted">${fullName(handle, tag)} &nbsp;•&nbsp; 🏅 ${r.wins}W / ${r.losses}L &nbsp;•&nbsp; ⚡ Power ${r.power}</div>
       </div>
       <div class="pvp-actions">
         ${oppHtml}
       </div>
       <div class="pvp-tools">
         <button id="pvp-publish" class="secondary-btn" ${busy ? 'disabled' : ''}>🛡️ Update my defense brute</button>
-        <button id="pvp-signout" class="ghost-btn">Sign out</button>
       </div>
       <p class="muted small">Your "defense brute" is a frozen snapshot others fight while you're away. Update it after you upgrade.</p>
       <div id="pvp-leaderboard"></div>`;
@@ -236,7 +341,6 @@
     bind('#pvp-attack', attack);
     bind('#pvp-skip', findOpponent);
     bind('#pvp-publish', () => publishDefense(false));
-    bind('#pvp-signout', signOut);
     renderLeaderboard();
   }
 
@@ -256,22 +360,56 @@
       <div class="pvp-opp-line">${wpns || '👊'} ${skills} ${pets}</div>`;
   }
 
-  async function renderLeaderboard() {
-    const box = $('#pvp-leaderboard') || $('#pvp-content');
-    if (!box || !sb) return;
-    const { data } = await sb.from('ladder').select('handle,rating,wins,losses,power').order('rating', { ascending: false }).limit(15);
-    const rows = (data || []).map((row, i) => `
-      <tr class="${user && row.handle === handle ? 'me' : ''}">
-        <td>${i + 1}</td><td>${row.handle}</td><td>★ ${row.rating}</td>
-        <td>${row.wins}/${row.losses}</td><td>⚡${row.power}</td></tr>`).join('');
-    const target = $('#pvp-leaderboard');
-    if (target) target.innerHTML = `
-      <h3 class="pvp-lb-head">🏆 LEADERBOARD</h3>
-      <table class="pvp-lb"><thead><tr><th>#</th><th>Brute</th><th>Rating</th><th>W/L</th><th>Power</th></tr></thead>
-      <tbody>${rows || '<tr><td colspan="5" class="muted">No fighters yet.</td></tr>'}</tbody></table>`;
+  // render one leaderboard (rating | arena | gauntlet) into a target element
+  async function renderBoardInto(mode, selector) {
+    const target = $(selector);
+    if (!target) return;
+    if (!sb) { target.innerHTML = '<p class="muted small">Leaderboard offline.</p>'; return; }
+    if (user) await publishStats();   // freshen my own entry before showing
+    const me = r => (user && r.user_id === user.id) ? 'me' : '';   // names repeat, so match by id
+    const empty = n => `<tr><td colspan="${n}" class="muted">No entries yet.</td></tr>`;
+    // brute portrait + name#tag
+    const who = r => `<td class="lb-who">${r.defense && global.Avatar ? `<span class="lb-av">${global.Avatar.svg(r.defense)}</span>` : ''}${fullName(r.handle, r.tag)}</td>`;
+    const divCell = arp => { const n = arenaDivName(arp); return `<td><img class="lb-rank-ico" src="assets/ui/rank/${n.toLowerCase()}.png" alt="" /> ${n}</td>`; };
+
+    // per-board config: column, header, value-cells, my live value, colspan
+    const cfg = {
+      arena:    { title: 'ARENA LEADERBOARD', col: 'arp', sel: 'user_id,handle,tag,arp,defense', span: 4,
+                  head: '<th>#</th><th>Brute</th><th>Division</th><th>ARP</th>',
+                  cells: r => `${divCell(r.arp)}<td>${r.arp || 0}</td>`, mine: () => `${divCell(Game().arp())}<td>${Game().arp()}</td>`, myVal: () => Game().arp() },
+      gauntlet: { title: 'GAUNTLET LEADERBOARD', col: 'gauntlet_best', sel: 'user_id,handle,tag,gauntlet_best,defense', span: 3,
+                  head: '<th>#</th><th>Brute</th><th>Best Floor</th>',
+                  cells: r => `<td>${r.gauntlet_best || 0}</td>`, mine: () => `<td>${Game().gauntletBest()}</td>`, myVal: () => Game().gauntletBest() },
+      rating:   { title: 'PVP LEADERBOARD', col: 'rating', sel: 'user_id,handle,tag,rating,wins,losses,power,defense', span: 5,
+                  head: '<th>#</th><th>Brute</th><th>Rating</th><th>W/L</th><th>Power</th>',
+                  cells: r => `<td>${r.rating}</td><td>${r.wins}/${r.losses}</td><td>${r.power}</td>`,
+                  mine: () => `<td>${myRow.rating}</td><td>${myRow.wins}/${myRow.losses}</td><td>${myRow.power}</td>`, myVal: () => (myRow ? myRow.rating : 0) },
+    };
+    const c = cfg[mode] || cfg.rating;
+    const rankCls = i => i < 3 ? ' rank-' + (i + 1) : '';
+    const { data } = await sb.from('ladder').select(c.sel).order(c.col, { ascending: false }).limit(15);
+    let body = (data || []).map((r, i) =>
+      `<tr class="${me(r)}${rankCls(i)}"><td>${i + 1}</td>${who(r)}${c.cells(r)}</tr>`).join('') || empty(c.span);
+
+    // pin my own rank at the bottom if I'm signed in but outside the top 15
+    if (user && myRow && !(data || []).some(r => r.handle === handle)) {
+      const { count } = await sb.from('ladder').select('user_id', { count: 'exact', head: true }).gt(c.col, c.myVal());
+      const myRank = (count || 0) + 1;
+      body += `<tr class="pin-sep"><td colspan="${c.span}"></td></tr>` +
+              `<tr class="me pinned"><td>${myRank}</td>${who(myRow)}${c.mine()}</tr>`;
+    }
+    target.innerHTML = `<h3 class="pvp-lb-head">${c.title}</h3><table class="pvp-lb"><thead><tr>${c.head}</tr></thead><tbody>${body}</tbody></table>`;
+  }
+  function renderLeaderboard() { return renderBoardInto('rating', '#pvp-leaderboard'); }
+  function renderArenaBoard() { return renderBoardInto('arena', '#arena-leaderboard'); }
+  function renderGauntletBoard() { return renderBoardInto('gauntlet', '#gauntlet-leaderboard'); }
+  // render the board that belongs to a given tab (called on tab switch)
+  function boardFor(name) {
+    if (name === 'arena') renderArenaBoard();
+    else if (name === 'gauntlet') renderGauntletBoard();
   }
 
-  global.PVP = { init, render, publishDefense };
+  global.PVP = { init, render, publishDefense, renderArenaBoard, renderGauntletBoard, boardFor, claimName, getHandle };
 
   // self-initialize (game.js also calls init(); the `inited` guard makes that safe)
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
