@@ -129,15 +129,32 @@
       effect: 'Improves the rarity of weapons/skills offered on level up.' },
   ];
 
-  /* ---------------- LEGACY (prestige) PERKS ---------------- */
+  /* ---------------- LEGACY PERKS (permanent, account-wide) ----------------
+   * Legacy is earned by Ascending (see ASCENSION). Perks permanently buff
+   * your single brute — no resets, no "starting" bonuses.
+   */
   const LEGACY_PERKS = [
-    { id: 'startStats', name: 'Strong Bloodline', desc: '+2 to all starting stats per level', max: 10, cost: 1 },
-    { id: 'startWeapon', name: 'Heirloom Weapon', desc: 'Start with an extra random weapon per level', max: 3, cost: 2 },
-    { id: 'startSkill', name: 'Innate Talent', desc: 'Start with an extra random skill per level', max: 3, cost: 3 },
+    { id: 'might', name: 'Savage Bloodline', desc: '+4% to all stats per level', max: 15, cost: 1 },
+    { id: 'vigor', name: 'Iron Lungs', desc: '+2 max stamina per level', max: 10, cost: 2 },
     { id: 'goldMul', name: 'Merchant Ancestry', desc: '+20% gold gain per level', max: 10, cost: 1 },
     { id: 'xpMul', name: 'Veteran Blood', desc: '+15% XP gain per level', max: 10, cost: 1 },
-    { id: 'skillSlots', name: 'Open Mind', desc: '+1 equipped skill slot per level', max: 3, cost: 3 },
+    { id: 'fortune', name: "Warlord's Luck", desc: '+10% better loot per level', max: 10, cost: 2 },
+    { id: 'skillSlots', name: 'Open Mind', desc: '+1 equipped skill slot per level', max: 3, cost: 4 },
   ];
+  // perk ids that no longer exist — their spent legacy is refunded on load
+  const LEGACY_PERKS_RETIRED = { startStats: 1, startWeapon: 2, startSkill: 3 };
+
+  /* ---------------- ASCENSION (endgame, replaces prestige) ----------------
+   * Reaching a new deepest Gauntlet floor unlocks the next Ascension: bank
+   * Legacy + a permanent global power boost. Nothing is reset and the tower
+   * is identical for everyone, so the Gauntlet leaderboard stays a fair race.
+   */
+  const ASCENSION = {
+    floorReq: (tier) => 12 + tier * 8,   // all-time gauntlet best floor needed to ascend to next tier
+    legacy: (tier) => 4 + tier * 3,      // legacy granted on ascend
+    powerPerTier: 0.06,                  // +6% to all your stats & damage per tier (permanent)
+    maxTier: 50,
+  };
 
   /* ---------------- ARENA (ranked division ladder) ----------------
    * Stamina-gated ranked career vs NPCs. Wins earn ARP, losses lose some.
@@ -213,6 +230,28 @@
     { key: 'xpEarned',       icon: '✨', label: 'XP Earned' },
   ];
 
+  /* ---------------- ACHIEVEMENTS (display-only progress badges) ---------------- */
+  const ACHIEVEMENTS = [
+    { id: 'wAll', label: 'Armory', desc: 'Discover every weapon', kind: 'collectAll', group: 'weapons', icon: 'weapons' },
+    { id: 'sAll', label: 'Polymath', desc: 'Discover every skill', kind: 'collectAll', group: 'skills', icon: 'skills' },
+    { id: 'pAll', label: 'Beast Tamer', desc: 'Discover every pet', kind: 'collectAll', group: 'pets', icon: 'pets' },
+    { id: 'rare10', label: 'Rare Collector', desc: 'Own 10 items at Rare or better', kind: 'rarityCount', rarity: 'rare', n: 10, icon: 'star' },
+    { id: 'epic10', label: 'Epic Hoard', desc: 'Own 10 items at Epic or better', kind: 'rarityCount', rarity: 'epic', n: 10, icon: 'star' },
+    { id: 'legend', label: 'Legend Holder', desc: 'Own a Legendary item', kind: 'rarityAny', rarity: 'legendary', icon: 'crown' },
+    { id: 'mythic', label: 'Mythic Owner', desc: 'Own a Mythic item', kind: 'rarityAny', rarity: 'mythic', icon: 'flame' },
+    { id: 'mast10', label: 'Specialist', desc: 'Reach mastery level 10', kind: 'masteryAny', n: 10, icon: 'medal' },
+    { id: 'mast20', label: 'Grandmaster', desc: 'Max out a weapon mastery (Lv 20)', kind: 'masteryAny', n: 20, icon: 'medal' },
+    { id: 'g25', label: 'Tower Climber', desc: 'Reach Gauntlet floor 25', kind: 'gauntlet', n: 25, icon: 'tower' },
+    { id: 'g50', label: 'Skybreaker', desc: 'Reach Gauntlet floor 50', kind: 'gauntlet', n: 50, icon: 'tower' },
+    { id: 'champ', label: 'Champion', desc: 'Reach the Champion division', kind: 'arenaDiv', n: 6, icon: 'champion' },
+    { id: 'asc5', label: 'Ascendant', desc: 'Reach Ascension tier 5', kind: 'ascend', n: 5, icon: 'chevron' },
+    { id: 'asc10', label: 'Transcendent', desc: 'Reach Ascension tier 10', kind: 'ascend', n: 10, icon: 'chevron' },
+    { id: 'win100', label: 'Veteran', desc: 'Win 100 fights', kind: 'career', stat: 'wins', n: 100, icon: 'fist' },
+    { id: 'crit250', label: 'Critical Mind', desc: 'Land 250 critical hits', kind: 'career', stat: 'crits', n: 250, icon: 'flame' },
+    { id: 'kill200', label: 'Executioner', desc: 'Fell 200 enemies', kind: 'career', stat: 'kills', n: 200, icon: 'hammer' },
+    { id: 'pvp1200', label: 'Duelist', desc: 'Reach PvP rating 1200', kind: 'pvp', n: 1200, icon: 'star' },
+  ];
+
   /* ---------------- FORGE CRAFTING ----------------
    * Bank shards (from scrapping weapons) toward a chosen target weapon.
    * cost = shardBase + tier * shardPerTier. A craft yields the target at
@@ -272,7 +311,7 @@
     PETS, ALL_PETS,
     NAME_PREFIX, NAME_SUFFIX, NAME_TITLE,
     SKIN_COLORS, OUTFIT_COLORS,
-    SHOP_ITEMS, LEGACY_PERKS,
-    ARENA, GAUNTLET, MASTERY, COLLECTION, BOUNTIES, CRAFT, STAT_DEFS, TRAINING,
+    SHOP_ITEMS, LEGACY_PERKS, LEGACY_PERKS_RETIRED, ASCENSION,
+    ARENA, GAUNTLET, MASTERY, COLLECTION, BOUNTIES, CRAFT, STAT_DEFS, TRAINING, ACHIEVEMENTS,
   };
 })(window);

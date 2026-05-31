@@ -795,6 +795,37 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 /* forge row category chip */
 .fr-cat { font-family: 'Anton', sans-serif; font-size: .56rem; letter-spacing: 1px; color: var(--muted); border: 2px solid var(--muted); border-radius: 4px; padding: 1px 6px; text-transform: uppercase; }
 
+/* achievements grid */
+.achv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.achv { background: #fff; border: 3px solid var(--ink); border-left: 6px solid #c9bfa3; border-radius: 8px; padding: 10px 12px; box-shadow: 2px 2px 0 rgba(0,0,0,.13); }
+.achv.done { border-left-color: var(--pop-green, #1a8f5a); background: #fff7d6; }
+.achv-top { display: flex; align-items: center; gap: 10px; margin-bottom: 7px; }
+.achv-glyph { width: 36px; height: 36px; flex: none; }
+.achv-glyph svg { width: 100%; height: 100%; display: block; filter: drop-shadow(1.5px 1.5px 0 var(--ink)); }
+.achv-info { flex: 1; min-width: 0; }
+.achv-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.achv-name { font-family: 'Anton', sans-serif; letter-spacing: .3px; font-size: 1rem; }
+.achv-badge { font-family: 'Anton', sans-serif; font-size: .58rem; letter-spacing: 1px; background: var(--pop-green, #1a8f5a); color: #fff; border: 2px solid var(--ink); border-radius: 5px; padding: 2px 7px; }
+.achv-desc { color: var(--muted); font-size: .82rem; margin-top: 1px; }
+.achv-bar { height: 12px; background: var(--paper2); border: 2.5px solid var(--ink); border-radius: 4px; overflow: hidden; box-shadow: 2px 2px 0 var(--ink); }
+.achv-fill { height: 100%; background: repeating-linear-gradient(45deg, var(--pop-blue) 0 8px, #2a6fd6 8px 16px); transition: width .4s; }
+.achv.done .achv-fill { background: repeating-linear-gradient(45deg, var(--pop-green, #1a8f5a) 0 8px, #1fa844 8px 16px); }
+.achv-num { font-family: 'Anton', sans-serif; font-size: .7rem; letter-spacing: .5px; color: var(--muted); text-align: right; margin-top: 4px; }
+
+/* ascension panel */
+.asc-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.asc-tier { display: flex; flex-direction: column; line-height: 1; margin-right: 4px; }
+.asc-tier-n { font-family: 'Bangers', sans-serif; font-size: 2.6rem; color: var(--pop-purple); -webkit-text-stroke: 1px var(--ink); text-shadow: 2px 2px 0 #fff; }
+.asc-tier-k { font-family: 'Anton', sans-serif; font-size: .62rem; letter-spacing: 1.5px; color: var(--muted); margin-top: 2px; }
+.asc-readout { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+.asc-need { font-family: 'Anton', sans-serif; letter-spacing: .3px; }
+.asc-need b { color: var(--pop-red); font-size: 1.1rem; }
+.asc-reward .cc { font-size: 1.1rem; color: var(--pop-yellow); -webkit-text-stroke: .3px var(--ink); }
+.train-fill.asc-fill { background: repeating-linear-gradient(45deg, var(--pop-purple) 0 10px, #6f2bd6 10px 20px); }
+.train-fill.asc-fill.full { background: repeating-linear-gradient(45deg, var(--pop-green, #1a8f5a) 0 10px, #1fa84480 10px 20px), var(--pop-green, #1a8f5a); }
+#btn-ascend { width: 100%; margin-top: 4px; }
+.legacy-perks { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+
 /* weapon masteries */
 .mastery-list { display: flex; flex-direction: column; gap: 10px; }
 .mastery-row { display: flex; align-items: center; gap: 11px; }

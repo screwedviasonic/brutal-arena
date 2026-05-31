@@ -41,6 +41,7 @@
       legacyPerks: {},
       gauntlet: { floor: 1, best: 0, checkpoint: 1 },
       arena: { arp: 0, best: 0 },   // ranked division ladder (arp + highest division reached)
+      ascension: { tier: 0 },       // endgame: deepest-floor milestones grant permanent power
       lifetime: emptyStats(),   // account-wide tally across every brute
       training: 0,            // banked idle XP (claimable, capped)
       bounties: null,   // lazily seeded by ensureBounties()
@@ -65,6 +66,14 @@
     if (s.brute) s.brute.career = fillStats(s.brute.career);
     if (!s.gauntlet) s.gauntlet = { floor: 1, best: 0, checkpoint: 1 };
     if (!s.arena) s.arena = { arp: 0, best: 0 };
+    if (!s.ascension) s.ascension = { tier: 0 };
+    // refund legacy spent on retired perks, then drop them
+    if (s.legacyPerks) {
+      for (const id in D.LEGACY_PERKS_RETIRED) {
+        const lvls = s.legacyPerks[id] || 0;
+        if (lvls > 0) { s.legacy = (s.legacy || 0) + lvls * D.LEGACY_PERKS_RETIRED[id]; delete s.legacyPerks[id]; }
+      }
+    }
     if (!s.collection) s.collection = { weapons: {}, skills: {}, pets: {} };
     // legacy collection stored booleans (true=seen); convert to rarity rank 0 (common)
     ['weapons', 'skills', 'pets'].forEach(k => {
@@ -120,7 +129,7 @@
   }
 
   /* ---------------- derived values ---------------- */
-  function staminaMax() { return STAMINA_BASE + (state.shop.staminaMax || 0); }
+  function staminaMax() { return STAMINA_BASE + (state.shop.staminaMax || 0) + (state.legacyPerks.vigor || 0) * 2; }
   function staminaRegenTime() {
     return Math.max(6, STAMINA_REGEN_BASE - (state.shop.staminaRegen || 0) * 6);
   }
@@ -132,7 +141,7 @@
   function xpMul() {
     return (1 + (state.shop.xpBoost || 0) * 0.10) * (1 + (state.legacyPerks.xpMul || 0) * 0.15);
   }
-  function dropLuck() { return (state.shop.dropLuck || 0) * 0.08; }
+  function dropLuck() { return (state.shop.dropLuck || 0) * 0.08 + (state.legacyPerks.fortune || 0) * 0.10; }
   function legacyPerksForCreate() { return state.legacyPerks; }
 
   /* ---------------- masteries & collection (account-wide meta) ---------------- */
@@ -187,6 +196,12 @@
       const inst = state.brute.pets.find(p => p.uid === eqPet);
       if (inst) petMul = 1 + petMasteryLevel(inst.base) * M.petPerLevel;
     }
+    // permanent legacy perk: Savage Bloodline (+all stats & damage)
+    const might = (state.legacyPerks.might || 0) * 0.04;
+    // ascension tier: permanent global power
+    const asc = (state.ascension && state.ascension.tier || 0) * D.ASCENSION.powerPerTier;
+    const glob = might + asc;
+    if (glob) { strMul += glob; agiMul += glob; hpMul += glob; dmgMul += glob; petMul += glob; }
     return { dmgMul, hpMul, strMul, agiMul, petMul, catDmg };
   }
 
@@ -849,18 +864,60 @@
     renderAll();
   }
 
-  /* ---------------- legacy / prestige ---------------- */
-  function retireBrute() {
-    const payout = UI.legacyPayout(state.brute);
-    if (!confirm(`Retire ${state.brute.name} (Lv ${state.brute.level}) for 🏆 ${payout} legacy? This starts a brand new brute.`)) return;
-    state.legacy += payout;
-    state.brute = null;
-    state.gauntlet.floor = 1;          // new brute starts the climb over (best is kept)
-    state.gauntlet.checkpoint = 1;
-    state.arena.arp = 0;               // new brute restarts the arena ladder (best is kept)
-    save();
-    UI.toast(`🏆 +${payout} legacy earned!`, 'good');
-    startCreateScreen();
+  /* ---------------- ascension (endgame) ---------------- */
+  // info for the Legacy/Ascension tab
+  function ascensionInfo() {
+    const tier = (state.ascension && state.ascension.tier) || 0;
+    const req = D.ASCENSION.floorReq(tier);
+    return {
+      tier, req,
+      best: state.gauntlet.best || 0,
+      ready: (state.gauntlet.best || 0) >= req,
+      legacy: D.ASCENSION.legacy(tier),
+      powerNow: Math.round(tier * D.ASCENSION.powerPerTier * 100),
+      powerNext: Math.round((tier + 1) * D.ASCENSION.powerPerTier * 100),
+      maxed: tier >= D.ASCENSION.maxTier,
+    };
+  }
+  /* ---------------- achievements (display-only progress) ---------------- */
+  function rarityOwnedCount(minRarity) {
+    const min = global.Items.rarityRank(minRarity);
+    let n = 0;
+    ['weapons', 'skills', 'pets'].forEach(k => { const b = state.collection[k]; for (const id in b) if (b[id] >= min) n++; });
+    return n;
+  }
+  function achievementsData() {
+    const col = state.collection, life = state.lifetime || {};
+    const maxWeaponMast = Math.max(0, ...D.MASTERY.weaponCats.map(c => masteryLevel(c)));
+    const pvp = (global.PVP && global.PVP.myStats && global.PVP.myStats()) || null;
+    return D.ACHIEVEMENTS.map(a => {
+      let cur = 0, target = a.n || 1;
+      switch (a.kind) {
+        case 'collectAll': {
+          const list = a.group === 'skills' ? D.ALL_SKILLS : a.group === 'pets' ? D.ALL_PETS : D.DROPPABLE_WEAPONS;
+          target = list.length; cur = list.filter(it => it.id in col[a.group]).length; break;
+        }
+        case 'rarityCount': cur = rarityOwnedCount(a.rarity); break;
+        case 'rarityAny': cur = Math.min(1, rarityOwnedCount(a.rarity)); break;
+        case 'masteryAny': cur = maxWeaponMast; break;
+        case 'gauntlet': cur = state.gauntlet.best || 0; break;
+        case 'arenaDiv': cur = state.arena.best || 0; break;
+        case 'ascend': cur = (state.ascension && state.ascension.tier) || 0; break;
+        case 'career': cur = Math.floor(life[a.stat] || 0); break;
+        case 'pvp': cur = pvp ? pvp.rating : 0; break;
+      }
+      return { label: a.label, desc: a.desc, icon: a.icon, cur, target, done: cur >= target };
+    });
+  }
+
+  function ascend() {
+    const info = ascensionInfo();
+    if (info.maxed) return;
+    if (!info.ready) { UI.toast(`Reach Gauntlet floor ${info.req} to ascend.`, 'bad'); return; }
+    state.ascension.tier = info.tier + 1;
+    state.legacy += info.legacy;
+    UI.toast(`Ascended to tier ${state.ascension.tier}! +${info.legacy} legacy, +${D.ASCENSION.powerPerTier * 100}% power`, 'good');
+    save(); renderAll();
   }
 
   function buyLegacyPerk(perkId) {
@@ -971,9 +1028,9 @@
     ensureBounties();
     UI.renderBounties(state.bounties, { claim: claimBounty, reroll: rerollBounty, rerollDust: state.dust });
     UI.renderCollection(state);
-    UI.renderLifetime(state.lifetime, state.gauntlet.best);
+    UI.renderAchievements(achievementsData());
     UI.renderShop(stateForShop(), buyShop);
-    UI.renderLegacy(state, state.brute, retireBrute, buyLegacyPerk);
+    UI.renderLegacy(state, ascensionInfo(), { ascend: ascend, buyPerk: buyLegacyPerk });
     UI.renderTraining(state.training, trainXpRate(), trainXpCap(), claimTraining);
     const btn = $('#btn-fight');
     if (btn) btn.disabled = state.stamina < 1 || fightInProgress;

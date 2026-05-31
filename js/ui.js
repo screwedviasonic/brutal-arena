@@ -127,12 +127,43 @@
     return `<div class="stat-cells">${cells}</div>
       <div class="stat-extra">Total fights: <b>${fmt(total)}</b> • Win rate: <b>${winRate}%</b></div>`;
   }
-  function renderLifetime(lifetime, gauntletBest) {
-    const el = $('#stats-content');
+  function achvGlyph(key) {
+    const wrap = inner => `<svg viewBox="0 0 24 24" class="cg" aria-hidden="true">${inner}</svg>`;
+    switch (key) {
+      case 'weapons': return craftGlyph('weapon', 'sword');
+      case 'skills': return wrap(SCON.bolt);
+      case 'pets': return craftGlyph('pet', 'wolf');
+      case 'crown': return GICON.crown;
+      case 'flame': return wrap(SCON.flame);
+      case 'medal': return wrap(SCON.medal);
+      case 'tower': return GICON.peak;
+      case 'champion': return rankIcon('champion');
+      case 'chevron': return GICON.chevron;
+      case 'fist': return wrap(SCON.fist);
+      case 'hammer': return wrap(SCON.hammer);
+      case 'star': default: return GICON.star;
+    }
+  }
+  function renderAchievements(list) {
+    const el = $('#achv-content');
     if (!el) return;
-    el.innerHTML = `<p class="muted small">Totals across every brute you've ever fielded — these never reset, even when you retire.</p>
-      <div class="stat-banner">🏔️ Highest Gauntlet floor reached: <b>${gauntletBest || 0}</b></div>
-      ${statsGridHtml(lifetime)}`;
+    const done = list.filter(a => a.done).length;
+    const card = a => {
+      const pct = Math.min(100, (a.cur / a.target) * 100);
+      return `<div class="achv${a.done ? ' done' : ''}">
+        <div class="achv-top">
+          <span class="achv-glyph">${achvGlyph(a.icon)}</span>
+          <div class="achv-info">
+            <div class="achv-head"><span class="achv-name">${a.label}</span>${a.done ? '<span class="achv-badge">DONE</span>' : ''}</div>
+            <div class="achv-desc">${a.desc}</div>
+          </div>
+        </div>
+        <div class="achv-bar"><div class="achv-fill" style="width:${pct}%"></div></div>
+        <div class="achv-num">${fmt(Math.min(a.cur, a.target))} / ${fmt(a.target)}</div></div>`;
+    };
+    el.innerHTML = `
+      <div class="col-bonus"><span class="cb-chip"><span class="cb-v">${done}/${list.length}</span><span class="cb-k">UNLOCKED</span></span></div>
+      <div class="achv-grid">${list.map(card).join('')}</div>`;
   }
 
   /* ---------------- brute tab ---------------- */
@@ -298,11 +329,12 @@
   }
   function shopCost(item, owned) { return Math.floor(item.baseCost * Math.pow(item.growth, owned)); }
 
-  /* ---------------- legacy ---------------- */
-  function renderLegacy(state, brute, onRetire, onBuyPerk) {
+  /* ---------------- legacy / ascension ---------------- */
+  function renderLegacy(state, asc, h) {
     const el = $('#legacy-content');
-    const payout = legacyPayout(brute);
-    let perksHtml = D.LEGACY_PERKS.map(p => {
+    if (!el) return;
+    const pct = asc.maxed ? 100 : Math.min(100, (asc.best / asc.req) * 100);
+    const perksHtml = D.LEGACY_PERKS.map(p => {
       const owned = state.legacyPerks[p.id] || 0;
       const maxed = owned >= p.max;
       const cost = p.cost * (owned + 1);
@@ -310,25 +342,34 @@
         <div class="lp-body"><div class="lp-name">${p.name} <span class="si-owned">${owned}/${p.max}</span></div>
         <div class="si-desc">${p.desc}</div></div>
         <button class="buy-btn lp-buy ${maxed || state.legacy < cost ? 'disabled' : ''}" data-perk="${p.id}" ${maxed ? 'disabled' : ''}>
-          ${maxed ? 'MAX' : '🏆 ' + cost}</button>
+          ${maxed ? 'MAX' : costChip(cost, 'legacy')}</button>
       </div>`;
     }).join('');
 
+    const ascBody = asc.maxed
+      ? `<div class="gaunt-banner milestone">${GICON.crown}<span>MAX ASCENSION</span><span class="gb-sub">+${asc.powerNow}% power earned</span></div>`
+      : `<div class="asc-readout">
+           <span class="asc-need">Reach Gauntlet floor <b>${asc.req}</b> to ascend <span class="muted small">(best ${asc.best})</span></span>
+           <span class="asc-reward">${costChip(asc.legacy, 'legacy')} <span class="muted small">+ permanent +${D.ASCENSION.powerPerTier * 100}% power</span></span>
+         </div>
+         <div class="train-bar"><div class="train-fill asc-fill${asc.ready ? ' full' : ''}" style="width:${pct}%"></div></div>
+         <button id="btn-ascend" class="primary-btn gaunt-climb" ${asc.ready ? '' : 'disabled'}>ASCEND TO TIER ${asc.tier + 1}</button>`;
+
     el.innerHTML = `
-      <div class="legacy-intro">
-        <p>Retire your current brute to earn <b>Legacy</b> points based on the level reached. Spend them on permanent bloodline perks that make every <i>future</i> brute stronger from birth.</p>
-        <div class="retire-box">
-          <div>Retiring <b>${brute.name}</b> (Lv ${brute.level}) yields <b class="big-num">🏆 ${payout}</b> legacy.</div>
-          <button id="btn-retire" class="danger-btn">⚰️ RETIRE &amp; START NEW BRUTE</button>
-        </div>
+      <div class="asc-top">
+        <div class="asc-tier"><span class="asc-tier-n">${asc.tier}</span><span class="asc-tier-k">ASCENSION TIER</span></div>
+        <span class="gaunt-chip chip-best">${GICON.chevron}<span class="gc-k">POWER</span><span class="gc-v">+${asc.powerNow}%</span></span>
+        <span class="gaunt-chip chip-cp">${GICON.trophy}<span class="gc-k">LEGACY</span><span class="gc-v">${fmt(state.legacy)}</span></span>
       </div>
-      <h3>BLOODLINE PERKS</h3>
+      ${ascBody}
+      <div class="gaunt-rules"><span class="gr-tag">HOW IT WORKS</span><p>No resets — your brute is permanent. Push the Gauntlet to each threshold floor to Ascend: bank Legacy and a permanent global power boost, then spend Legacy on the upgrades below.</p></div>
+      <div class="brute-sec"><span class="brute-sec-tag">LEGACY UPGRADES</span></div>
       <div class="legacy-perks">${perksHtml}</div>`;
 
-    $('#btn-retire').addEventListener('click', onRetire);
-    el.querySelectorAll('.lp-buy').forEach(b => { if (!b.disabled) b.addEventListener('click', () => onBuyPerk(b.dataset.perk)); });
+    const ab = $('#btn-ascend');
+    if (ab && asc.ready) ab.addEventListener('click', h.ascend);
+    el.querySelectorAll('.lp-buy').forEach(b => { if (!b.disabled) b.addEventListener('click', () => h.buyPerk(b.dataset.perk)); });
   }
-  function legacyPayout(brute) { return Math.floor(Math.pow(brute.level, 1.35) + brute.wins * 0.5); }
 
   /* ---------------- idle training (claimable stat bank) ---------------- */
   function renderTraining(banked, rate, cap, onClaim) {
@@ -357,6 +398,7 @@
     gold:  `<svg viewBox="0 0 24 24" class="cc-ico"><circle cx="12" cy="12" r="9" fill="#ffce3a" stroke="#14110d" stroke-width="2.6"/><circle cx="12" cy="12" r="4.6" fill="none" stroke="#14110d" stroke-width="1.6" opacity=".5"/></svg>`,
     dust:  `<svg viewBox="0 0 24 24" class="cc-ico"><path d="M12 2 L13.8 9.5 L21 11.2 L13.8 13 L12 21 L10.2 13 L3 11.2 L10.2 9.5 Z" fill="#7fd8ff" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/></svg>`,
     shard: `<svg viewBox="0 0 24 24" class="cc-ico"><path d="M12 3 L20 9 L14.5 21 L4 14 Z" fill="#b06bff" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/></svg>`,
+    legacy: `<svg viewBox="0 0 24 24" class="cc-ico"><path d="M7 4 H17 V8 C17 11 14.5 12.5 12 12.5 C9.5 12.5 7 11 7 8 Z" fill="#ffce3a" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><path d="M12 12.5 V16 M9 20 H15 L14 17 H10 Z" fill="#ffce3a" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/></svg>`,
   };
   function costChip(n, type) { return `<span class="cc">${MINI[type] || ''}${fmt(n)}</span>`; }
   let forgeFilter = 'weapon';   // which gear type the Forge is showing
@@ -589,6 +631,7 @@
     star:  `<svg viewBox="0 0 24 24" class="gicon"><path d="M12 2.5 L14.7 9 L21.5 9.6 L16.3 14 L18 20.7 L12 17 L6 20.7 L7.7 14 L2.5 9.6 L9.3 9 Z" fill="#fff" stroke="var(--ink)" stroke-width="2.2" stroke-linejoin="round"/></svg>`,
     bolt:  `<svg viewBox="0 0 24 24" class="gicon"><path d="M13 2 L4 14 H11 L10 22 L20 9 H13 Z" fill="var(--pop-orange)" stroke="var(--ink)" stroke-width="2.2" stroke-linejoin="round"/></svg>`,
     chevron: `<svg viewBox="0 0 24 24" class="gicon"><path d="M12 3 L21 11 H16 L12 7.5 L8 11 H3 Z" fill="var(--pop-blue)" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/><path d="M12 11 L21 19 H16 L12 15.5 L8 19 H3 Z" fill="var(--pop-blue)" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/></svg>`,
+    trophy: `<svg viewBox="0 0 24 24" class="gicon"><path d="M6.5 3 H17.5 V7.5 C17.5 11 15 13 12 13 C9 13 6.5 11 6.5 7.5 Z" fill="#ffce3a" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><path d="M6.5 4.5 H3.5 V6.5 C3.5 8.8 5.3 9.8 6.9 9.8" fill="none" stroke="#14110d" stroke-width="2" stroke-linecap="round"/><path d="M17.5 4.5 H20.5 V6.5 C20.5 8.8 18.7 9.8 17.1 9.8" fill="none" stroke="#14110d" stroke-width="2" stroke-linecap="round"/><path d="M12 13 V16.5" stroke="#14110d" stroke-width="2"/><path d="M8.5 21 H15.5 L14.5 17 H9.5 Z" fill="#ffce3a" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/></svg>`,
   };
 
   /* ---- procedural comic rank badges (replaces the AI medal PNGs) ---- */
@@ -1232,8 +1275,8 @@
   global.UI = {
     toast, renderTopbar, showScreen, initTabs, updateFightView,
     renderCreatePreview, renderBruteTab, renderShop, shopCost,
-    renderLegacy, legacyPayout, renderTraining,
-    renderForge, renderCraft, renderArenaRank, renderGauntlet, renderBounties, renderCollection, renderLifetime, setMeta, rankIcon,
+    renderLegacy, renderTraining,
+    renderForge, renderCraft, renderArenaRank, renderGauntlet, renderBounties, renderCollection, renderAchievements, setMeta, rankIcon,
     showLevelUp, isModalOpen,
     replayBattle, showOutcome, cancelReplay, showIdleBrute,
     bruteSummaryHtml, fmt,
