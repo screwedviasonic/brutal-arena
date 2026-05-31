@@ -44,8 +44,16 @@
       });
       const { data } = await sb.auth.getSession();
       if (data && data.session) {
-        user = data.session.user;
-        await loadMe();
+        // getSession() is local-only — validate against the server so a stale token
+        // for a deleted user (e.g. after a DB wipe) self-heals instead of getting stuck.
+        const chk = await sb.auth.getUser();
+        if (chk.error || !chk.data || !chk.data.user) {
+          await sb.auth.signOut();
+          await autoSignIn();
+        } else {
+          user = chk.data.user;
+          await loadMe();
+        }
       } else {
         await autoSignIn();   // seamless anonymous account — you're on the boards by default
       }
