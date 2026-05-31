@@ -606,9 +606,6 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 .rar-mythic { border-color: var(--rar-legendary); animation: legpulse 1.2s ease-in-out infinite; }
 .rar-mythic .choice-rar { color: #ff2d55; }
 
-/* still used by the bounty timer until that tab gets its pass */
-.forge-dust-tag { float: right; font-family: 'Bangers', sans-serif; letter-spacing: 1px; color: var(--pop-purple); font-size: 1rem; -webkit-text-stroke: .3px var(--ink); }
-
 /* ============ FORGE ============ */
 /* cost chips (gold / dust / shard) */
 .cc { display: inline-flex; align-items: center; gap: 3px; font-family: 'Bangers', sans-serif; letter-spacing: .3px; }
@@ -752,18 +749,24 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 
 /* ============ BOUNTIES ============ */
 #bounty-timer { float: right; }
-.bounty { background: var(--paper2); border: 4px solid var(--ink); border-radius: 10px; padding: 12px 14px; box-shadow: var(--shadow-sm); margin-bottom: 12px; }
-.bounty.done { background: #fff7d6; animation: legpulse 1.4s ease-in-out infinite; }
-.bounty-head { display: flex; gap: 12px; align-items: center; margin-bottom: 10px; }
-.bounty-ico { font-size: 1.9rem; flex-shrink: 0; }
-.bounty-desc { font-family: 'Anton', sans-serif; letter-spacing: .5px; font-size: 1.05rem; }
-.bounty-reward { margin-top: 2px; }
-.bounty-bar { position: relative; height: 18px; background: var(--paper); border: 3px solid var(--ink); border-radius: 4px; overflow: hidden; box-shadow: 2px 2px 0 var(--ink); margin-bottom: 10px; }
+.bounty-list { display: flex; flex-direction: column; gap: 10px; }
+.bounty-bar-row { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+.bounty-timer { font-family: 'Anton', sans-serif; letter-spacing: 1px; font-size: .72rem; color: var(--muted); border: 2px dashed var(--ink); border-radius: 6px; padding: 4px 10px; text-transform: uppercase; }
+.bounty { background: #fff; border: 3px solid var(--ink); border-left: 6px solid #c9bfa3; border-radius: 8px; padding: 10px 12px; box-shadow: 2px 2px 0 rgba(0,0,0,.13); }
+.bounty.done { background: #fff7d6; border-left-color: var(--pop-green, #1a8f5a); animation: legpulse 1.4s ease-in-out infinite; }
+.bounty-top { display: flex; align-items: center; gap: 11px; margin-bottom: 9px; }
+.bounty-glyph { width: 34px; height: 34px; flex: none; }
+.bounty-glyph svg { width: 100%; height: 100%; display: block; filter: drop-shadow(1.5px 1.5px 0 var(--ink)); }
+.bounty-info { flex: 1; min-width: 0; }
+.bounty-desc { font-family: 'Anton', sans-serif; letter-spacing: .3px; font-size: 1rem; }
+.bounty-reward { display: flex; gap: 9px; flex-wrap: wrap; margin-top: 3px; }
+.bounty-reward .cc { font-size: 1.05rem; color: var(--ink); }
+.bounty-prog { display: flex; align-items: center; gap: 10px; }
+.bounty-bar { flex: 1; height: 16px; background: var(--paper2); border: 3px solid var(--ink); border-radius: 4px; overflow: hidden; box-shadow: 2px 2px 0 var(--ink); }
 .bounty-fill { height: 100%; background: repeating-linear-gradient(45deg, var(--pop-green) 0 8px, #1fa844 8px 16px); transition: width .4s; }
-.bounty-count { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-family: 'Anton', sans-serif; font-size: .8rem; letter-spacing: .5px; color: var(--ink); text-shadow: 0 0 3px #fff, 0 0 3px #fff; }
-.bounty-btns { display: flex; justify-content: flex-end; }
-.bounty-btns .forge-btn { flex-direction: row; gap: 5px; max-width: 160px; }
-.bounty-claim { padding: 8px 22px; }
+.bounty-count { flex: none; min-width: 56px; text-align: right; font-family: 'Anton', sans-serif; font-size: .8rem; letter-spacing: .5px; color: var(--muted); }
+.bounty-claim { padding: 7px 20px; flex: none; }
+.bounty-reroll { flex: none; }
 
 /* ============ COLLECTION ============ */
 /* collection bonus chips */

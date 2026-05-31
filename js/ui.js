@@ -698,47 +698,56 @@
   }
 
   /* ---------------- bounties ---------------- */
-  function rewardText(r) {
-    const parts = [];
-    if (r.gold) parts.push(`🪙 ${fmt(r.gold)}`);
-    if (r.dust) parts.push(`✦ ${r.dust}`);
-    if (r.legacy) parts.push(`🏆 ${r.legacy}`);
-    return parts.join(' • ');
+  function rewardChips(r) {
+    const p = [];
+    if (r.gold) p.push(costChip(r.gold, 'gold'));
+    if (r.dust) p.push(costChip(r.dust, 'dust'));
+    if (r.legacy) p.push(costChip(r.legacy, 'legacy'));
+    return p.join('');
+  }
+  function bountyGlyph(b) {
+    const wrap = inner => `<svg viewBox="0 0 24 24" class="cg" aria-hidden="true">${inner}</svg>`;
+    switch (b.type) {
+      case 'gauntletClear':
+      case 'reachFloor': return GICON.peak;
+      case 'arenaWin': return craftGlyph('weapon', 'sword');
+      case 'anyWin': return wrap(SCON.fist);
+      case 'crits': return wrap(SCON.flame);
+      case 'catHits': return craftGlyph('weapon', { blade: 'sword', blunt: 'club', axe: 'axe', spear: 'trident' }[b.cat] || 'sword');
+      default: return GICON.star;
+    }
   }
   function renderBounties(bounties, h) {
     const el = $('#bounties-content');
     if (!el) return;
-    const timer = $('#bounty-timer');
-    if (timer && bounties) {
-      const ms = (bounties.lastRefresh + D.BOUNTIES.refreshHours * 3600000) - Date.now();
-      if (ms > 0) {
-        const hrs = Math.floor(ms / 3600000), mins = Math.floor((ms % 3600000) / 60000);
-        timer.textContent = `↻ rotates in ${hrs > 0 ? hrs + 'h ' : ''}${mins}m`;
-      } else timer.textContent = '↻ rotating…';
-    }
     if (!bounties || !bounties.list.length) { el.innerHTML = '<p class="muted">No bounties yet.</p>'; return; }
-    el.innerHTML = bounties.list.map((b, i) => {
+    let timerTxt = 'rotating soon';
+    const ms = (bounties.lastRefresh + D.BOUNTIES.refreshHours * 3600000) - Date.now();
+    if (ms > 0) { const hrs = Math.floor(ms / 3600000), mins = Math.floor((ms % 3600000) / 60000); timerTxt = `rotates in ${hrs > 0 ? hrs + 'h ' : ''}${mins}m`; }
+    const cards = bounties.list.map((b, i) => {
       if (!b) return '';
       const pct = Math.min(100, (b.progress / b.target) * 100);
       const canReroll = !b.done && h.rerollDust >= D.BOUNTIES.rerollCost;
-      return `<div class="bounty ${b.done ? 'done' : ''}">
-        <div class="bounty-head">
-          <span class="bounty-ico">${b.icon}</span>
-          <div class="bounty-body">
+      return `<div class="bounty${b.done ? ' done' : ''}">
+        <div class="bounty-top">
+          <span class="bounty-glyph">${bountyGlyph(b)}</span>
+          <div class="bounty-info">
             <div class="bounty-desc">${b.desc}</div>
-            <div class="bounty-reward muted small">Reward: ${rewardText(b.reward)}</div>
+            <div class="bounty-reward">${rewardChips(b.reward)}</div>
           </div>
-        </div>
-        <div class="bounty-bar"><div class="bounty-fill" style="width:${pct}%"></div>
-          <span class="bounty-count">${Math.min(b.progress, b.target)} / ${b.target}</span></div>
-        <div class="bounty-btns">
           ${b.done
-            ? `<button class="primary-btn bounty-claim" data-idx="${i}">✅ CLAIM</button>`
-            : `<button class="forge-btn" data-act="reroll" data-idx="${i}" ${canReroll ? '' : 'disabled'}>🎲 Reroll<small>✦${D.BOUNTIES.rerollCost}</small></button>`}
-        </div></div>`;
+            ? `<button class="primary-btn gaunt-climb bounty-claim" data-idx="${i}">CLAIM</button>`
+            : `<button class="forge-btn bounty-reroll" data-idx="${i}" ${canReroll ? '' : 'disabled'} title="Swap this bounty">REROLL ${costChip(D.BOUNTIES.rerollCost, 'dust')}</button>`}
+        </div>
+        <div class="bounty-prog">
+          <div class="bounty-bar"><div class="bounty-fill" style="width:${pct}%"></div></div>
+          <span class="bounty-count">${fmt(Math.min(b.progress, b.target))} / ${fmt(b.target)}</span>
+        </div>
+      </div>`;
     }).join('');
+    el.innerHTML = `<div class="bounty-bar-row"><span class="bounty-timer">${timerTxt}</span></div><div class="bounty-list">${cards}</div>`;
     el.querySelectorAll('.bounty-claim').forEach(b => b.addEventListener('click', () => h.claim(+b.dataset.idx)));
-    el.querySelectorAll('[data-act="reroll"]').forEach(b => { if (!b.disabled) b.addEventListener('click', () => h.reroll(+b.dataset.idx)); });
+    el.querySelectorAll('.bounty-reroll').forEach(b => { if (!b.disabled) b.addEventListener('click', () => h.reroll(+b.dataset.idx)); });
   }
 
   /* ---------------- collection + masteries ---------------- */
