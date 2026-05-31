@@ -2,3 +2,6 @@
 # local art-generation tooling + scratch (kept out of the game repo)
 tools/
 assets/explore/
+
+# launch / marketing scratch (posts, store copy, gifs, covers)
+launch/

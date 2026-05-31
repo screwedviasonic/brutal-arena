@@ -30,7 +30,6 @@
     return {
       version: 1,
       gold: 0,
-      legacy: 0,
       stamina: STAMINA_BASE,
       lastTick: now(),
       staminaProgress: 0,      // seconds accumulated toward next stamina point
@@ -40,10 +39,9 @@
       craftKind: 'weapon',
       shop: {},                 // legacy (old upgrade counts) — unused
       shopStock: { list: [], lastRefresh: 0 },
-      legacyPerks: {},
       gauntlet: { floor: 1, best: 0, checkpoint: 1 },
       arena: { arp: 0, best: 0, _stepMigrated: true },   // ranked ladder (arp + highest step reached)
-      ascension: { tier: 0 },       // endgame: deepest-floor milestones grant permanent power
+      powerTier: 0,             // claimed Power Rank tiers (permanent buff bundles)
       lifetime: emptyStats(),   // account-wide tally across every brute
       training: 0,            // banked idle XP (claimable, capped)
       sparFocus: 0,           // sparring Focus: multiplies idle XP rate, decays
@@ -80,15 +78,12 @@
     if (!s.arena) s.arena = { arp: 0, best: 0 };
     // arena.best switched from division index (0-6) to step index (0-20); rescale old saves
     if (s.arena._stepMigrated == null) { s.arena.best = (s.arena.best || 0) * 3; s.arena._stepMigrated = true; }
-    if (!s.ascension) s.ascension = { tier: 0 };
     if (!s.shopStock) s.shopStock = { list: [], lastRefresh: 0 };
-    // refund legacy spent on retired perks, then drop them
-    if (s.legacyPerks) {
-      for (const id in D.LEGACY_PERKS_RETIRED) {
-        const lvls = s.legacyPerks[id] || 0;
-        if (lvls > 0) { s.legacy = (s.legacy || 0) + lvls * D.LEGACY_PERKS_RETIRED[id]; delete s.legacyPerks[id]; }
-      }
-    }
+    // Power Ranks replaced the old Legacy/Ascension prestige: drop the currency,
+    // perk counts, and tier. Claimed tiers start at 0 and are re-earned from power
+    // (the Ranks tab will show everything you already qualify for as claimable).
+    if (s.powerTier == null) s.powerTier = 0;
+    delete s.legacy; delete s.legacyPerks; delete s.ascension;
     if (!s.collection) s.collection = { weapons: {}, skills: {}, pets: {} };
     // legacy collection stored booleans (true=seen); convert to rarity rank 0 (common)
     ['weapons', 'skills', 'pets'].forEach(k => {
@@ -100,7 +95,7 @@
     ['blade', 'blunt', 'axe', 'spear'].forEach(c => { if (s.masteries[c] == null) s.masteries[c] = 0; });
     if (!s.petMast) s.petMast = {};
     if (!s.skillMast) s.skillMast = {};
-    if (s.brute) migrateBrute(s.brute, computeSkillSlots(s.legacyPerks || {}));
+    if (s.brute) migrateBrute(s.brute, computeSkillSlots(s.powerTier || 0));
     return s;
   }
 
@@ -124,9 +119,17 @@
     C.autoEquip(b, slots);   // equip best weapon / first pet / up to N skills
     return b;
   }
-  // skill slots: base 3, +1 per 'skillSlots' legacy perk level
-  function computeSkillSlots(legacyPerks) { return 3 + ((legacyPerks && legacyPerks.skillSlots) || 0); }
-  function skillSlots() { return computeSkillSlots(state.legacyPerks); }
+  // ---- Power Ranks: claimed tiers grant a cumulative bundle of permanent buffs ----
+  function rankSlotCount(tier) { return D.POWER_RANKS.skillSlotTiers.filter(t => t <= (tier || 0)).length; }
+  function rankBonuses() {
+    const R = D.POWER_RANKS, T = state.powerTier || 0;
+    let stats = 0, stam = 0, gold = 0, xp = 0, idle = 0, luck = 0;
+    for (let t = 1; t <= T; t++) { stats += R.statsPct(t); stam += R.staminaPer; gold += R.goldPer; xp += R.xpPer; idle += R.idlePer; luck += R.luckPer; }
+    return { stats, stam, gold, xp, idle, luck, slots: rankSlotCount(T) };
+  }
+  // skill slots: base 3, +1 at each skill-slot rank tier
+  function computeSkillSlots(tier) { return 3 + rankSlotCount(tier || 0); }
+  function skillSlots() { return computeSkillSlots(state.powerTier || 0); }
 
   function now() { return Date.now(); }
 
@@ -146,14 +149,14 @@
   /* ---------------- derived values ---------------- */
   // max stamina + regen now scale with your highest Arena division reached
   function arenaBestRank() { return arenaRankIdx((state.arena && state.arena.best) || 0); }
-  function staminaMax() { return STAMINA_BASE + arenaBestRank() * D.ARENA.staminaPerRank; }
+  function staminaMax() { return STAMINA_BASE + arenaBestRank() * D.ARENA.staminaPerRank + rankBonuses().stam; }
   function staminaRegenTime() {
     return Math.max(6, STAMINA_REGEN_BASE - arenaBestRank() * D.ARENA.regenPerRank);
   }
-  function trainXpRate() { return D.TRAINING.baseXpSec + (state.legacyPerks.trainer || 0) * D.TRAINING.xpPerTrainerSec; }
-  function trainXpCap() { return D.TRAINING.capBase + (state.legacyPerks.trainer || 0) * D.TRAINING.capPerTrainer; }
-  function goldMul() { return 1 + (state.legacyPerks.goldMul || 0) * 0.20; }
-  function xpMul() { return Math.max(0.4, 1 + (state.legacyPerks.xpMul || 0) * 0.15 + prisonBuff() - captorPenalty()); }
+  function trainXpRate() { return D.TRAINING.baseXpSec * (1 + rankBonuses().idle); }
+  function trainXpCap() { return D.TRAINING.capBase * (1 + rankBonuses().idle); }
+  function goldMul() { return 1 + rankBonuses().gold; }
+  function xpMul() { return Math.max(0.4, 1 + rankBonuses().xp + prisonBuff() - captorPenalty()); }
 
   /* ---------------- prison (captured players → power-scaled battle-XP buff) ---------------- */
   const PRISON_SLOTS = 3;
@@ -237,17 +240,15 @@
 
   /* ---------------- weekly tournament reward claims ---------------- */
   function tourneyClaimed(id) { return !!(state.tourney && state.tourney.claimed && state.tourney.claimed[id]); }
-  function claimTourney(id, gold, legacy) {
+  function claimTourney(id, gold) {
     state.tourney = state.tourney || { claimed: {} };
     if (state.tourney.claimed[id]) return false;
     state.tourney.claimed[id] = true;
     state.gold = (state.gold || 0) + (gold || 0);
-    state.legacy = (state.legacy || 0) + (legacy || 0);
     save(); renderAll();
     return true;
   }
-  function dropLuck() { return (state.legacyPerks.fortune || 0) * 0.10; }
-  function legacyPerksForCreate() { return state.legacyPerks; }
+  function dropLuck() { return rankBonuses().luck; }
 
   /* ---------------- masteries & collection (account-wide meta) ---------------- */
   const PET_MAST_XP_PER_DMG = 0.5;   // pet-species xp per point of pet damage dealt
@@ -301,11 +302,8 @@
       const inst = state.brute.pets.find(p => p.uid === eqPet);
       if (inst) petMul = 1 + petMasteryLevel(inst.base) * M.petPerLevel;
     }
-    // permanent legacy perk: Savage Bloodline (+all stats & damage)
-    const might = (state.legacyPerks.might || 0) * 0.04;
-    // ascension tier: permanent global power
-    const asc = (state.ascension && state.ascension.tier || 0) * D.ASCENSION.powerPerTier;
-    const glob = might + asc;
+    // Power Rank tiers: permanent global power (+all stats & damage)
+    const glob = rankBonuses().stats;
     if (glob) { strMul += glob; agiMul += glob; hpMul += glob; dmgMul += glob; petMul += glob; }
     return { dmgMul, hpMul, strMul, agiMul, petMul, catDmg };
   }
@@ -435,7 +433,7 @@
   function dropItem(luck) {
     const rng = new RNG(randomSeed());
     const base = rng.pick(D.DROPPABLE_WEAPONS).id;
-    const item = global.Items.generateWeapon(base, rng, { luck: luck });
+    const item = global.Items.generateWeapon(base, rng, { luck: luck, dropLevel: state.brute ? state.brute.level : 1 });
     addWeaponToBrute(item);
     return item;
   }
@@ -545,15 +543,14 @@
     const battlesNew = !!(pvp && pvp.battlesLatestAt && pvp.battlesLatestAt > (state.battlesSeenAt || 0));
     setNavBadge('battles-badge', battlesNew);
     // PROGRESS
-    const asc = ascensionInfo();
-    const canAsc = !!asc.ready && !asc.maxed;
-    setNavBadge('ascend-badge', canAsc);
-    setNavSub('nav-ascension', canAsc ? 'Ready!' : '', true);
+    const rk = rankInfo();
+    setNavBadge('ascend-badge', rk.ready);
+    setNavSub('nav-ascension', rk.ready ? 'Claim!' : (rk.maxed ? 'MAX' : 'Tier ' + rk.claimed), rk.ready);
     ensureShop();
     const dueMs = ((state.shopStock && state.shopStock.lastRefresh) || 0) + D.SHOP.refreshHours * 3600000 - now();
     setNavSub('nav-shop', '↻ ' + formatDuration(Math.max(0, Math.ceil(dueMs / 1000))));
     const av = achievementsData();
-    setNavSub('nav-achievements', av.filter(a => a.done).length + '/' + av.length);
+    setNavSub('nav-achievements', av.reduce((s, a) => s + a.tiersDone, 0) + '/' + av.reduce((s, a) => s + a.tiersTotal, 0));
   }
   // called by PVP when the Battles tab is opened: clear the "new battles" dot
   function markBattlesSeen() {
@@ -568,11 +565,9 @@
     const r = b.reward || {};
     if (r.gold) state.gold += r.gold;
     if (r.dust) state.dust += r.dust;
-    if (r.legacy) state.legacy += r.legacy;
     const parts = [];
     if (r.gold) parts.push(`🪙${UI.fmt(r.gold)}`);
     if (r.dust) parts.push(`✦${r.dust}`);
-    if (r.legacy) parts.push(`🏆${r.legacy}`);
     UI.toast(`📜 Loot in the bag: ${parts.join(' • ')}`, 'good');
     state.bounties.list[idx] = rollBounty();
     save(); renderAll();
@@ -689,8 +684,7 @@
     const rng = new RNG(randomSeed());
     const It = global.Items;
     const gen = kind === 'pet' ? It.generatePet : kind === 'skill' ? It.generateSkill : It.generateWeapon;
-    let item = gen(base, rng, { luck: D.CRAFT.luck });
-    if (It.rarityRank(item.rarity) < It.rarityRank(D.CRAFT.minRarity)) item = gen(base, rng, { rarity: D.CRAFT.minRarity });
+    const item = gen(base, rng, { dropLevel: state.brute ? state.brute.level : 1, luck: D.CRAFT.luckBonus });
     if (kind === 'pet') { state.brute.pets.push(item); collectItem('pet', item.base, item.rarity); }
     else if (kind === 'skill') { state.brute.skills.push(item); collectItem('skill', item.base, item.rarity); }
     else addWeaponToBrute(item);
@@ -781,7 +775,7 @@
       let dropTxt = '';
       const wantDrop = isBoss || Math.random() < 0.28;
       if (wantDrop) { dropTxt = ' • ' + lootBadge(dropItem(Math.min(0.95, (isBoss ? 0.3 : 0.1) + floor * 0.04))); }
-      if (isMilestone) { state.legacy += 1; dropTxt += ' • 🏆+1'; }
+      if (isMilestone) { const mg = 40 + floor * 4, md = 6 + Math.floor(floor / 5); state.gold += mg; state.dust += md; dropTxt += ` • 🪙+${mg} ✦+${md}`; }
       state.gauntlet.floor = floor + 1;
       if (floor > state.gauntlet.best) state.gauntlet.best = floor;
       if (isBoss) state.gauntlet.checkpoint = floor + 1;
@@ -933,14 +927,16 @@
     };
   }
   function arenaPromoReward(rankIdx) {
-    return { gold: 60 + rankIdx * 70, dust: 8 + rankIdx * 10, legacy: rankIdx >= 6 ? 1 : 0, drop: rankIdx >= 3 };
+    return { gold: 60 + rankIdx * 70 + (rankIdx >= 6 ? 200 : 0), dust: 8 + rankIdx * 10, drop: rankIdx >= 3 };
   }
   // cross-mode standings shown on the brute card
   function bruteCardData() {
+    const rk = rankInfo();
     return {
       arena: arenaInfo(),
       gauntletBest: (state.gauntlet && state.gauntlet.best) || 0,
       pvp: (global.PVP && global.PVP.myStats) ? global.PVP.myStats() : null,
+      rank: { tier: rk.claimed, max: rk.maxTier, ready: rk.ready },
     };
   }
   function renderBrute() {
@@ -1000,7 +996,7 @@
       dust = Math.round(2 + lvl * 0.5);
       state.gold += gold; state.dust += dust;
       // loot drop
-      const dropChance = 0.16 + (state.legacyPerks.fortune || 0) * 0.02;
+      const dropChance = 0.16 + rankBonuses().luck * 0.2;
       if (Math.random() < dropChance) dropTxt = ' • ' + lootBadge(dropItem(dropLuck() + 0.04));
     } else {
       state.brute.losses++;
@@ -1022,9 +1018,9 @@
       const rank = arenaRankIdx(newStep);
       state.arena.best = newStep;
       const pr = arenaPromoReward(rank);
-      state.gold += pr.gold; state.dust += pr.dust; state.legacy += pr.legacy;
+      state.gold += pr.gold; state.dust += pr.dust;
       const pdrop = pr.drop ? ' • ' + lootBadge(dropItem(0.5 + rank * 0.06)) : '';
-      promoTxt = `<div class="promo">MOVING ON UP: ${arenaLabel(newStep).toUpperCase()}!<br>+${pr.gold}g • +${pr.dust} dust${pr.legacy ? ' • +' + pr.legacy + ' legacy' : ''}${pdrop}</div>`;
+      promoTxt = `<div class="promo">MOVING ON UP: ${arenaLabel(newStep).toUpperCase()}!<br>+${pr.gold}g • +${pr.dust} dust${pdrop}</div>`;
       UI.toast('MOVING ON UP to ' + arenaLabel(newStep) + '!', 'good');
     }
     const arpHtml = `<div class="arp-line">${arpDelta >= 0 ? '+' : ''}${arpDelta} ARP • ${arenaLabel(newStep)}</div>`;
@@ -1059,7 +1055,9 @@
     const rng = new RNG(randomSeed());
     const S = D.SHOP, It = global.Items;
     const kind = rng.weighted(Object.keys(S.kindWeights).map(k => ({ item: k, weight: S.kindWeights[k] })));
-    const rarity = rng.weighted(Object.keys(S.rarityWeights).map(r => ({ item: r, weight: S.rarityWeights[r] })));
+    const lvl = state.brute ? state.brute.level : 1;
+    const center = Math.min(S.maxCenter, (Math.max(1, lvl) - 1) * S.levelToCenter);
+    const rarity = rng.weighted(It.rarityWeightsForCenter(center, S.spread));
     let base, inst, tier;
     if (kind === 'pet') { base = rng.pick(D.ALL_PETS); inst = It.generatePet(base.id, rng, { rarity }); tier = base.tier; }
     else if (kind === 'skill') { base = rng.pick(D.ALL_SKILLS); inst = It.generateSkill(base.id, rng, { rarity }); tier = base.tier; }
@@ -1073,12 +1071,21 @@
     state.shopStock.lastRefresh = now();
   }
   function ensureShop() {
-    if (!state.shopStock) state.shopStock = { list: [], lastRefresh: 0 };
+    if (!state.shopStock) state.shopStock = { list: [], lastRefresh: 0, rerolls: 0 };
+    if (state.shopStock.rerolls == null) state.shopStock.rerolls = 0;
     if (!state.shopStock.list.length) rollShopStock();
+  }
+  // gold to reroll right now; climbs with each manual reroll this cycle
+  function shopRerollCost() {
+    const n = (state.shopStock && state.shopStock.rerolls) || 0;
+    return Math.round(D.SHOP.rerollCost * Math.pow(D.SHOP.rerollGrowth, n));
   }
   function refreshShopIfDue() {
     ensureShop();
-    if (now() >= state.shopStock.lastRefresh + D.SHOP.refreshHours * 3600 * 1000) rollShopStock();
+    if (now() >= state.shopStock.lastRefresh + D.SHOP.refreshHours * 3600 * 1000) {
+      rollShopStock();
+      state.shopStock.rerolls = 0;   // the timed restock clears the stacking reroll cost
+    }
   }
   function buyShopItem(idx) {
     const s = state.shopStock.list[idx];
@@ -1093,26 +1100,31 @@
     save(); renderAll();
   }
   function rerollShop() {
-    if (state.gold < D.SHOP.rerollCost) { UI.toast('Not enough gold to restock the shelves.', 'bad'); return; }
-    state.gold -= D.SHOP.rerollCost;
+    const cost = shopRerollCost();
+    if (state.gold < cost) { UI.toast('Not enough gold to restock the shelves.', 'bad'); return; }
+    state.gold -= cost;
+    state.shopStock.rerolls += 1;   // next reroll this cycle costs more
     rollShopStock();
     save(); renderAll();
   }
 
-  /* ---------------- ascension (endgame) ---------------- */
-  // info for the Legacy/Ascension tab
-  function ascensionInfo() {
-    const tier = (state.ascension && state.ascension.tier) || 0;
-    const req = D.ASCENSION.floorReq(tier);
-    return {
-      tier, req,
-      best: state.gauntlet.best || 0,
-      ready: (state.gauntlet.best || 0) >= req,
-      legacy: D.ASCENSION.legacy(tier),
-      powerNow: Math.round(tier * D.ASCENSION.powerPerTier * 100),
-      powerNext: Math.round((tier + 1) * D.ASCENSION.powerPerTier * 100),
-      maxed: tier >= D.ASCENSION.maxTier,
-    };
+  /* ---------------- power ranks (endgame milestone ladder) ---------------- */
+  // info for the Ranks tab + nav alert
+  function rankInfo() {
+    const R = D.POWER_RANKS;
+    const claimed = state.powerTier || 0;
+    const power = Math.round(livePower());
+    const maxed = claimed >= R.maxTier;
+    let claimable = 0;
+    while (claimed + claimable < R.maxTier && power >= R.threshold(claimed + claimable + 1)) claimable++;
+    const nextN = Math.min(claimed + 1, R.maxTier);
+    const nextThreshold = R.threshold(nextN);
+    const prevThreshold = claimed > 0 ? R.threshold(claimed) : 0;
+    const pct = maxed ? 100 : Math.max(0, Math.min(100, ((power - prevThreshold) / ((nextThreshold - prevThreshold) || 1)) * 100));
+    const tierReward = (t) => ({ stats: R.statsPct(t), stam: R.staminaPer, gold: R.goldPer, xp: R.xpPer, idle: R.idlePer, luck: R.luckPer, slot: R.skillSlotTiers.indexOf(t) >= 0 });
+    const tiers = [];
+    for (let t = 1; t <= R.maxTier; t++) tiers.push({ n: t, threshold: R.threshold(t), claimed: t <= claimed, claimable: t > claimed && t <= claimed + claimable, reward: tierReward(t) });
+    return { claimed, maxTier: R.maxTier, power, maxed, claimable, ready: claimable > 0, nextThreshold, prevThreshold, pct, totals: rankBonuses(), tiers };
   }
   /* ---------------- achievements (display-only progress) ---------------- */
   function rarityOwnedCount(minRarity) {
@@ -1125,60 +1137,69 @@
     const col = state.collection, life = state.lifetime || {};
     const maxWeaponMast = Math.max(0, ...D.MASTERY.weaponCats.map(c => masteryLevel(c)));
     const pvp = (global.PVP && global.PVP.myStats && global.PVP.myStats()) || null;
-    return D.ACHIEVEMENTS.map(a => {
-      let cur = 0, target = a.n || 1;
+    const It = global.Items, RAR = It.RARITIES;
+    // highest rarity rank owned anywhere in the collection (for the rarity-ladder track)
+    let maxRarity = 0;
+    ['weapons', 'skills', 'pets'].forEach(k => { const b = col[k] || {}; for (const id in b) maxRarity = Math.max(maxRarity, b[id]); });
+
+    const metric = (a) => {
       switch (a.kind) {
-        case 'collectAll': {
-          const list = a.group === 'skills' ? D.ALL_SKILLS : a.group === 'pets' ? D.ALL_PETS : D.DROPPABLE_WEAPONS;
-          target = list.length; cur = list.filter(it => it.id in col[a.group]).length; break;
-        }
-        case 'rarityCount': cur = rarityOwnedCount(a.rarity); break;
-        case 'rarityAny': cur = Math.min(1, rarityOwnedCount(a.rarity)); break;
-        case 'masteryAny': cur = maxWeaponMast; break;
-        case 'gauntlet': cur = state.gauntlet.best || 0; break;
-        case 'arenaDiv': cur = arenaRankIdx(state.arena.best || 0); break;
-        case 'ascend': cur = (state.ascension && state.ascension.tier) || 0; break;
-        case 'career': cur = Math.floor(life[a.stat] || 0); break;
-        case 'pvp': cur = pvp ? pvp.rating : 0; break;
+        case 'collectCount': { const list = a.group === 'skills' ? D.ALL_SKILLS : a.group === 'pets' ? D.ALL_PETS : D.DROPPABLE_WEAPONS; return list.filter(it => it.id in col[a.group]).length; }
+        case 'rarityLadder': return maxRarity;
+        case 'rarityCount':  return rarityOwnedCount(a.rarity);
+        case 'masteryAny':   return maxWeaponMast;
+        case 'gauntlet':     return state.gauntlet.best || 0;
+        case 'arenaDiv':     return arenaRankIdx(state.arena.best || 0);
+        case 'ascend':       return state.powerTier || 0;
+        case 'career':       return Math.floor(life[a.stat] || 0);
+        case 'pvp':          return pvp ? pvp.rating : 0;
       }
-      return { label: a.label, desc: a.desc, icon: a.icon, cur, target, done: cur >= target };
+      return 0;
+    };
+    // human-readable threshold value for the description (number, rarity name, or division)
+    const tierLabel = (a, th) => {
+      if (a.kind === 'rarityLadder') return (It.RARITY[RAR[Math.min(th, RAR.length - 1)]] || {}).name || '';
+      if (a.kind === 'arenaDiv') return D.ARENA.divisions[Math.min(th, D.ARENA.divisions.length - 1)];
+      return UI.fmt(th);
+    };
+
+    return D.ACHIEVEMENTS.map(a => {
+      const tiers = a.tiers;
+      const cur = metric(a);
+      let done = 0;
+      for (let i = 0; i < tiers.length; i++) if (cur >= tiers[i]) done++;
+      const maxed = done >= tiers.length;
+      const ti = maxed ? tiers.length - 1 : done;        // current (or final) tier index
+      const target = tiers[ti];
+      const prev = ti > 0 ? tiers[ti - 1] : 0;
+      const pct = maxed ? 100 : Math.max(0, Math.min(100, ((cur - prev) / ((target - prev) || 1)) * 100));
+      return {
+        id: a.id, label: a.label, icon: a.icon,
+        desc: a.descT.replace('{n}', tierLabel(a, target)),
+        cur, target, pct,
+        tierIndex: ti, tiersDone: done, tiersTotal: tiers.length, maxed,
+        showCount: a.kind !== 'rarityLadder' && a.kind !== 'arenaDiv',
+      };
     });
   }
 
-  function ascend() {
-    const info = ascensionInfo();
-    if (info.maxed) return;
-    if (!info.ready) { UI.toast(`Punch up to Gauntlet floor ${info.req} before you can ascend.`, 'bad'); return; }
-    state.ascension.tier = info.tier + 1;
-    state.legacy += info.legacy;
-    UI.toast(`ASCENDED to tier ${state.ascension.tier}! +${info.legacy} legacy, +${D.ASCENSION.powerPerTier * 100}% power forever!`, 'good');
-    save(); renderAll();
-  }
-
-  function buyLegacyPerk(perkId) {
-    const perk = D.LEGACY_PERKS.find(p => p.id === perkId);
-    const owned = state.legacyPerks[perkId] || 0;
-    if (owned >= perk.max) return;
-    const cost = perk.cost * (owned + 1);
-    if (state.legacy < cost) { UI.toast('Not enough legacy for that.', 'bad'); return; }
-    state.legacy -= cost;
-    state.legacyPerks[perkId] = owned + 1;
-    UI.toast(`Bloodline gets MEANER: ${perk.name}!`, 'good');
-    save();
-    renderAll();
+  // claim every Power Rank tier the current power qualifies for
+  function claimRank() {
+    const info = rankInfo();
+    if (!info.claimable) { UI.toast('No new Power Ranks yet. Build more power!', 'bad'); return; }
+    const from = (state.powerTier || 0) + 1;
+    state.powerTier = (state.powerTier || 0) + info.claimable;
+    state.stamina = staminaMax();   // top off to the new max as a little kicker
+    UI.toast(info.claimable > 1
+      ? `POWER RANKS ${from}-${state.powerTier} CLAIMED!`
+      : `POWER RANK ${state.powerTier} CLAIMED!`, 'good');
+    save(); renderAll(); refreshIdleBrute();
   }
 
   /* ---------------- create screen ---------------- */
   function rollCandidate() {
-    candidate = C.createBrute(new RNG(randomSeed()), { legacy: legacyPerksForCreate() });
-    const note = totalLegacyPerks() > 0
-      ? '🏆 Bloodline perks are applied to this new brute.'
-      : 'Tip: win fights, level up, then retire to earn permanent bloodline perks.';
-    UI.renderCreatePreview(candidate, note);
-  }
-
-  function totalLegacyPerks() {
-    return Object.values(state.legacyPerks).reduce((a, b) => a + b, 0);
+    candidate = C.createBrute(new RNG(randomSeed()));
+    UI.renderCreatePreview(candidate, '');
   }
 
   function beginGame() {
@@ -1233,7 +1254,7 @@
   /* ---------------- rendering ---------------- */
   function renderTopbarOnly() {
     UI.renderTopbar({
-      gold: state.gold, legacy: state.legacy, dust: state.dust,
+      gold: state.gold, dust: state.dust,
       stamina: state.stamina, staminaMax: staminaMax(),
       level: state.brute ? state.brute.level : null,
       power: state.brute ? C.powerRating(state.brute, metaBonuses()) : null,
@@ -1268,8 +1289,8 @@
     UI.renderCollection(state);
     UI.renderAchievements(achievementsData());
     ensureShop();
-    UI.renderShop(state.shopStock, state.gold, { buy: buyShopItem, reroll: rerollShop });
-    UI.renderLegacy(state, ascensionInfo(), { ascend: ascend, buyPerk: buyLegacyPerk });
+    UI.renderShop(state.shopStock, state.gold, { buy: buyShopItem, reroll: rerollShop, rerollCost: shopRerollCost() });
+    UI.renderRanks(rankInfo(), { claim: claimRank });
     UI.renderTraining(state.training, trainXpRate(), trainXpCap(), state.sparFocus || 0, { claim: claimTraining, spar: spar });
     updateNavInfo();
     const btn = $('#btn-fight');
@@ -1319,13 +1340,20 @@
     $('#btn-fight').addEventListener('click', () => doFight(false));
     const lvlBtn = $('#btn-levelup');
     if (lvlBtn) lvlBtn.addEventListener('click', () => processLevelUps(() => {}));
-    $('#btn-reset').addEventListener('click', () => {
-      if (confirm('Wipe ALL progress (brute, gold, legacy)? This cannot be undone.')) {
-        wiped = true;                       // block any queued autosave
-        if (tickTimer) clearInterval(tickTimer);
-        try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
-        location.reload();
-      }
+    $('#btn-reset').addEventListener('click', () => { $('#reset-modal').classList.remove('hidden'); });
+    $('#reset-cancel').addEventListener('click', () => { $('#reset-modal').classList.add('hidden'); });
+    $('#reset-modal').addEventListener('click', (e) => { if (e.target.id === 'reset-modal') $('#reset-modal').classList.add('hidden'); });
+    $('#reset-confirm').addEventListener('click', () => {
+      wiped = true;                         // block any queued autosave
+      if (tickTimer) clearInterval(tickTimer);
+      // clear EVERYTHING: the local save AND the Supabase auth token, so reload
+      // starts a brand-new brute on a fresh anonymous ladder identity.
+      try {
+        if (global.PVP && global.PVP.signOut) global.PVP.signOut();   // best-effort server-side sign out
+      } catch (e) {}
+      try { localStorage.clear(); } catch (e) {}
+      try { localStorage.removeItem(SAVE_KEY); } catch (e) {}   // belt-and-suspenders
+      location.reload();
     });
     $('#auto-fight').addEventListener('change', (e) => {
       state.settings.autoFight = e.target.checked;
@@ -1399,7 +1427,7 @@
     gold: () => (state && state.gold) || 0,
     livePower: () => livePower(),
     tourneyClaimed: (id) => tourneyClaimed(id),
-    claimTourney: (id, gold, legacy) => claimTourney(id, gold, legacy),
+    claimTourney: (id, gold) => claimTourney(id, gold),
     updateNavInfo: () => updateNavInfo(),
     markBattlesSeen: () => markBattlesSeen(),
   };

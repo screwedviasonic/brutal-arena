@@ -118,39 +118,35 @@
   const SHOP = {
     slots: 6,
     refreshHours: 3,
-    rerollCost: 60,          // gold to reroll the stock
+    rerollCost: 60,          // base gold to reroll; cost stacks per reroll, resets on restock
+    rerollGrowth: 1.85,      // each reroll multiplies the cost (60 -> 111 -> 205 -> ...)
     priceBase: 35,
     pricePerTier: 28,
     rarityMul: { common: 1, uncommon: 1.6, rare: 2.7, epic: 4.6, legendary: 8, mythic: 14 },
-    rarityWeights: { common: 48, uncommon: 30, rare: 15, epic: 5, legendary: 1.5, mythic: 0.3 },
+    // shop rarity is level-scaled but kept low so the stock is mostly common/uncommon.
+    levelToCenter: 0.06,     // how fast the rarity center climbs with level
+    maxCenter: 1.6,          // caps the shop around rare; mostly common/uncommon
+    spread: 0.95,
     kindWeights: { weapon: 3, pet: 1, skill: 2 },
   };
 
-  /* ---------------- LEGACY PERKS (permanent, account-wide) ----------------
-   * Legacy is earned by Ascending (see ASCENSION). Perks permanently buff
-   * your single brute — no resets, no "starting" bonuses.
+  /* ---------------- POWER RANKS (permanent milestone ladder) ----------------
+   * The endgame progression, tied to your brute's POWER instead of a separate
+   * currency. Cross a power threshold to CLAIM a tier; each tier grants a whole
+   * bundle of permanent buffs, and the bundle grows the higher you climb.
+   * No currency, no shop, no reset. (Thresholds are tunable — playtest values.)
    */
-  const LEGACY_PERKS = [
-    { id: 'might', name: 'Savage Bloodline', desc: '+4% to all stats per level', max: 15, cost: 1 },
-    { id: 'trainer', name: 'Drill Sergeant', desc: '+idle XP rate & cap per level', max: 10, cost: 2 },
-    { id: 'goldMul', name: 'Merchant Ancestry', desc: '+20% gold gain per level', max: 10, cost: 1 },
-    { id: 'xpMul', name: 'Veteran Blood', desc: '+15% XP gain per level', max: 10, cost: 1 },
-    { id: 'fortune', name: "Warlord's Luck", desc: '+10% better loot per level', max: 10, cost: 2 },
-    { id: 'skillSlots', name: 'Open Mind', desc: '+1 equipped skill slot per level', max: 3, cost: 4 },
-  ];
-  // perk ids that no longer exist — their spent legacy is refunded on load
-  const LEGACY_PERKS_RETIRED = { startStats: 1, startWeapon: 2, startSkill: 3, vigor: 2 };
-
-  /* ---------------- ASCENSION (endgame, replaces prestige) ----------------
-   * Reaching a new deepest Gauntlet floor unlocks the next Ascension: bank
-   * Legacy + a permanent global power boost. Nothing is reset and the tower
-   * is identical for everyone, so the Gauntlet leaderboard stays a fair race.
-   */
-  const ASCENSION = {
-    floorReq: (tier) => 15 + tier * 12,  // all-time gauntlet best floor needed to ascend to next tier
-    legacy: (tier) => 4 + tier * 3,      // legacy granted on ascend (~1000 total over all tiers)
-    powerPerTier: 0.06,                  // +6% to all your stats & damage per tier (permanent)
-    maxTier: 25,                         // max ~floor 315, reachable ~lvl 150-200 (sim-verified)
+  const POWER_RANKS = {
+    maxTier: 12,
+    threshold: (t) => Math.round(500 * Math.pow(1.65, t - 1)),   // power needed for tier t (1-based)
+    // per-tier reward amounts (cumulative across claimed tiers)
+    statsPct: (t) => 0.02 + t * 0.02,   // +all stats & damage; grows each tier (+4% at T1 -> +26% at T12)
+    staminaPer: 1,                      // +max stamina per tier
+    goldPer: 0.10,                      // +gold gain per tier
+    xpPer: 0.08,                        // +XP gain per tier
+    idlePer: 0.06,                      // +idle XP rate & cap per tier
+    luckPer: 0.04,                      // +loot luck per tier
+    skillSlotTiers: [1, 4, 8],          // tiers that also grant +1 equipped skill slot (3 -> 6)
   };
 
   /* ---------------- ARENA (ranked division ladder) ----------------
@@ -178,7 +174,7 @@
   /* ---------------- GAUNTLET (endless tower) ---------------- */
   const GAUNTLET = {
     bossEvery: 5,                 // every Nth floor is a boss
-    milestoneEvery: 10,           // every Nth floor grants a Legacy milestone reward
+    milestoneEvery: 10,           // every Nth floor grants a bonus gold/dust milestone
     bossTitles: ['the Gatekeeper', 'the Bonelord', 'the Executioner', 'the Devourer', 'the Warlord', 'the Undying', 'the Titan', 'the Ruin'],
   };
 
@@ -205,7 +201,7 @@
       { id: 'catHits', icon: '⚔️', weight: 2,
         make: (r) => { const cat = r.pick(WEAPON_CATS); const n = r.int(8, 16); return { target: n, cat, desc: `Land ${n} hits with ${CAT_NAMES[cat]}`, reward: { dust: 10 + n } }; } },
       { id: 'reachFloor', icon: '🏔️', weight: 1,
-        make: (r, best) => { const n = (best || 1) + r.int(2, 5); return { target: n, desc: `Reach Gauntlet floor ${n}`, reward: { legacy: 1, gold: 90 } }; } },
+        make: (r, best) => { const n = (best || 1) + r.int(2, 5); return { target: n, desc: `Reach Gauntlet floor ${n}`, reward: { gold: 160, dust: 14 } }; } },
     ],
   };
 
@@ -231,38 +227,55 @@
     { key: 'xpEarned',       icon: '✨', label: 'XP Earned' },
   ];
 
-  /* ---------------- ACHIEVEMENTS (display-only progress badges) ---------------- */
+  /* ---------------- ACHIEVEMENTS (tiered, display-only progress tracks) ----------
+   * Each track has escalating `tiers`. The tier you're working on is coloured by
+   * the rarity ladder (tier 1 = common grey, 2 = uncommon green, 3 = rare blue,
+   * 4 = epic purple, 5 = legendary orange, 6 = mythic red). `descT` is filled
+   * per current tier; {n} becomes the threshold (or a rarity / division name).
+   */
   const ACHIEVEMENTS = [
-    { id: 'wAll', label: 'Armory', desc: 'Discover every weapon', kind: 'collectAll', group: 'weapons', icon: 'weapons' },
-    { id: 'sAll', label: 'Polymath', desc: 'Discover every skill', kind: 'collectAll', group: 'skills', icon: 'skills' },
-    { id: 'pAll', label: 'Beast Tamer', desc: 'Discover every pet', kind: 'collectAll', group: 'pets', icon: 'pets' },
-    { id: 'rare10', label: 'Rare Collector', desc: 'Own 10 items at Rare or better', kind: 'rarityCount', rarity: 'rare', n: 10, icon: 'star' },
-    { id: 'epic10', label: 'Epic Hoard', desc: 'Own 10 items at Epic or better', kind: 'rarityCount', rarity: 'epic', n: 10, icon: 'star' },
-    { id: 'legend', label: 'Legend Holder', desc: 'Own a Legendary item', kind: 'rarityAny', rarity: 'legendary', icon: 'crown' },
-    { id: 'mythic', label: 'Mythic Owner', desc: 'Own a Mythic item', kind: 'rarityAny', rarity: 'mythic', icon: 'flame' },
-    { id: 'mast10', label: 'Specialist', desc: 'Reach mastery level 10', kind: 'masteryAny', n: 10, icon: 'medal' },
-    { id: 'mast20', label: 'Grandmaster', desc: 'Max out a weapon mastery (Lv 20)', kind: 'masteryAny', n: 20, icon: 'medal' },
-    { id: 'g25', label: 'Tower Climber', desc: 'Reach Gauntlet floor 25', kind: 'gauntlet', n: 25, icon: 'tower' },
-    { id: 'g50', label: 'Skybreaker', desc: 'Reach Gauntlet floor 50', kind: 'gauntlet', n: 50, icon: 'tower' },
-    { id: 'champ', label: 'Champion', desc: 'Reach the Champion division', kind: 'arenaDiv', n: 6, icon: 'champion' },
-    { id: 'asc5', label: 'Ascendant', desc: 'Reach Ascension tier 5', kind: 'ascend', n: 5, icon: 'chevron' },
-    { id: 'asc10', label: 'Transcendent', desc: 'Reach Ascension tier 10', kind: 'ascend', n: 10, icon: 'chevron' },
-    { id: 'win100', label: 'Veteran', desc: 'Win 100 fights', kind: 'career', stat: 'wins', n: 100, icon: 'fist' },
-    { id: 'crit250', label: 'Critical Mind', desc: 'Land 250 critical hits', kind: 'career', stat: 'crits', n: 250, icon: 'flame' },
-    { id: 'kill200', label: 'Executioner', desc: 'Fell 200 enemies', kind: 'career', stat: 'kills', n: 200, icon: 'hammer' },
-    { id: 'pvp1200', label: 'Duelist', desc: 'Reach PvP rating 1200', kind: 'pvp', n: 1200, icon: 'star' },
+    { id: 'armory',   label: 'Armory',        kind: 'collectCount', group: 'weapons', icon: 'weapons',  descT: 'Discover {n} weapons',           tiers: [3, 6, 10, 13, 16] },
+    { id: 'polymath', label: 'Polymath',      kind: 'collectCount', group: 'skills',  icon: 'skills',   descT: 'Discover {n} skills',            tiers: [4, 8, 12, 17, 22] },
+    { id: 'tamer',    label: 'Beast Tamer',   kind: 'collectCount', group: 'pets',    icon: 'pets',     descT: 'Discover {n} pets',              tiers: [1, 2, 3, 4] },
+    { id: 'treasure', label: 'Treasure Hunter', kind: 'rarityLadder', icon: 'crown',                    descT: 'Own {n} gear',                   tiers: [0, 1, 2, 3, 4, 5] },
+    { id: 'collector', label: 'Collector',    kind: 'rarityCount', rarity: 'rare',    icon: 'star',     descT: 'Own {n} items at Rare or better', tiers: [5, 10, 20, 35, 50] },
+    { id: 'climber',  label: 'Tower Climber', kind: 'gauntlet',  icon: 'tower',                         descT: 'Reach Gauntlet floor {n}',       tiers: [10, 25, 50, 100, 200] },
+    { id: 'master',   label: 'Weapon Master', kind: 'masteryAny', icon: 'medal',                        descT: 'Reach mastery level {n}',        tiers: [5, 10, 15, 20] },
+    { id: 'ranked',   label: 'Ladder Climber', kind: 'arenaDiv', icon: 'champion',                      descT: 'Reach {n} division',             tiers: [1, 2, 3, 4, 6] },
+    { id: 'ascend',   label: 'Ascendant',     kind: 'ascend',   icon: 'chevron',                        descT: 'Reach Power Rank {n}',           tiers: [1, 3, 6, 9, 12] },
+    { id: 'veteran',  label: 'Veteran',       kind: 'career', stat: 'wins',  icon: 'fist',              descT: 'Win {n} fights',                 tiers: [25, 100, 500, 2000, 10000] },
+    { id: 'reaper',   label: 'Executioner',   kind: 'career', stat: 'kills', icon: 'hammer',            descT: 'Fell {n} enemies',               tiers: [50, 250, 1000, 5000, 20000] },
+    { id: 'critmind', label: 'Critical Mind', kind: 'career', stat: 'crits', icon: 'flame',             descT: 'Land {n} critical hits',         tiers: [100, 500, 2500, 10000] },
+    { id: 'duelist',  label: 'Duelist',       kind: 'pvp',     icon: 'star',                            descT: 'Reach PvP rating {n}',           tiers: [1100, 1300, 1500, 1700] },
   ];
 
   /* ---------------- FORGE CRAFTING ----------------
    * Bank shards (from scrapping weapons) toward a chosen target weapon.
-   * cost = shardBase + tier * shardPerTier. A craft yields the target at
-   * minRarity or better.
+   * cost = shardBase + tier * shardPerTier. Crafted rarity is level-scaled
+   * like drops (see DROP), with a luck bonus so a craft skews a bit better
+   * than a raw drop of the same level.
    */
   const CRAFT = {
     shardBase: 10,
     shardPerTier: 6,
-    minRarity: 'rare',
-    luck: 0.7,
+    luckBonus: 0.7,   // shifts the rarity center up vs a plain drop
+  };
+
+  /* ---------------- DROP RARITY (level-scaled) ----------------
+   * Rarity is rolled from a Gaussian over the tiers (common..mythic) centred
+   * on a point that climbs with the player's level. Early game is almost all
+   * common with a chance at uncommon; better tiers phase in as you level.
+   * `luck` (deep gauntlet floors, the fortune perk, etc.) nudges the centre up.
+   * tierCap permanently dampens the top tiers so legendaries stay a treat and
+   * mythics are a lifetime rarity even at the level cap.
+   */
+  const DROP = {
+    levelToCenter: 0.10,   // centre = (level-1) * this, capped at maxCenter
+    maxCenter: 3.6,        // never centres past the epic/legendary border
+    spread: 0.85,          // width of the rarity band (smaller = tighter)
+    luckCenter: 0.6,       // how far one point of luck shifts the centre up
+    // common, uncommon, rare, epic, legendary, mythic
+    tierCap: [1, 1, 1, 0.8, 0.35, 0.012],
   };
 
   /* ---------------- IDLE TRAINING ----------------
@@ -316,7 +329,7 @@
     PETS, ALL_PETS,
     NAME_PREFIX, NAME_SUFFIX, NAME_TITLE,
     SKIN_COLORS, OUTFIT_COLORS,
-    SHOP, LEGACY_PERKS, LEGACY_PERKS_RETIRED, ASCENSION,
-    ARENA, GAUNTLET, MASTERY, COLLECTION, BOUNTIES, CRAFT, STAT_DEFS, TRAINING, SPAR, ACHIEVEMENTS,
+    SHOP, POWER_RANKS,
+    ARENA, GAUNTLET, MASTERY, COLLECTION, BOUNTIES, CRAFT, DROP, STAT_DEFS, TRAINING, SPAR, ACHIEVEMENTS,
   };
 })(window);

@@ -777,11 +777,11 @@
   }
   function hashStr(s) { let h = 2166136261 >>> 0; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
   function tourneyReward(rank, total) {
-    if (rank === 0) return { gold: 500, legacy: 3, label: 'CHAMPION' };
-    if (rank === 1) return { gold: 300, legacy: 2, label: 'RUNNER-UP' };
-    if (rank === 2) return { gold: 200, legacy: 1, label: 'THIRD PLACE' };
-    if (rank < Math.ceil(total / 2)) return { gold: 100, legacy: 0, label: 'TOP HALF' };
-    return { gold: 50, legacy: 0, label: 'ENTRANT' };
+    if (rank === 0) return { gold: 1500, label: 'CHAMPION' };
+    if (rank === 1) return { gold: 900, label: 'RUNNER-UP' };
+    if (rank === 2) return { gold: 600, label: 'THIRD PLACE' };
+    if (rank < Math.ceil(total / 2)) return { gold: 250, label: 'TOP HALF' };
+    return { gold: 100, label: 'ENTRANT' };
   }
   function fmtCountdown(ms) {
     if (ms <= 0) return 'closed';
@@ -894,7 +894,7 @@
         const claimed = Game().tourneyClaimed(tourney.prevId);
         reward = `<div class="trn-reward">
           <div class="pl-main"><div class="pl-name">${rw.label} · #${myIdx + 1}</div>
-            <div class="pl-sub">Reward: ${fmt(rw.gold)} gold${rw.legacy ? ' · ' + rw.legacy + ' legacy' : ''}</div></div>
+            <div class="pl-sub">Reward: ${fmt(rw.gold)} gold</div></div>
           <button id="trn-claim" class="primary-btn gaunt-climb"${claimed ? ' disabled' : ''}>${claimed ? 'CLAIMED' : 'CLAIM'}</button></div>`;
       }
       const rows = st.map((s, i) => {
@@ -915,13 +915,15 @@
     if (cb) cb.addEventListener('click', () => {
       const myIdx = st.findIndex(s => s.user_id === user.id);
       const rw = tourneyReward(myIdx, st.length);
-      if (Game().claimTourney(tourney.prevId, rw.gold, rw.legacy)) toast('Purse collected: ' + fmt(rw.gold) + ' gold' + (rw.legacy ? ' + ' + rw.legacy + ' legacy' : '') + '!', 'good');
+      if (Game().claimTourney(tourney.prevId, rw.gold)) toast('Purse collected: ' + fmt(rw.gold) + ' gold!', 'good');
       renderTournament();
     });
   }
 
   // live PvP standing for the brute card (null until the ladder row loads)
   function myStats() { return myRow ? { rating: myRow.rating, wins: myRow.wins, losses: myRow.losses } : null; }
+  // best-effort sign-out used by a full RESET; the local token is also cleared by the caller
+  function signOut() { try { if (sb) sb.auth.signOut(); } catch (e) {} }
 
   // values the nav menu shows at a glance (rating / tournament lock / newest battle)
   function navInfo() {
@@ -951,7 +953,7 @@
     if (Game() && Game().updateNavInfo) Game().updateNavInfo();
   }
 
-  global.PVP = { init, render, publishDefense, renderArenaBoard, renderGauntletBoard, boardFor, claimName, getHandle, myStats, navInfo, refreshNavRemote };
+  global.PVP = { init, render, publishDefense, renderArenaBoard, renderGauntletBoard, boardFor, claimName, getHandle, myStats, navInfo, refreshNavRemote, signOut };
 
   // self-initialize (game.js also calls init(); the `inited` guard makes that safe)
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

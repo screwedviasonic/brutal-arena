@@ -88,7 +88,7 @@
   function makeWeaponChoice(brute, rng, luck) {
     // pick a base (dupes allowed — loot!), then roll a full item instance
     const w = rng.weighted(D.DROPPABLE_WEAPONS.map(w => ({ item: w, weight: tierWeight(w.tier, luck) })));
-    const item = global.Items.generateWeapon(w.id, rng, { luck: luck });
+    const item = global.Items.generateWeapon(w.id, rng, { luck: luck, dropLevel: brute.level });
     const s = global.Items.stats(item);
     const affixTxt = global.Items.affixLines(item).join(', ');
     return {
@@ -102,7 +102,7 @@
   function makeSkillChoice(brute, rng, luck) {
     // dupes allowed now — collect copies to merge/level in the forge
     const base = rng.weighted(D.ALL_SKILLS.map(s => ({ item: s, weight: tierWeight(s.tier, luck) })));
-    const item = global.Items.generateSkill(base.id, rng, { luck: luck });
+    const item = global.Items.generateSkill(base.id, rng, { luck: luck, dropLevel: brute.level });
     return {
       key: 'skill:' + item.uid, kind: 'skill', item: item,
       icon: base.icon, title: global.Items.rarityName(item) + ' ' + base.name,
@@ -113,7 +113,7 @@
 
   function makePetChoice(brute, rng, luck) {
     const base = rng.weighted(D.ALL_PETS.map(p => ({ item: p, weight: tierWeight(p.tier, luck) })));
-    const item = global.Items.generatePet(base.id, rng, { luck: luck });
+    const item = global.Items.generatePet(base.id, rng, { luck: luck, dropLevel: brute.level });
     const ps = global.Items.petStats(item);
     return {
       key: 'pet:' + item.uid, kind: 'pet', item: item,

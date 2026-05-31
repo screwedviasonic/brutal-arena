@@ -49,10 +49,29 @@
     return rng.weighted(items);
   }
 
+  // Rarity as a Gaussian over the tiers, centred on `center` (0=common..5=mythic).
+  // tierCap permanently dampens the top tiers (see GAMEDATA.DROP).
+  function rarityWeightsForCenter(center, spread) {
+    const D = (global.GAMEDATA && global.GAMEDATA.DROP) || {};
+    const cap = D.tierCap || [1, 1, 1, 1, 1, 1];
+    spread = spread || D.spread || 1;
+    return RARITIES.map((r, t) => ({
+      item: r,
+      weight: Math.exp(-((t - center) * (t - center)) / (2 * spread * spread)) * (cap[t] != null ? cap[t] : 1),
+    }));
+  }
+  // Level-scaled rarity roll used by drops, level-up offers, and crafting.
+  function rollRarityForLevel(rng, level, luck) {
+    const D = (global.GAMEDATA && global.GAMEDATA.DROP) || { levelToCenter: 0.1, maxCenter: 3.6, spread: 0.85, luckCenter: 0.6 };
+    const lvl = Math.max(1, level || 1);
+    const center = Math.min(D.maxCenter, (lvl - 1) * (D.levelToCenter || 0.1)) + (luck || 0) * (D.luckCenter || 0);
+    return rng.weighted(rarityWeightsForCenter(center, D.spread));
+  }
+
   /* Generate a fresh weapon instance for a base id. */
   function generateWeapon(baseId, rng, opts) {
     opts = opts || {};
-    const rarity = opts.rarity || rollRarity(rng, opts.luck || 0);
+    const rarity = opts.rarity || rollRarityForLevel(rng, opts.dropLevel, opts.luck || 0);
     const nAffix = RARITY[rarity].affixes;
     const pool = AFFIXES.slice();
     rng.shuffle(pool);
@@ -134,7 +153,7 @@
 
   function generatePet(baseId, rng, opts) {
     opts = opts || {};
-    const rarity = opts.rarity || rollRarity(rng, opts.luck || 0);
+    const rarity = opts.rarity || rollRarityForLevel(rng, opts.dropLevel, opts.luck || 0);
     const n = RARITY[rarity].affixes;
     const pool = PET_AFFIXES.slice();
     rng.shuffle(pool);
@@ -172,7 +191,7 @@
 
   function generateSkill(baseId, rng, opts) {
     opts = opts || {};
-    const rarity = opts.rarity || rollRarity(rng, opts.luck || 0);
+    const rarity = opts.rarity || rollRarityForLevel(rng, opts.dropLevel, opts.luck || 0);
     const roll = (opts.roll != null) ? opts.roll : +rng.float().toFixed(3);
     return { uid: genUid(), kind: 'skill', base: baseId, rarity, level: opts.level || 0, roll };
   }
@@ -309,5 +328,6 @@
     generateWeapon, stats, fistStats, displayName, affixLines, color, rarityName, rarityRank,
     upgradeCost, rerollCost, fuseDustCost, upgrade, reroll, canReroll, canFuse, fuse, disenchantValue, shardValue,
     kindOf, icon, baseInfo, asPet, asSkill, generatePet, petStats, generateSkill, skillMods, skillScale,
+    rollRarityForLevel, rarityWeightsForCenter,
   };
 })(window);

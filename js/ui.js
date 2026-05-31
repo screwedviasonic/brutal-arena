@@ -43,7 +43,6 @@
     g.dataset.v = state.gold;
     $('#res-stamina').textContent = Math.floor(state.stamina);
     $('#res-stamina-max').textContent = state.staminaMax;
-    $('#res-legacy').textContent = fmt(state.legacy);
     const d = $('#res-dust'); if (d) d.textContent = fmt(state.dust || 0);
     const tb = $('#topbar-brute');
     if (tb) {
@@ -88,10 +87,9 @@
   }
 
   /* ---------------- creation preview ---------------- */
-  function renderCreatePreview(brute, legacyNote) {
+  function renderCreatePreview(brute) {
     $('#create-preview').innerHTML = bruteAvatarHtml(brute, 'lg') + bruteSummaryHtml(brute);
     if (!$('#create-name').value) $('#create-name').value = brute.name;
-    $('#create-legacy-note').textContent = legacyNote || '';
   }
 
   function weaponChip(it) {
@@ -155,22 +153,38 @@
   function renderAchievements(list) {
     const el = $('#achv-content');
     if (!el) return;
-    const done = list.filter(a => a.done).length;
+    const RAR = I.RARITIES;
+    const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
+    const tierColor = idx => (I.RARITY[RAR[Math.min(idx, RAR.length - 1)]] || {}).color || '#9ca3af';
+    const totalTiers = list.reduce((s, a) => s + a.tiersTotal, 0);
+    const earnedTiers = list.reduce((s, a) => s + a.tiersDone, 0);
+
     const card = a => {
-      const pct = Math.min(100, (a.cur / a.target) * 100);
-      return `<div class="achv${a.done ? ' done' : ''}">
+      const col = tierColor(a.tierIndex);
+      const pips = Array.from({ length: a.tiersTotal }, (_, i) => {
+        const got = i < a.tiersDone, next = i === a.tiersDone && !a.maxed;
+        return `<span class="achv-pip${got ? ' got' : ''}${next ? ' next' : ''}" style="--pc:${tierColor(i)}"></span>`;
+      }).join('');
+      const badge = a.maxed
+        ? `<span class="achv-tier max">MAX</span>`
+        : `<span class="achv-tier" style="background:${col}">${ROMAN[a.tierIndex] || (a.tierIndex + 1)}</span>`;
+      const footer = a.showCount
+        ? `${fmt(Math.min(a.cur, a.target))} / ${fmt(a.target)}`
+        : (a.maxed ? 'COMPLETE' : `TIER ${a.tierIndex + 1} OF ${a.tiersTotal}`);
+      return `<div class="achv${a.maxed ? ' maxed' : ''}" style="--tc:${col}">
         <div class="achv-top">
           <span class="achv-glyph">${achvGlyph(a.icon)}</span>
           <div class="achv-info">
-            <div class="achv-head"><span class="achv-name">${a.label}</span>${a.done ? '<span class="achv-badge">DONE</span>' : ''}</div>
+            <div class="achv-head"><span class="achv-name">${a.label}</span>${badge}</div>
             <div class="achv-desc">${a.desc}</div>
           </div>
         </div>
-        <div class="achv-bar"><div class="achv-fill" style="width:${pct}%"></div></div>
-        <div class="achv-num">${fmt(Math.min(a.cur, a.target))} / ${fmt(a.target)}</div></div>`;
+        <div class="achv-pips">${pips}</div>
+        <div class="achv-bar"><div class="achv-fill" style="width:${a.pct}%"></div></div>
+        <div class="achv-num">${footer}</div></div>`;
     };
     el.innerHTML = `
-      <div class="col-bonus"><span class="cb-chip"><span class="cb-v">${done}/${list.length}</span><span class="cb-k">UNLOCKED</span></span></div>
+      <div class="col-bonus"><span class="cb-chip"><span class="cb-v">${earnedTiers}/${totalTiers}</span><span class="cb-k">TIERS EARNED</span></span></div>
       <div class="achv-grid">${list.map(card).join('')}</div>`;
   }
 
@@ -186,10 +200,12 @@
     const swords = `<svg viewBox="0 0 24 24" class="gicon" aria-hidden="true"><g stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 L15 5" stroke="#14110d" stroke-width="4.6"/><path d="M20 20 L9 5" stroke="#14110d" stroke-width="4.6"/><path d="M4 20 L15 5" stroke="#d4d8dd" stroke-width="2.4"/><path d="M20 20 L9 5" stroke="#d4d8dd" stroke-width="2.4"/></g></svg>`;
     const arena = info.arena;
     const pvp = info.pvp;
+    const rank = info.rank;
     const standings = `
       ${arena ? `<span class="gaunt-chip chip-rank"><span class="bc-medal">${rankIcon(arena.name)}</span><span class="gc-k">ARENA</span><span class="gc-v rank-v">${(arena.label || arena.name).toUpperCase()}</span></span>` : ''}
       <span class="gaunt-chip chip-best">${GICON.peak}<span class="gc-k">BEST FLOOR</span><span class="gc-v">${fmt(info.gauntletBest || 0)}</span></span>
-      <span class="gaunt-chip chip-cp">${GICON.star}<span class="gc-k">PVP RATING</span><span class="gc-v">${pvp ? fmt(pvp.rating) : '—'}</span></span>`;
+      <span class="gaunt-chip chip-cp">${GICON.star}<span class="gc-k">PVP RATING</span><span class="gc-v">${pvp ? fmt(pvp.rating) : '—'}</span></span>
+      ${rank ? `<span class="gaunt-chip chip-pwrrank">${GICON.chevron}<span class="gc-k">POWER RANK</span><span class="gc-v">${rank.tier} / ${rank.max}${rank.ready ? ' <b class="rank-ready">!</b>' : ''}</span></span>` : ''}`;
 
     panel.innerHTML = `
       <h3 class="comic-title">${brute.name} <span class="ct-sub">LV ${brute.level}</span></h3>
@@ -336,57 +352,75 @@
         <button class="buy-btn shop-buy${afford ? '' : ' disabled'}" data-idx="${i}" ${afford ? '' : 'disabled'}>${costChip(s.price, 'gold')}</button>
       </div>`;
     }).join('');
-    const rerollAfford = gold >= D.SHOP.rerollCost;
+    const rrCost = (h.rerollCost != null) ? h.rerollCost : D.SHOP.rerollCost;
+    const rerollAfford = gold >= rrCost;
     el.innerHTML = `
       <div class="shop-bar">
         <span class="bounty-timer">${timerTxt}</span>
-        <button class="forge-tool shop-reroll" ${rerollAfford ? '' : 'disabled'}>REROLL STOCK ${costChip(D.SHOP.rerollCost, 'gold')}</button>
+        <button class="forge-tool shop-reroll" ${rerollAfford ? '' : 'disabled'}>REROLL STOCK ${costChip(rrCost, 'gold')}</button>
       </div>
       <div class="shop-grid">${cards}</div>`;
     el.querySelectorAll('.shop-buy').forEach(b => { if (!b.disabled) b.addEventListener('click', () => h.buy(+b.dataset.idx)); });
     const rr = el.querySelector('.shop-reroll'); if (rr && !rr.disabled) rr.addEventListener('click', h.reroll);
   }
 
-  /* ---------------- legacy / ascension ---------------- */
-  function renderLegacy(state, asc, h) {
+  /* ---------------- power ranks (milestone ladder) ---------------- */
+  function renderRanks(info, h) {
     const el = $('#legacy-content');
     if (!el) return;
-    const pct = asc.maxed ? 100 : Math.min(100, (asc.best / asc.req) * 100);
-    const perksHtml = D.LEGACY_PERKS.map(p => {
-      const owned = state.legacyPerks[p.id] || 0;
-      const maxed = owned >= p.max;
-      const cost = p.cost * (owned + 1);
-      return `<div class="legacy-perk ${maxed ? 'maxed' : ''}">
-        <div class="lp-body"><div class="lp-name">${p.name} <span class="si-owned">${owned}/${p.max}</span></div>
-        <div class="si-desc">${p.desc}</div></div>
-        <button class="buy-btn lp-buy ${maxed || state.legacy < cost ? 'disabled' : ''}" data-perk="${p.id}" ${maxed ? 'disabled' : ''}>
-          ${maxed ? 'MAX' : costChip(cost, 'legacy')}</button>
-      </div>`;
-    }).join('');
+    const RAR = I.RARITIES;
+    const tierColor = i => (I.RARITY[RAR[Math.min(i, RAR.length - 1)]] || {}).color || '#9ca3af';
+    const t = info.totals;
+    const pctEl = (v) => Math.round(v * 100);
+    // the rewards a single tier grants (multiple per tier; magnitudes grow per tier)
+    const rewardChips = r => {
+      const c = [];
+      if (r.slot) c.push('+1 Skill Slot');
+      c.push(`+${pctEl(r.stats)}% stats`);
+      c.push(`+${r.stam} stam`);
+      c.push(`+${pctEl(r.gold)}% gold`);
+      c.push(`+${pctEl(r.xp)}% XP`);
+      c.push(`+${pctEl(r.idle)}% idle`);
+      c.push(`+${pctEl(r.luck)}% luck`);
+      return c.map(x => `<span class="rk-chip">${x}</span>`).join('');
+    };
+    const totalChips = [
+      `+${pctEl(t.stats)}% all stats`, `+${t.stam} max stamina`, `+${pctEl(t.gold)}% gold`,
+      `+${pctEl(t.xp)}% XP`, `+${pctEl(t.idle)}% idle XP`, `+${pctEl(t.luck)}% loot luck`,
+      `+${t.slots} skill slot${t.slots === 1 ? '' : 's'}`,
+    ].map(s => `<span class="rk-tot">${s}</span>`).join('');
 
-    const ascBody = asc.maxed
-      ? `<div class="gaunt-banner milestone">${GICON.crown}<span>MAX ASCENSION</span><span class="gb-sub">+${asc.powerNow}% power earned</span></div>`
-      : `<div class="asc-readout">
-           <span class="asc-need">Reach Gauntlet floor <b>${asc.req}</b> to ascend <span class="muted small">(best ${asc.best})</span></span>
-           <span class="asc-reward">${costChip(asc.legacy, 'legacy')} <span class="muted small">+ permanent +${D.ASCENSION.powerPerTier * 100}% power</span></span>
-         </div>
-         <div class="train-bar"><div class="train-fill asc-fill${asc.ready ? ' full' : ''}" style="width:${pct}%"></div></div>
-         <button id="btn-ascend" class="primary-btn gaunt-climb" ${asc.ready ? '' : 'disabled'}>ASCEND TO TIER ${asc.tier + 1}</button>`;
+    const claimBtn = info.ready
+      ? `<button id="btn-claim-rank" class="primary-btn gaunt-climb">CLAIM ${info.claimable > 1 ? info.claimable + ' RANKS' : 'RANK ' + (info.claimed + 1)}</button>`
+      : '';
+
+    const rows = info.tiers.map(ti => {
+      const col = tierColor(ti.n - 1);
+      const status = ti.claimed ? `<span class="rk-badge done">CLAIMED</span>`
+        : ti.claimable ? `<span class="rk-badge ready">READY</span>`
+        : `<span class="rk-badge lock">${fmt(ti.threshold)} PWR</span>`;
+      return `<div class="rk-row${ti.claimed ? ' claimed' : ''}${ti.claimable ? ' ready' : ''}" style="--tc:${col}">
+        <div class="rk-head"><span class="rk-n">TIER ${ti.n}</span>${status}</div>
+        <div class="rk-rewards">${rewardChips(ti.reward)}</div></div>`;
+    }).join('');
 
     el.innerHTML = `
       <div class="asc-top">
-        <div class="asc-tier"><span class="asc-tier-n">${asc.tier}</span><span class="asc-tier-k">ASCENSION TIER</span></div>
-        <span class="gaunt-chip chip-best">${GICON.chevron}<span class="gc-k">POWER</span><span class="gc-v">+${asc.powerNow}%</span></span>
-        <span class="gaunt-chip chip-cp">${GICON.trophy}<span class="gc-k">LEGACY</span><span class="gc-v">${fmt(state.legacy)}</span></span>
+        <div class="asc-tier"><span class="asc-tier-n">${info.claimed}</span><span class="asc-tier-k">POWER RANK</span></div>
+        <span class="gaunt-chip chip-best">${GICON.chevron}<span class="gc-k">POWER</span><span class="gc-v">${fmt(info.power)}</span></span>
       </div>
-      ${ascBody}
-      <div class="gaunt-rules"><span class="gr-tag">HOW IT WORKS</span><p>Nothing gets wiped, ever. Your brute is here to stay. Punch up to each threshold floor of the Gauntlet to Ascend: pocket the Legacy plus a permanent global power boost, then blow that Legacy on the upgrades below.</p></div>
-      <div class="brute-sec"><span class="brute-sec-tag">LEGACY UPGRADES</span></div>
-      <div class="legacy-perks">${perksHtml}</div>`;
+      ${info.maxed
+        ? `<div class="gaunt-banner milestone">${GICON.crown}<span>MAX RANK</span><span class="gb-sub">every milestone claimed</span></div>`
+        : `<div class="asc-readout"><span class="asc-need">Next: <b>Tier ${info.claimed + 1}</b> at <b>${fmt(info.nextThreshold)}</b> power <span class="muted small">(you: ${fmt(info.power)})</span></span></div>
+           <div class="train-bar"><div class="train-fill asc-fill${info.ready ? ' full' : ''}" style="width:${info.pct}%"></div></div>`}
+      ${claimBtn}
+      <div class="gaunt-rules"><span class="gr-tag">HOW IT WORKS</span><p>Everything you build raises your POWER. Cross a threshold and claim a Power Rank for a permanent bundle of buffs, and the bundle gets bigger every tier. No resets, no currency: get stronger, cash in.</p></div>
+      <div class="brute-sec"><span class="brute-sec-tag">YOUR BONUSES</span></div>
+      <div class="rk-totals">${totalChips}</div>
+      <div class="brute-sec"><span class="brute-sec-tag">RANK LADDER</span></div>
+      <div class="rk-ladder">${rows}</div>`;
 
-    const ab = $('#btn-ascend');
-    if (ab && asc.ready) ab.addEventListener('click', h.ascend);
-    el.querySelectorAll('.lp-buy').forEach(b => { if (!b.disabled) b.addEventListener('click', () => h.buyPerk(b.dataset.perk)); });
+    const cb = $('#btn-claim-rank'); if (cb) cb.addEventListener('click', h.claim);
   }
 
   /* ---------------- idle training (claimable stat bank) ---------------- */
@@ -696,7 +730,7 @@
     const toBoss = D.GAUNTLET.bossEvery - ((g.floor - 1) % D.GAUNTLET.bossEvery);
     const toMilestone = D.GAUNTLET.milestoneEvery - ((g.floor - 1) % D.GAUNTLET.milestoneEvery);
     const bannerHtml = isMilestone
-      ? `<div class="gaunt-banner milestone">${GICON.star}<span>MILESTONE FLOOR</span><span class="gb-sub">bonus Legacy, loot &amp; dust</span></div>`
+      ? `<div class="gaunt-banner milestone">${GICON.star}<span>MILESTONE FLOOR</span><span class="gb-sub">bonus gold, loot &amp; dust</span></div>`
       : nextBoss
         ? `<div class="gaunt-banner boss">${GICON.crown}<span>BOSS FLOOR</span><span class="gb-sub">guaranteed rare loot</span></div>`
         : `<div class="gaunt-prog">
@@ -727,7 +761,6 @@
     const p = [];
     if (r.gold) p.push(costChip(r.gold, 'gold'));
     if (r.dust) p.push(costChip(r.dust, 'dust'));
-    if (r.legacy) p.push(costChip(r.legacy, 'legacy'));
     return p.join('');
   }
   function bountyGlyph(b) {
@@ -1324,7 +1357,7 @@
   global.UI = {
     toast, renderTopbar, showScreen, initTabs, updateFightView,
     renderCreatePreview, renderBruteTab, renderShop,
-    renderLegacy, renderTraining,
+    renderRanks, renderTraining,
     renderForge, renderCraft, renderArenaRank, renderGauntlet, renderBounties, renderCollection, renderAchievements, setMeta, rankIcon,
     showLevelUp, isModalOpen,
     replayBattle, showOutcome, cancelReplay, showIdleBrute,

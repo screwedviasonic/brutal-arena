@@ -30,9 +30,6 @@
         <div class="res" title="STAMINA. Every Arena scrap burns 1. Tops itself back up while you rest. Gauntlet and Sparring don't touch it.">
           <svg class="res-ico" viewBox="0 0 24 24" aria-label="Stamina"><path d="M13.5 2 L4 13.5 H10 L9 22 L20 9.5 H13 Z" fill="#ff9f1c" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/></svg><span id="res-stamina">0</span><span class="res-sub">/<span id="res-stamina-max">0</span></span>
         </div>
-        <div class="res" title="LEGACY. Prestige glory from Ascension. Buys permanent perks that stick with you forever.">
-          <svg class="res-ico" viewBox="0 0 24 24" aria-label="Legacy"><path d="M6.5 3 H17.5 V7.5 C17.5 11 15 13 12 13 C9 13 6.5 11 6.5 7.5 Z" fill="#ffce3a" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><path d="M6.5 4.5 H3.5 V6.5 C3.5 8.8 5.3 9.8 6.9 9.8" fill="none" stroke="#14110d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.5 4.5 H20.5 V6.5 C20.5 8.8 18.7 9.8 17.1 9.8" fill="none" stroke="#14110d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 13 V16.5" stroke="#14110d" stroke-width="2"/><path d="M8.5 21 H15.5 L14.5 17 H9.5 Z" fill="#ffce3a" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/></svg><span id="res-legacy">0</span>
-        </div>
       </div>
       <button id="btn-levelup" class="levelup-btn hidden" title="Step up and claim your level-up prize!">LEVEL UP</button>
       <button id="acct-chip" class="acct-chip hidden" title="Your name in lights on the leaderboard. Click to rename."></button>
@@ -56,7 +53,6 @@
           <button id="btn-reroll" class="secondary-btn">🎲 REROLL</button>
           <button id="btn-begin" class="primary-btn">THROW IT IN THE RING ▶</button>
         </div>
-        <p class="legacy-note" id="create-legacy-note"></p>
       </div>
     </section>
 
@@ -80,7 +76,7 @@
         <div class="navgroup">PROGRESS</div>
         <button class="tab" data-tab="bounties"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4 H17 a2 2 0 0 1 2 2 V18 a2 2 0 0 0 2 2 H8 a2 2 0 0 1 -2 -2 V6" fill="#f1e6c8" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><path d="M6 4 a2 2 0 0 0 0 4 H8 V6 a2 2 0 0 0 -2 -2 Z" fill="#dccfa6" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><path d="M9.5 9 H16 M9.5 12 H16 M9.5 15 H13.5" stroke="#14110d" stroke-width="1.5" stroke-linecap="round"/></svg><span>BOUNTIES</span><span class="nav-badge hidden" id="bounty-badge"></span></button>
         <button class="tab" data-tab="shop"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3 H20 V12 L11 21 L3 13 Z" fill="#ffce3a" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><circle cx="16" cy="8" r="1.9" fill="#fff" stroke="#14110d" stroke-width="1.7"/></svg><span class="tab-txt"><span class="tab-lbl">SHOP</span><span class="tab-sub" id="nav-shop"></span></span></button>
-        <button class="tab" data-tab="legacy"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 L20.5 11.5 H15.5 L12 8 L8.5 11.5 H3.5 Z" fill="#8338ec" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><path d="M12 11 L20.5 19.5 H15.5 L12 16 L8.5 19.5 H3.5 Z" fill="#8338ec" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/></svg><span class="tab-txt"><span class="tab-lbl">ASCENSION</span><span class="tab-sub" id="nav-ascension"></span></span><span class="nav-badge alert hidden" id="ascend-badge">!</span></button>
+        <button class="tab" data-tab="legacy"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 L20.5 11.5 H15.5 L12 8 L8.5 11.5 H3.5 Z" fill="#8338ec" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><path d="M12 11 L20.5 19.5 H15.5 L12 16 L8.5 19.5 H3.5 Z" fill="#8338ec" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/></svg><span class="tab-txt"><span class="tab-lbl">RANKS</span><span class="tab-sub" id="nav-ascension"></span></span><span class="nav-badge alert hidden" id="ascend-badge">!</span></button>
         <button class="tab" data-tab="achievements"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 13 L6 22 L12 18.5 L18 22 L16 13 Z" fill="#e0563f" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="9" r="6.5" fill="#ffce3a" stroke="#14110d" stroke-width="2"/><path d="M12 5.2 l1.4 2.9 3.2.3 -2.4 2.1 .7 3.1 -2.9-1.7 -2.9 1.7 .7-3.1 -2.4-2.1 3.2-.3 Z" fill="#fff" stroke="#14110d" stroke-width="1.2" stroke-linejoin="round"/></svg><span class="tab-txt"><span class="tab-lbl">ACHIEVEMENTS</span><span class="tab-sub" id="nav-achievements"></span></span></button>
         <div class="navgroup">INFO</div>
         <button class="tab" data-tab="help"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9.5" fill="#3aa0d6" stroke="#14110d" stroke-width="2"/><path d="M9 9 a3 3 0 0 1 5.6 1.4 c0 2-2.6 2.2-2.6 4" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="17.6" r="1.5" fill="#fff"/></svg><span>HELP</span></button>
@@ -220,7 +216,6 @@
             <div class="help-card"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="#ffce3a" stroke="#14110d" stroke-width="2.2"/><circle cx="12" cy="12" r="5.6" fill="none" stroke="#14110d" stroke-width="1.3" opacity=".45"/><path d="M12 7.4 l1.5 3.1 3.4 .5 -2.45 2.4 .58 3.4 -3.03-1.6 -3.03 1.6 .58-3.4 -2.45-2.4 3.4-.5 Z" fill="#fff6cf" stroke="#14110d" stroke-width="1.1" stroke-linejoin="round"/></svg><div class="hc-txt"><span class="hc-name">GOLD</span><span class="hc-desc">Won from fights. Spent at the Shop and Forge.</span></div></div>
             <div class="help-card"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 L13.8 9.5 L21 11.2 L13.8 13 L12 21 L10.2 13 L3 11.2 L10.2 9.5 Z" fill="#7fd8ff" stroke="#14110d" stroke-width="1.8" stroke-linejoin="round"/></svg><div class="hc-txt"><span class="hc-name">DUST</span><span class="hc-desc">Scrapped off gear. Fuels the Forge.</span></div></div>
             <div class="help-card"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2 L4 13.5 H10 L9 22 L20 9.5 H13 Z" fill="#ff9f1c" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/></svg><div class="hc-txt"><span class="hc-name">STAMINA</span><span class="hc-desc">1 per Arena fight. Refills over time.</span></div></div>
-            <div class="help-card"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 3 H17.5 V7.5 C17.5 11 15 13 12 13 C9 13 6.5 11 6.5 7.5 Z" fill="#ffce3a" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><path d="M6.5 4.5 H3.5 V6.5 C3.5 8.8 5.3 9.8 6.9 9.8" fill="none" stroke="#14110d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.5 4.5 H20.5 V6.5 C20.5 8.8 18.7 9.8 17.1 9.8" fill="none" stroke="#14110d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 13 V16.5" stroke="#14110d" stroke-width="2"/><path d="M8.5 21 H15.5 L14.5 17 H9.5 Z" fill="#ffce3a" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/></svg><div class="hc-txt"><span class="hc-name">LEGACY</span><span class="hc-desc">From Ascension. Buys permanent perks.</span></div></div>
           </div>
 
           <div class="brute-sec"><span class="brute-sec-tag">FIGHT</span></div>
@@ -250,7 +245,7 @@
           <div class="help-grid">
             <div class="help-card"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4 H17 a2 2 0 0 1 2 2 V18 a2 2 0 0 0 2 2 H8 a2 2 0 0 1 -2 -2 V6" fill="#f1e6c8" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><path d="M6 4 a2 2 0 0 0 0 4 H8 V6 a2 2 0 0 0 -2 -2 Z" fill="#dccfa6" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><path d="M9.5 9 H16 M9.5 12 H16 M9.5 15 H13.5" stroke="#14110d" stroke-width="1.5" stroke-linecap="round"/></svg><div class="hc-txt"><span class="hc-name">BOUNTIES</span><span class="hc-desc">Rotating jobs that pay bonus loot.</span></div></div>
             <div class="help-card"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 3 H20 V12 L11 21 L3 13 Z" fill="#ffce3a" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><circle cx="16" cy="8" r="1.9" fill="#fff" stroke="#14110d" stroke-width="1.7"/></svg><div class="hc-txt"><span class="hc-name">SHOP</span><span class="hc-desc">Rotating gear and stamina buffs for gold.</span></div></div>
-            <div class="help-card"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 L20.5 11.5 H15.5 L12 8 L8.5 11.5 H3.5 Z" fill="#8338ec" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><path d="M12 11 L20.5 19.5 H15.5 L12 16 L8.5 19.5 H3.5 Z" fill="#8338ec" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/></svg><div class="hc-txt"><span class="hc-name">ASCENSION</span><span class="hc-desc">Prestige deep Gauntlet floors for permanent power.</span></div></div>
+            <div class="help-card"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 L20.5 11.5 H15.5 L12 8 L8.5 11.5 H3.5 Z" fill="#8338ec" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><path d="M12 11 L20.5 19.5 H15.5 L12 16 L8.5 19.5 H3.5 Z" fill="#8338ec" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/></svg><div class="hc-txt"><span class="hc-name">RANKS</span><span class="hc-desc">Hit power milestones to claim permanent buff bundles.</span></div></div>
             <div class="help-card"><svg class="tab-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 13 L6 22 L12 18.5 L18 22 L16 13 Z" fill="#e0563f" stroke="#14110d" stroke-width="2" stroke-linejoin="round"/><circle cx="12" cy="9" r="6.5" fill="#ffce3a" stroke="#14110d" stroke-width="2"/><path d="M12 5.2 l1.4 2.9 3.2.3 -2.4 2.1 .7 3.1 -2.9-1.7 -2.9 1.7 .7-3.1 -2.4-2.1 3.2-.3 Z" fill="#fff" stroke="#14110d" stroke-width="1.2" stroke-linejoin="round"/></svg><div class="hc-txt"><span class="hc-name">ACHIEVEMENTS</span><span class="hc-desc">Long-game milestones across every system.</span></div></div>
           </div>
 
@@ -315,10 +310,10 @@
         </div>
       </div>
 
-      <!-- LEGACY TAB -->
+      <!-- RANKS TAB (power milestones) -->
       <div class="tabpane" id="tab-legacy">
         <div class="panel">
-          <h3 class="comic-title">ASCENSION <span class="ct-sub">LEGACY</span></h3>
+          <h3 class="comic-title">POWER RANKS <span class="ct-sub">MILESTONES</span></h3>
           <div id="legacy-content"></div>
         </div>
       </div>
@@ -346,6 +341,18 @@
       <div class="create-actions">
         <button id="rename-cancel" class="secondary-btn">CANCEL</button>
         <button id="rename-save" class="primary-btn">SAVE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ RESET MODAL ============ -->
+  <div id="reset-modal" class="modal hidden">
+    <div class="modal-card">
+      <h2 class="title-pop">WIPE EVERYTHING?</h2>
+      <p class="muted">This torches your brute, gold, gear, ranks, and your ladder standing. The whole lot, including your online identity. There is no undo, so only do it for a clean slate.</p>
+      <div class="create-actions">
+        <button id="reset-cancel" class="secondary-btn">NEVER MIND</button>
+        <button id="reset-confirm" class="danger-btn">WIPE IT ALL</button>
       </div>
     </div>
   </div>
