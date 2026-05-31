@@ -766,17 +766,45 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 .bounty-claim { padding: 8px 22px; }
 
 /* ============ COLLECTION ============ */
-.col-bonuses { background: var(--ink); color: var(--paper2); border-radius: 8px; padding: 10px 14px; font-weight: 700; margin-bottom: 14px; }
-.col-bonuses b { color: var(--pop-yellow); }
-.col-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(46px, 1fr)); gap: 8px; margin-bottom: 16px; }
-.col-cell { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; border: 3px solid var(--ink); border-radius: 8px; background: var(--paper2); box-shadow: 2px 2px 0 var(--ink); }
-.col-cell.miss { filter: grayscale(1) brightness(.7) opacity(.5); }
+/* collection bonus chips */
+.col-bonus { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 16px; }
+.cb-chip { display: inline-flex; align-items: baseline; gap: 8px; background: var(--ink); color: var(--paper2); border: 3px solid var(--ink); border-radius: 8px; padding: 7px 14px; box-shadow: var(--shadow-sm); }
+.cb-v { font-family: 'Bangers', sans-serif; font-size: 1.5rem; line-height: 1; color: var(--pop-yellow); -webkit-text-stroke: .5px var(--ink); }
+.cb-k { font-family: 'Anton', sans-serif; font-size: .66rem; letter-spacing: 1.5px; }
+
+/* section head: tag + count */
+.col-head { display: flex; align-items: center; justify-content: space-between; border-top: 3px solid var(--ink); margin: 18px 0 12px; }
+.col-head:first-child { border-top: none; margin-top: 0; }
+.col-tag { position: relative; top: -11px; font-family: 'Anton', sans-serif; font-size: .66rem; letter-spacing: 1.5px; background: var(--ink); color: var(--paper); padding: 3px 10px; border-radius: 5px; }
+.col-count { font-family: 'Bangers', sans-serif; letter-spacing: 1px; font-size: 1.2rem; color: var(--pop-red); -webkit-text-stroke: .3px var(--ink); }
+
+/* collection grid */
+.col-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(82px, 1fr)); gap: 9px; margin-bottom: 4px; }
+.col-cell { display: flex; flex-direction: column; align-items: center; gap: 5px; border: 3px solid var(--ink); border-radius: 8px; background: #fff; padding: 9px 5px; box-shadow: 2px 2px 0 var(--ink); }
 .col-cell.got { background: #fff7d6; }
+.col-cell.miss { background: var(--paper2); }
+.col-cell.miss .col-glyph { filter: grayscale(1) brightness(.55) opacity(.5); }
+.col-cell.miss .col-cname { color: var(--muted); }
+.col-glyph { width: 40px; height: 40px; }
+.col-glyph .cg { filter: drop-shadow(1.5px 1.5px 0 var(--ink)); }
+.col-cname { font-family: 'Anton', sans-serif; font-size: .62rem; letter-spacing: .3px; text-align: center; line-height: 1.05; }
+.col-cat { font-family: 'Anton', sans-serif; font-size: .54rem; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; }
+.col-rar { font-family: 'Anton', sans-serif; font-size: .52rem; letter-spacing: .8px; color: #fff; border: 2px solid var(--ink); border-radius: 4px; padding: 1px 6px; -webkit-text-stroke: .3px var(--ink); }
+.col-cell.miss .col-cat { opacity: .5; }
+
+/* forge row category chip */
+.fr-cat { font-family: 'Anton', sans-serif; font-size: .56rem; letter-spacing: 1px; color: var(--muted); border: 2px solid var(--muted); border-radius: 4px; padding: 1px 6px; text-transform: uppercase; }
+
+/* weapon masteries */
 .mastery-list { display: flex; flex-direction: column; gap: 10px; }
+.mastery-row { display: flex; align-items: center; gap: 11px; }
+.m-glyph { width: 30px; height: 30px; flex: none; }
+.m-glyph .cg { filter: drop-shadow(1.5px 1.5px 0 var(--ink)); }
+.m-main { flex: 1; }
 .mastery-row .m-name { font-family: 'Anton', sans-serif; letter-spacing: .5px; margin-bottom: 4px; }
 .mastery-row .m-name b { color: var(--pop-red); }
-.m-bar { height: 14px; background: var(--paper2); border: 3px solid var(--ink); border-radius: 4px; overflow: hidden; box-shadow: 2px 2px 0 var(--ink); }
-.m-fill { height: 100%; background: repeating-linear-gradient(45deg, var(--pop-orange) 0 8px, #e06b00 8px 16px); transition: width .4s; }
+.mastery-row .train-bar { margin-bottom: 0; }
+.mastery-row .train-fill { background: repeating-linear-gradient(45deg, var(--pop-orange) 0 10px, #e06b00 10px 20px); }
 
 /* ============ STATS ============ */
 .run-stats-head { margin-top: 18px; }

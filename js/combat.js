@@ -63,6 +63,7 @@
         name: pet.name,
         icon: pet.icon,
         petId: pet.base,
+        dmgMul: bonuses.petMul || 1,   // equipped-species pet mastery
         hp: pet.hp,
         maxHp: pet.hp,
         eff: {

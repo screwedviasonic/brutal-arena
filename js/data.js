@@ -79,6 +79,17 @@
 
   const ALL_SKILLS = Object.values(SKILLS);
 
+  /* ---------------- SKILL CATEGORIES (mirror weapon cats; drive skill masteries) ---------------- */
+  const SKILL_CATS = ['brawn', 'guard', 'swift', 'arts'];
+  const SKILL_CAT_NAMES = { brawn: 'Brawn', guard: 'Guard', swift: 'Swift', arts: 'Arts' };
+  const SKILL_CAT = {
+    herculean: 'brawn', martial: 'brawn', weaponmaster: 'brawn', determination: 'brawn', relentless: 'brawn', hostility: 'brawn',
+    vitality: 'guard', immortal: 'guard', toughened: 'guard', armor: 'guard', shield: 'guard', ballet: 'guard', sixthsense: 'guard',
+    feline: 'swift', lightning: 'swift',
+    fierce: 'arts', hammer: 'arts', bomb: 'arts', net: 'arts', potion: 'arts', sabotage: 'arts', thief: 'arts',
+  };
+  const skillCatOf = (base) => SKILL_CAT[base] || 'arts';
+
   /* ---------------- PETS ----------------
    * Pets fight alongside you as extra combatants.
    */
@@ -226,26 +237,38 @@
     capPerTrainer: 120,       // extra cap per Trainer
   };
 
-  /* ---------------- MASTERIES (per weapon category) ---------------- */
+  /* ---------------- MASTERIES ----------------
+   * Weapon categories (incl. Fists), pet species, and skill categories all
+   * level from use and grant account-wide bonuses.
+   */
   const MASTERY = {
     cats: WEAPON_CATS,
-    // xp needed for a given mastery level
+    weaponCats: ['fist', 'blade', 'blunt', 'axe', 'spear'],   // fist now masterable too
     xpForLevel: (lvl) => Math.floor(50 * Math.pow(lvl, 1.7) + 40 * lvl),
-    dmgPerLevel: 0.05,            // +5% category damage per mastery level
+    dmgPerLevel: 0.05,            // +5% category damage per weapon-mastery level
+    petPerLevel: 0.05,            // +5% equipped pet damage per species-mastery level
     maxLevel: 20,
+    // per-level bonus applied by each skill category mastery (account-wide)
+    skillBonus: {
+      brawn: { field: 'strMul', per: 0.03, label: 'Strength' },
+      guard: { field: 'hpMul', per: 0.04, label: 'Max HP' },
+      swift: { field: 'agiMul', per: 0.03, label: 'Agility' },
+      arts: { field: 'dmgMul', per: 0.03, label: 'Damage' },
+    },
   };
 
-  /* ---------------- COLLECTION bonuses ---------------- */
+  /* ---------------- COLLECTION bonuses + goals ---------------- */
   const COLLECTION = {
-    perWeapon: 0.008,   // +0.8% global damage per unique weapon collected
-    perSkill: 0.006,    // +0.6% max HP per unique skill collected
+    perWeapon: 0.008,   // base +0.8% global damage per unique weapon collected
+    perSkill: 0.006,    // base +0.6% max HP per unique skill collected
     perPet: 0.02,       // +2% pet power per unique pet collected
     catCompleteDmg: 0.12, // +12% category damage when all weapons of a cat collected
+    rarityScale: 0.35,  // each entry's bonus is multiplied by (1 + rarityScale * highestRarityRank)
   };
 
   global.GAMEDATA = {
     WEAPONS, DROPPABLE_WEAPONS, WEAPON_CATS, CAT_NAMES,
-    SKILLS, ALL_SKILLS,
+    SKILLS, ALL_SKILLS, SKILL_CATS, SKILL_CAT_NAMES, SKILL_CAT, skillCatOf,
     PETS, ALL_PETS,
     NAME_PREFIX, NAME_SUFFIX, NAME_TITLE,
     SKIN_COLORS, OUTFIT_COLORS,

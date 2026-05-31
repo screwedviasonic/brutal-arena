@@ -44,8 +44,10 @@
       lifetime: emptyStats(),   // account-wide tally across every brute
       training: 0,            // banked idle XP (claimable, capped)
       bounties: null,   // lazily seeded by ensureBounties()
-      collection: { weapons: {}, skills: {}, pets: {} },
-      masteries: { blade: 0, blunt: 0, axe: 0, spear: 0 },
+      collection: { weapons: {}, skills: {}, pets: {} },   // base -> highest rarity rank owned
+      masteries: { fist: 0, blade: 0, blunt: 0, axe: 0, spear: 0 },
+      petMast: {},                  // pet species -> xp
+      skillMast: {},                // skill category -> xp
       brute: null,
       settings: { autoFight: false, fastFight: false, autoClimb: false },
     };
@@ -64,7 +66,16 @@
     if (!s.gauntlet) s.gauntlet = { floor: 1, best: 0, checkpoint: 1 };
     if (!s.arena) s.arena = { arp: 0, best: 0 };
     if (!s.collection) s.collection = { weapons: {}, skills: {}, pets: {} };
-    if (!s.masteries) s.masteries = { blade: 0, blunt: 0, axe: 0, spear: 0 };
+    // legacy collection stored booleans (true=seen); convert to rarity rank 0 (common)
+    ['weapons', 'skills', 'pets'].forEach(k => {
+      const b = s.collection[k] || (s.collection[k] = {});
+      for (const id in b) if (b[id] === true) b[id] = 0;
+    });
+    if (!s.masteries) s.masteries = {};
+    if (s.masteries.fist == null) s.masteries.fist = 0;
+    ['blade', 'blunt', 'axe', 'spear'].forEach(c => { if (s.masteries[c] == null) s.masteries[c] = 0; });
+    if (!s.petMast) s.petMast = {};
+    if (!s.skillMast) s.skillMast = {};
     if (s.brute) migrateBrute(s.brute, computeSkillSlots(s.legacyPerks || {}));
     return s;
   }
@@ -125,52 +136,112 @@
   function legacyPerksForCreate() { return state.legacyPerks; }
 
   /* ---------------- masteries & collection (account-wide meta) ---------------- */
-  function masteryLevel(cat) {
-    const xp = (state.masteries && state.masteries[cat]) || 0;
+  const PET_MAST_XP_PER_DMG = 0.5;   // pet-species xp per point of pet damage dealt
+  const SKILL_MAST_XP_PER_FIGHT = 4; // skill-category xp per fight per equipped skill of that cat
+
+  function lvlFromXp(xp) {
     let lvl = 0;
-    while (lvl < D.MASTERY.maxLevel && xp >= D.MASTERY.xpForLevel(lvl + 1)) lvl++;
+    while (lvl < D.MASTERY.maxLevel && (xp || 0) >= D.MASTERY.xpForLevel(lvl + 1)) lvl++;
     return lvl;
   }
+  function masteryLevel(cat) { return lvlFromXp((state.masteries && state.masteries[cat]) || 0); }
+  function petMasteryLevel(sp) { return lvlFromXp((state.petMast && state.petMast[sp]) || 0); }
+  function skillMasteryLevel(cat) { return lvlFromXp((state.skillMast && state.skillMast[cat]) || 0); }
   function masteryLevels() {
     const out = {};
-    D.WEAPON_CATS.forEach(c => out[c] = masteryLevel(c));
+    D.MASTERY.weaponCats.forEach(c => out[c] = masteryLevel(c));
     return out;
   }
 
   /* The combat/power bonuses the player earns from collection + masteries. */
   function metaBonuses() {
-    const col = state.collection, CB = D.COLLECTION, M = D.MASTERY;
-    const wCount = Object.keys(col.weapons).length;
-    const sCount = Object.keys(col.skills).length;
-    const dmgMul = 1 + wCount * CB.perWeapon;
-    const hpMul = 1 + sCount * CB.perSkill;
-    const catDmg = { blade: 1, blunt: 1, axe: 1, spear: 1, fist: 1 };
-    for (const cat of D.WEAPON_CATS) {
+    const col = state.collection, CB = D.COLLECTION, M = D.MASTERY, IT = global.Items;
+    const rk = id => (id in col.weapons ? col.weapons[id] : null);
+    // collection bonus scales with the highest rarity owned of each entry
+    const sumRarity = bucket => Object.keys(bucket).reduce((a, id) => a + (1 + CB.rarityScale * (bucket[id] || 0)), 0);
+    let dmgMul = 1 + sumRarity(col.weapons) * CB.perWeapon;
+    let hpMul = 1 + sumRarity(col.skills) * CB.perSkill;
+    let strMul = 1, agiMul = 1;
+    const catDmg = { fist: 1, blade: 1, blunt: 1, axe: 1, spear: 1 };
+    for (const cat of M.weaponCats) {
       catDmg[cat] += masteryLevel(cat) * M.dmgPerLevel;
-      const inCat = D.DROPPABLE_WEAPONS.filter(w => w.cat === cat);
-      if (inCat.length && inCat.every(w => col.weapons[w.id])) catDmg[cat] += CB.catCompleteDmg;
+      if (cat !== 'fist') {
+        const inCat = D.DROPPABLE_WEAPONS.filter(w => w.cat === cat);
+        if (inCat.length && inCat.every(w => w.id in col.weapons)) catDmg[cat] += CB.catCompleteDmg;
+      }
     }
-    return { dmgMul, hpMul, catDmg };
+    // skill category masteries -> themed account-wide bonus
+    for (const cat of D.SKILL_CATS) {
+      const lvl = skillMasteryLevel(cat); if (!lvl) continue;
+      const b = M.skillBonus[cat]; if (!b) continue;
+      const amt = lvl * b.per;
+      if (b.field === 'strMul') strMul += amt;
+      else if (b.field === 'agiMul') agiMul += amt;
+      else if (b.field === 'hpMul') hpMul += amt;
+      else if (b.field === 'dmgMul') dmgMul += amt;
+    }
+    // equipped pet's species mastery -> pet damage multiplier
+    let petMul = 1;
+    const eqPet = state.brute && state.brute.equipped && state.brute.equipped.pet;
+    if (eqPet && state.brute.pets) {
+      const inst = state.brute.pets.find(p => p.uid === eqPet);
+      if (inst) petMul = 1 + petMasteryLevel(inst.base) * M.petPerLevel;
+    }
+    return { dmgMul, hpMul, strMul, agiMul, petMul, catDmg };
   }
 
-  function collectWeapon(base) { state.collection.weapons[base] = true; }
+  // record an owned item into the rarity-ranked collection (keeps the highest rarity seen)
+  function collectItem(kind, base, rarity) {
+    if (!base) return;
+    const bucket = kind === 'pet' ? state.collection.pets : kind === 'skill' ? state.collection.skills : state.collection.weapons;
+    const rank = global.Items.rarityRank(rarity || 'common');
+    if (!(base in bucket) || rank > bucket[base]) bucket[base] = rank;
+  }
+  function collectWeapon(base, rarity) { collectItem('weapon', base, rarity); }
   function syncCollection(brute) {
     if (!brute) return;
-    brute.weapons.forEach(w => state.collection.weapons[w.base] = true);
-    brute.skills.forEach(s => state.collection.skills[s.base || s] = true);
-    brute.pets.forEach(p => state.collection.pets[p.base || p] = true);
+    brute.weapons.forEach(w => collectItem('weapon', w.base, w.rarity));
+    brute.skills.forEach(s => collectItem('skill', s.base || s, s.rarity));
+    brute.pets.forEach(p => collectItem('pet', p.base || p, p.rarity));
   }
   function awardMastery(playerStats) {
-    if (!playerStats || !playerStats.catHits) return;
-    for (const cat of D.WEAPON_CATS) {
-      const hits = playerStats.catHits[cat] || 0;
-      if (hits <= 0) continue;
-      const before = masteryLevel(cat);
-      state.masteries[cat] = (state.masteries[cat] || 0) + hits * MASTERY_XP_PER_HIT;
-      const after = masteryLevel(cat);
-      if (after > before) UI.toast(`🎖️ ${D.CAT_NAMES[cat]} Mastery Lv ${after}!`, 'good');
+    if (!playerStats) return;
+    const toastLvl = (label, before, after) => { if (after > before) UI.toast(`${label} Mastery Lv ${after}!`, 'good'); };
+    // weapon categories (incl. fists)
+    if (playerStats.catHits) {
+      for (const cat of D.MASTERY.weaponCats) {
+        const hits = playerStats.catHits[cat] || 0;
+        if (hits <= 0) continue;
+        const before = masteryLevel(cat);
+        state.masteries[cat] = (state.masteries[cat] || 0) + hits * MASTERY_XP_PER_HIT;
+        toastLvl(D.CAT_NAMES[cat] || cat, before, masteryLevel(cat));
+      }
+    }
+    const b = state.brute;
+    // equipped pet's species levels from pet damage dealt
+    const petDmg = playerStats.petDmgDealt || 0;
+    const eqPet = b && b.equipped && b.equipped.pet && (b.pets || []).find(p => p.uid === b.equipped.pet);
+    if (eqPet && petDmg > 0) {
+      const before = petMasteryLevel(eqPet.base);
+      state.petMast[eqPet.base] = (state.petMast[eqPet.base] || 0) + petDmg * PET_MAST_XP_PER_DMG;
+      const pn = (D.PETS[eqPet.base] || {}).name || 'Pet';
+      toastLvl(pn, before, petMasteryLevel(eqPet.base));
+    }
+    // each equipped skill feeds its category mastery
+    if (b && b.equipped && b.equipped.skills) {
+      const cats = {};
+      b.equipped.skills.forEach(uid => {
+        const inst = (b.skills || []).find(s => s.uid === uid);
+        if (inst) cats[D.skillCatOf(inst.base)] = true;
+      });
+      for (const cat in cats) {
+        const before = skillMasteryLevel(cat);
+        state.skillMast[cat] = (state.skillMast[cat] || 0) + SKILL_MAST_XP_PER_FIGHT;
+        toastLvl(D.SKILL_CAT_NAMES[cat] || cat, before, skillMasteryLevel(cat));
+      }
     }
   }
+
 
   /* ---------------- stats (career + lifetime) ---------------- */
   function emptyStats() {
@@ -224,7 +295,7 @@
   /* ---------------- loot ---------------- */
   function addWeaponToBrute(item) {
     state.brute.weapons.push(item);
-    collectWeapon(item.base);
+    collectWeapon(item.base, item.rarity);
     if (state.brute.weapons.length > WEAPON_CAP) {
       const equippedUid = state.brute.equipped && state.brute.equipped.weapon;
       let wi = -1, wp = Infinity;
@@ -410,12 +481,7 @@
     const keep = inv.filter(w => w.uid !== it.uid && w.uid !== partner.uid);
     keep.push(fused);
     inv.length = 0; inv.push(...keep);
-    collectWeapon(fused.base);                 // collection is keyed by base id for all kinds
-    if (state.collection) {
-      const k = global.Items.kindOf(fused);
-      if (k === 'skill') state.collection.skills[fused.base] = true;
-      else if (k === 'pet') state.collection.pets[fused.base] = true;
-    }
+    collectItem(global.Items.kindOf(fused), fused.base, fused.rarity);
     if (wasEquipped) C.autoEquip(state.brute, skillSlots());
     UI.toast(`Fused into ${global.Items.rarityName(fused)} ${global.Items.displayName(fused)}!`, 'good');
     save(); renderAll(); refreshIdleBrute();
@@ -444,8 +510,8 @@
     const gen = kind === 'pet' ? It.generatePet : kind === 'skill' ? It.generateSkill : It.generateWeapon;
     let item = gen(base, rng, { luck: D.CRAFT.luck });
     if (It.rarityRank(item.rarity) < It.rarityRank(D.CRAFT.minRarity)) item = gen(base, rng, { rarity: D.CRAFT.minRarity });
-    if (kind === 'pet') { state.brute.pets.push(item); if (state.collection) state.collection.pets[item.base] = true; }
-    else if (kind === 'skill') { state.brute.skills.push(item); if (state.collection) state.collection.skills[item.base] = true; }
+    if (kind === 'pet') { state.brute.pets.push(item); collectItem('pet', item.base, item.rarity); }
+    else if (kind === 'skill') { state.brute.skills.push(item); collectItem('skill', item.base, item.rarity); }
     else addWeaponToBrute(item);
     UI.toast(`Crafted ${It.rarityName(item)} ${It.displayName(item)}!`, 'good');
     save(); renderAll();
@@ -493,8 +559,7 @@
       const f = It.fuse(a, p, new RNG(randomSeed()));
       const keep = inv.filter(w => w.uid !== a.uid && w.uid !== p.uid);
       keep.push(f); inv.length = 0; inv.push(...keep);
-      collectWeapon(f.base);
-      if (state.collection) { const k = It.kindOf(f); if (k === 'skill') state.collection.skills[f.base] = true; else if (k === 'pet') state.collection.pets[f.base] = true; }
+      collectItem(It.kindOf(f), f.base, f.rarity);
       if (wasEq) C.autoEquip(state.brute, skillSlots());
       fused++;
     }
@@ -905,7 +970,7 @@
     wireGauntletControls();
     ensureBounties();
     UI.renderBounties(state.bounties, { claim: claimBounty, reroll: rerollBounty, rerollDust: state.dust });
-    UI.renderCollection(state, masteryLevels());
+    UI.renderCollection(state);
     UI.renderLifetime(state.lifetime, state.gauntlet.best);
     UI.renderShop(stateForShop(), buyShop);
     UI.renderLegacy(state, state.brute, retireBrute, buyLegacyPerk);

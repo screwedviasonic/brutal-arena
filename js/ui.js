@@ -494,9 +494,12 @@
     const aff = I.affixLines(it).map(a => `<span class="fr-affix">${a}</span>`).join('');
     const lvl = it.level ? `<span class="fr-lvl">+${it.level}</span>` : '';
     const eqLabel = equipped ? (kind === 'skill' ? 'UNEQUIP' : 'EQUIPPED') : 'EQUIP';
+    const catLbl = kind === 'skill' ? D.SKILL_CAT_NAMES[D.skillCatOf(it.base)]
+      : kind === 'pet' ? 'Companion'
+      : (D.CAT_NAMES[(D.WEAPONS[it.base] || {}).cat] || '');
     return `<div class="forge-row${equipped ? ' equipped' : ''}" style="border-left-color:${col}">
       <div class="fr-main">
-        <div class="fr-name" style="color:${col}">${I.displayName(it)}${lvl}<span class="fr-rar" style="background:${col}">${I.rarityName(it)}</span></div>
+        <div class="fr-name" style="color:${col}">${I.displayName(it)}${lvl}<span class="fr-rar" style="background:${col}">${I.rarityName(it)}</span>${catLbl ? `<span class="fr-cat">${catLbl}</span>` : ''}</div>
         <div class="fr-sub">${instSubline(it, kind)}</div>
         ${aff ? `<div class="fr-affixes">${aff}</div>` : ''}
       </div>
@@ -696,32 +699,56 @@
   }
 
   /* ---------------- collection + masteries ---------------- */
-  function renderCollection(state, mLevels) {
+  function renderCollection(state) {
     const el = $('#collection-content');
     if (!el) return;
-    const col = state.collection;
-    const wHave = D.DROPPABLE_WEAPONS.filter(w => col.weapons[w.id]).length;
-    const sHave = Object.keys(col.skills).length;
-    const pHave = Object.keys(col.pets).length;
-    function grid(items, have, iconOf, nameOf) {
-      return items.map(it => `<div class="col-cell ${have[it.id] ? 'got' : 'miss'}" title="${nameOf(it)}${have[it.id] ? '' : ' (locked)'}">${iconOf(it)}</div>`).join('');
-    }
-    const wGrid = grid(D.DROPPABLE_WEAPONS, col.weapons, w => w.icon, w => w.name);
-    const sGrid = grid(D.ALL_SKILLS, col.skills, s => s.icon, s => s.name);
-    const pGrid = grid(D.ALL_PETS, col.pets, p => p.icon, p => p.name);
-    const mastHtml = D.WEAPON_CATS.map(cat => {
-      const lvl = mLevels[cat] || 0, xp = state.masteries[cat] || 0;
-      const need = D.MASTERY.xpForLevel(lvl + 1), prev = D.MASTERY.xpForLevel(lvl);
-      const pctv = need > prev ? Math.min(100, ((xp - prev) / (need - prev)) * 100) : 100;
-      return `<div class="mastery-row"><div class="m-name">${D.CAT_NAMES[cat]} <b>Lv ${lvl}</b> <span class="muted small">+${Math.round(lvl * D.MASTERY.dmgPerLevel * 100)}% dmg</span></div>
-        <div class="m-bar"><div class="m-fill" style="width:${pctv}%"></div></div></div>`;
-    }).join('');
+    const col = state.collection, M = D.MASTERY, CB = D.COLLECTION;
+    const RANKS = ['common', 'uncommon', 'rare', 'epic', 'legendary', 'mythic'];
+    const rcolor = r => (I.RARITY[RANKS[r]] || I.RARITY.common).color;
+    const rname = r => (I.RARITY[RANKS[r]] || I.RARITY.common).name;
+    const cgWrap = inner => `<svg viewBox="0 0 24 24" class="cg" aria-hidden="true">${inner}</svg>`;
+    const wHave = D.DROPPABLE_WEAPONS.filter(w => w.id in col.weapons).length;
+    const sHave = D.ALL_SKILLS.filter(s => s.id in col.skills).length;
+    const pHave = D.ALL_PETS.filter(p => p.id in col.pets).length;
+    // rarity-scaled collection bonus
+    const sumR = bucket => Object.keys(bucket).reduce((a, id) => a + (1 + CB.rarityScale * (bucket[id] || 0)), 0);
+    const dmgPct = Math.round(sumR(col.weapons) * CB.perWeapon * 100);
+    const hpPct = Math.round(sumR(col.skills) * CB.perSkill * 100);
+
+    const cell = (kind, it, bucket, catLbl) => {
+      const have = it.id in bucket;
+      const rank = have ? (bucket[it.id] || 0) : 0;
+      const rc = have ? rcolor(rank) : 'var(--ink)';
+      return `<div class="col-cell ${have ? 'got' : 'miss'}" style="${have ? `border-color:${rc}` : ''}" title="${have ? it.name + ' — best ' + rname(rank) : it.name + ' (locked)'}">
+        <span class="col-glyph">${craftGlyph(kind, it.id)}</span>
+        <span class="col-cname">${have ? it.name : '???'}</span>
+        <span class="col-cat">${catLbl}</span>
+        ${have ? `<span class="col-rar" style="background:${rc}">${rname(rank)}</span>` : ''}</div>`;
+    };
+    const wGrid = D.DROPPABLE_WEAPONS.map(w => cell('weapon', w, col.weapons, D.CAT_NAMES[w.cat] || w.cat)).join('');
+    const sGrid = D.ALL_SKILLS.map(s => cell('skill', s, col.skills, D.SKILL_CAT_NAMES[D.skillCatOf(s.id)])).join('');
+    const pGrid = D.ALL_PETS.map(p => cell('pet', p, col.pets, 'Companion')).join('');
+    const head = (label, have, total) => `<div class="col-head"><span class="col-tag">${label}</span>${total !== '' ? `<span class="col-count">${have}/${total}</span>` : ''}</div>`;
+
+    const bar = xp => { let l = 0; while (l < M.maxLevel && (xp || 0) >= M.xpForLevel(l + 1)) l++; const need = M.xpForLevel(l + 1), prev = M.xpForLevel(l); return { l, pct: l >= M.maxLevel ? 100 : (need > prev ? Math.min(100, ((xp - prev) / (need - prev)) * 100) : 0) }; };
+    const mRow = (glyph, name, xp, bonus) => { const b = bar(xp); return `<div class="mastery-row"><span class="m-glyph">${glyph}</span><div class="m-main"><div class="m-name">${name} <b>LV ${b.l}</b> <span class="muted small">${bonus(b.l)}</span></div><div class="train-bar"><div class="train-fill" style="width:${b.pct}%"></div></div></div></div>`; };
+    const wRep = { fist: cgWrap(SCON.fist), blade: craftGlyph('weapon', 'sword'), blunt: craftGlyph('weapon', 'club'), axe: craftGlyph('weapon', 'axe'), spear: craftGlyph('weapon', 'trident') };
+    const wMast = M.weaponCats.map(c => mRow(wRep[c], D.CAT_NAMES[c] || c, (state.masteries || {})[c] || 0, l => `+${Math.round(l * M.dmgPerLevel * 100)}% dmg`)).join('');
+    const pMast = D.ALL_PETS.map(p => mRow(craftGlyph('pet', p.id), p.name, (state.petMast || {})[p.id] || 0, l => `+${Math.round(l * M.petPerLevel * 100)}% pet dmg`)).join('');
+    const sRep = { brawn: cgWrap(SCON.dumbbell), guard: cgWrap(SCON.shield), swift: cgWrap(SCON.bolt), arts: cgWrap(SCON.flask) };
+    const sMast = D.SKILL_CATS.map(c => { const sb = M.skillBonus[c]; return mRow(sRep[c], D.SKILL_CAT_NAMES[c], (state.skillMast || {})[c] || 0, l => `+${Math.round(l * sb.per * 100)}% ${sb.label}`); }).join('');
+
     el.innerHTML = `
-      <div class="col-bonuses">Collection bonus: <b>+${Math.round(wHave * D.COLLECTION.perWeapon * 100)}%</b> global damage • <b>+${Math.round(sHave * D.COLLECTION.perSkill * 100)}%</b> max HP</div>
-      <h3>⚔️ Weapons <span class="muted small">${wHave}/${D.DROPPABLE_WEAPONS.length}</span></h3><div class="col-grid">${wGrid}</div>
-      <h3>✨ Skills <span class="muted small">${sHave}/${D.ALL_SKILLS.length}</span></h3><div class="col-grid">${sGrid}</div>
-      <h3>🐾 Pets <span class="muted small">${pHave}/${D.ALL_PETS.length}</span></h3><div class="col-grid">${pGrid}</div>
-      <h3>🎖️ Weapon Masteries</h3><div class="mastery-list">${mastHtml}</div>`;
+      <div class="col-bonus">
+        <span class="cb-chip"><span class="cb-v">+${dmgPct}%</span><span class="cb-k">GLOBAL DAMAGE</span></span>
+        <span class="cb-chip"><span class="cb-v">+${hpPct}%</span><span class="cb-k">MAX HP</span></span>
+      </div>
+      ${head('WEAPONS', wHave, D.DROPPABLE_WEAPONS.length)}<div class="col-grid">${wGrid}</div>
+      ${head('SKILLS', sHave, D.ALL_SKILLS.length)}<div class="col-grid">${sGrid}</div>
+      ${head('PETS', pHave, D.ALL_PETS.length)}<div class="col-grid">${pGrid}</div>
+      ${head('WEAPON MASTERIES', '', '')}<div class="mastery-list">${wMast}</div>
+      ${head('PET MASTERIES', '', '')}<div class="mastery-list">${pMast}</div>
+      ${head('SKILL MASTERIES', '', '')}<div class="mastery-list">${sMast}</div>`;
   }
 
   /* ---------------- level-up modal ---------------- */
