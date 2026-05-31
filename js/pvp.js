@@ -157,6 +157,7 @@
     }
     const lad = await sb.from('ladder').select('*').eq('user_id', user.id).maybeSingle();
     myRow = lad.data || null;
+    if (Game() && Game().refreshBrute) Game().refreshBrute();   // brute card shows PvP rating once it loads
   }
 
   /* ---------------- sign in / register (manual fallback) ---------------- */
@@ -449,7 +450,10 @@
     else if (name === 'gauntlet') renderGauntletBoard();
   }
 
-  global.PVP = { init, render, publishDefense, renderArenaBoard, renderGauntletBoard, boardFor, claimName, getHandle };
+  // live PvP standing for the brute card (null until the ladder row loads)
+  function myStats() { return myRow ? { rating: myRow.rating, wins: myRow.wins, losses: myRow.losses } : null; }
+
+  global.PVP = { init, render, publishDefense, renderArenaBoard, renderGauntletBoard, boardFor, claimName, getHandle, myStats };
 
   // self-initialize (game.js also calls init(); the `inited` guard makes that safe)
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);

@@ -41,7 +41,7 @@
       gauntlet: { floor: 1, best: 0, checkpoint: 1 },
       arena: { arp: 0, best: 0 },   // ranked division ladder (arp + highest division reached)
       lifetime: emptyStats(),   // account-wide tally across every brute
-      training: { hp: 0, strength: 0, agility: 0, speed: 0 },  // banked idle stat gains (claimable)
+      training: 0,            // banked idle XP (claimable, capped)
       bounties: null,   // lazily seeded by ensureBounties()
       collection: { weapons: {}, skills: {}, pets: {} },
       masteries: { blade: 0, blunt: 0, axe: 0, spear: 0 },
@@ -56,7 +56,7 @@
     if (s.dust == null) s.dust = 0;
     if (s.shards == null) s.shards = 0;
     if (s.craftTarget === undefined) s.craftTarget = null;
-    if (!s.training) s.training = { hp: 0, strength: 0, agility: 0, speed: 0 };
+    if (typeof s.training !== 'number') s.training = 0;   // legacy stat-bank object -> XP bank
     s.lifetime = fillStats(s.lifetime);
     if (s.brute) s.brute.career = fillStats(s.brute.career);
     if (!s.gauntlet) s.gauntlet = { floor: 1, best: 0, checkpoint: 1 };
@@ -111,7 +111,8 @@
   function staminaRegenTime() {
     return Math.max(6, STAMINA_REGEN_BASE - (state.shop.staminaRegen || 0) * 6);
   }
-  function idleXpRate() { return (state.shop.trainer || 0); }
+  function trainXpRate() { return D.TRAINING.baseXpSec + (state.shop.trainer || 0) * D.TRAINING.xpPerTrainerSec; }
+  function trainXpCap() { return D.TRAINING.capBase + (state.shop.trainer || 0) * D.TRAINING.capPerTrainer; }
   function goldMul() {
     return (1 + (state.shop.goldFind || 0) * 0.15) * (1 + (state.legacyPerks.goldMul || 0) * 0.20);
   }
@@ -555,30 +556,24 @@
       if (state.stamina >= staminaMax()) state.staminaProgress = 0;
     }
 
-    // idle training: bank small flat stat gains (claimed by the player, no XP/popups)
-    const tr = idleXpRate();   // = Trainers owned
-    if (state.brute && tr > 0) {
-      const w = D.TRAINING.perTrainerSec;
-      state.training.hp       += elapsed * tr * w.hp;
-      state.training.strength += elapsed * tr * w.strength;
-      state.training.agility  += elapsed * tr * w.agility;
-      state.training.speed    += elapsed * tr * w.speed;
+    // idle training: bank XP up to a cap (claimed by the player)
+    if (state.brute) {
+      const cap = trainXpCap();
+      state.training = Math.min(cap, (state.training || 0) + elapsed * trainXpRate());
     }
     return elapsed;
   }
 
-  /* Claim banked idle training: apply whole-number stat gains to the brute. */
+  /* Claim banked idle training XP: feed it into normal leveling. */
   function claimTraining() {
     if (!state.brute) return;
-    const b = state.training;
-    const parts = [];
-    ['hp', 'strength', 'agility', 'speed'].forEach(k => {
-      const n = Math.floor(b[k] || 0);
-      if (n > 0) { state.brute.stats[k] += n; b[k] -= n; parts.push('+' + n + ' ' + D.TRAINING.statLabel[k]); }
-    });
-    if (!parts.length) { UI.toast('Nothing banked yet — hire Trainers and give it time.', 'bad'); return; }
-    UI.toast('Trained: ' + parts.join(', '), 'good');
+    const xp = Math.floor(state.training || 0);
+    if (xp <= 0) { UI.toast('No training banked yet — give it some idle time.', 'bad'); return; }
+    state.training = 0;
+    grantXp(xp, true);
+    UI.toast('Claimed ' + UI.fmt(xp) + ' training XP', 'good');
     save(); renderAll();
+    processLevelUps(() => {});
   }
 
   /* ---------------- xp / leveling ---------------- */
@@ -621,6 +616,14 @@
   }
   function arenaPromoReward(idx) {
     return { gold: 60 + idx * 70, dust: 8 + idx * 10, legacy: idx >= 6 ? 1 : 0, drop: idx >= 3 };
+  }
+  // cross-mode standings shown on the brute card
+  function bruteCardData() {
+    return {
+      arena: arenaInfo(),
+      gauntletBest: (state.gauntlet && state.gauntlet.best) || 0,
+      pvp: (global.PVP && global.PVP.myStats) ? global.PVP.myStats() : null,
+    };
   }
 
   /* ---------------- fighting ---------------- */
@@ -829,7 +832,7 @@
     const navIco = $('#nav-brute-ico');
     if (navIco && global.Avatar) navIco.innerHTML = global.Avatar.svg(state.brute);
     UI.setMeta(metaBonuses());
-    UI.renderBruteTab(state.brute);
+    UI.renderBruteTab(state.brute, bruteCardData());
     UI.renderForge(state.brute, state.dust, state.gold, {
       upgrade: forgeUpgrade, reroll: forgeReroll, disenchant: forgeDisenchant, fuse: forgeFuse,
       equipWeapon: equipWeapon, equipPet: equipPet, toggleSkill: toggleSkill, skillSlots: skillSlots(),
@@ -845,7 +848,7 @@
     UI.renderLifetime(state.lifetime, state.gauntlet.best);
     UI.renderShop(stateForShop(), buyShop);
     UI.renderLegacy(state, state.brute, retireBrute, buyLegacyPerk);
-    UI.renderTraining(state.training, idleXpRate(), claimTraining);
+    UI.renderTraining(state.training, trainXpRate(), trainXpCap(), claimTraining);
     const btn = $('#btn-fight');
     if (btn) btn.disabled = state.stamina < 1 || fightInProgress;
   }
@@ -936,8 +939,8 @@
     if (state.brute) {
       syncCollection(state.brute);
       enterGame();
-      if (elapsed > 60 && idleXpRate() > 0) {
-        UI.toast(`Welcome back! Training banked over ${formatDuration(elapsed)} — claim it in the Brute tab.`, 'good');
+      if (elapsed > 60 && Math.floor(state.training || 0) > 0) {
+        UI.toast(`Welcome back! Training XP banked over ${formatDuration(elapsed)} — claim it in the Brute tab.`, 'good');
       }
     } else {
       startCreateScreen();
@@ -956,6 +959,7 @@
     metaBonuses: () => metaBonuses(),
     fast: () => !!(state && state.settings && state.settings.fastFight),
     activateTab: activateTab,
+    refreshBrute: () => { if (state && state.brute) UI.renderBruteTab(state.brute, bruteCardData()); },
     arp: () => (state && state.arena && state.arena.arp) || 0,
     gauntletBest: () => (state && state.gauntlet && state.gauntlet.best) || 0,
     setBruteName: (n) => { if (state && state.brute && n) { state.brute.name = n; save(); renderAll(); } },

@@ -136,56 +136,88 @@
   }
 
   /* ---------------- brute tab ---------------- */
-  function renderBruteTab(brute) {
+  function renderBruteTab(brute, info) {
+    const panel = $('#brute-card-panel');
+    if (!panel) return;
+    info = info || {};
     const e = C.effectiveStats(brute, curMeta);
-    const s = brute.stats;
     const need = C.xpForLevel(brute.level);
     const xpPct = Math.min(100, (brute.xp / need) * 100);
+    const power = C.powerRating(brute, curMeta);
+    const swords = `<svg viewBox="0 0 24 24" class="gicon" aria-hidden="true"><g stroke-linecap="round" stroke-linejoin="round"><path d="M4 20 L15 5" stroke="#14110d" stroke-width="4.6"/><path d="M20 20 L9 5" stroke="#14110d" stroke-width="4.6"/><path d="M4 20 L15 5" stroke="#d4d8dd" stroke-width="2.4"/><path d="M20 20 L9 5" stroke="#d4d8dd" stroke-width="2.4"/></g></svg>`;
+    const arena = info.arena;
+    const pvp = info.pvp;
+    const standings = `
+      ${arena ? `<span class="gaunt-chip chip-rank"><span class="bc-medal">${rankIcon(arena.name)}</span><span class="gc-k">ARENA</span><span class="gc-v rank-v">${arena.name.toUpperCase()}</span></span>` : ''}
+      <span class="gaunt-chip chip-best">${GICON.peak}<span class="gc-k">BEST FLOOR</span><span class="gc-v">${fmt(info.gauntletBest || 0)}</span></span>
+      <span class="gaunt-chip chip-cp">${GICON.star}<span class="gc-k">PVP RATING</span><span class="gc-v">${pvp ? fmt(pvp.rating) : '—'}</span></span>`;
 
-    $('#brute-card-panel').innerHTML = `
-      <div class="brute-hero">
-        ${bruteAvatarHtml(brute, 'xl')}
-        <div>
-          <div class="bs-name big">${brute.name}</div>
-          <div class="lvl-badge">LEVEL ${brute.level}</div>
-          <div class="record">🏅 ${brute.wins}W / ${brute.losses}L</div>
-          <div class="power big">⚡ POWER ${C.powerRating(brute, curMeta)}</div>
+    panel.innerHTML = `
+      <h3 class="comic-title">${brute.name} <span class="ct-sub">LV ${brute.level}</span></h3>
+      <div class="gaunt-top brute-hero">
+        <div class="brute-hero-id">
+          ${bruteAvatarHtml(brute, 'lg')}
+          <div class="bh-power"><span class="bh-power-num">${fmt(power)}</span><span class="bh-power-lbl">POWER</span></div>
+        </div>
+        <div class="gaunt-stats">
+          <span class="gaunt-chip chip-best">${swords}<span class="gc-k">RECORD</span><span class="gc-v">${brute.wins}-${brute.losses}</span></span>
         </div>
       </div>
       <div class="xpbar"><div class="xpbar-fill" style="width:${xpPct}%"></div>
         <span class="xpbar-text">${fmt(brute.xp)} / ${fmt(need)} XP</span></div>
-      <div class="statgrid">
-        ${bigStat('❤️', 'Max HP', e.maxHp, s.hp)}
-        ${bigStat('💪', 'Strength', round(e.strength), s.strength)}
-        ${bigStat('🤸', 'Agility', round(e.agility), s.agility)}
-        ${bigStat('💨', 'Speed', round(e.speed), s.speed)}
+      <div class="brute-sec"><span class="brute-sec-tag">STANDINGS</span></div>
+      <div class="brute-standings">${standings}</div>
+      <div class="brute-sec"><span class="brute-sec-tag">STATS</span></div>
+      <div class="brute-tiles">
+        ${statTile('HP', e.maxHp)}${statTile('STR', round(e.strength))}${statTile('AGI', round(e.agility))}${statTile('SPD', round(e.speed))}
       </div>
-      <div class="derived">
-        ${derived('Crit', e.crit)} ${derived('Evasion', e.evasion)}
-        ${derived('Block', e.block)} ${derived('Counter', e.counter)}
-        ${derived('Combo', e.combo)} ${derived('Dmg Reduce', e.dmgReduction)}
+      <div class="brute-deriv">
+        ${derivChip('CRIT', e.crit)}${derivChip('EVASION', e.evasion)}${derivChip('BLOCK', e.block)}${derivChip('COUNTER', e.counter)}${derivChip('COMBO', e.combo)}${derivChip('DMG RED', e.dmgReduction)}
       </div>
-      ${loadoutHtml(brute)}
-      <h3 class="run-stats-head">📋 THIS BRUTE'S RECORD</h3>
-      ${statsGridHtml(brute.career)}`;
+      <div class="brute-sec"><span class="brute-sec-tag">LOADOUT</span></div>
+      ${loadoutComic(brute)}
+      <div class="brute-sec"><span class="brute-sec-tag">CAREER RECORD</span></div>
+      ${careerComic(brute.career)}`;
+  }
 
-    const eq = brute.equipped || { weapon: null, pet: null, skills: [] };
-    const isEq = (uid) => eq.weapon === uid || eq.pet === uid || (eq.skills || []).includes(uid);
-    const weaponsHtml = brute.weapons.length
-      ? brute.weapons.map(it => invInstance(it, 'weapon', isEq(it.uid))).join('')
-      : '<p class="muted small">No weapons yet — fists only.</p>';
-    const skillsHtml = brute.skills.length
-      ? brute.skills.map(it => invInstance(it, 'skill', isEq(it.uid))).join('')
-      : '<p class="muted small">No skills yet.</p>';
-    const petsHtml = brute.pets.length
-      ? brute.pets.map(it => invInstance(it, 'pet', isEq(it.uid))).join('')
-      : '<p class="muted small">No pets yet.</p>';
-
-    $('#brute-inventory-panel').innerHTML = `
-      <h3>⚔️ Weapons</h3><div class="inv-list">${weaponsHtml}</div>
-      <h3>✨ Skills</h3><div class="inv-list">${skillsHtml}</div>
-      <h3>🐾 Pets</h3><div class="inv-list">${petsHtml}</div>
-      <p class="muted small">Equip and forge gear in the ⚒️ FORGE tab.</p>`;
+  // ---- comic brute-card helpers ----
+  function statTile(label, val) {
+    return `<div class="btile"><span class="btile-v">${val}</span><span class="btile-k">${label}</span></div>`;
+  }
+  function derivChip(label, val) {
+    return `<span class="bderiv"><b>${Math.round(val * 100)}%</b><span>${label}</span></span>`;
+  }
+  function loadoutComic(brute) {
+    const lo = C.loadout(brute);
+    const slot = (label, inst, fallback, sub) => {
+      const col = inst ? I.color(inst) : 'var(--ink)';
+      const main = inst
+        ? `<span class="bslot-name" style="color:${col}">${I.displayName(inst)}</span><span class="bslot-rar" style="background:${col}">${I.rarityName(inst)}</span>`
+        : `<span class="bslot-empty">${fallback}</span>`;
+      return `<div class="bslot" style="border-color:${inst ? col : 'var(--ink)'}">
+        <div class="bslot-lbl">${label}</div>
+        <div class="bslot-main">${main}</div>
+        ${sub ? `<div class="bslot-sub">${sub}</div>` : ''}</div>`;
+    };
+    const wSub = lo.weapon ? `${Math.round(I.stats(lo.weapon).dmg)} dmg` : 'unarmed';
+    const pSub = lo.pet ? (() => { const s = I.petStats(lo.pet); return `${Math.round(s.hp)} HP / ${Math.round(s.strength)} STR`; })() : '';
+    const skills = lo.skills.length
+      ? lo.skills.map(s => `<span class="bskill" style="border-color:${I.color(s)};color:${I.color(s)}">${I.displayName(s)}</span>`).join('')
+      : '<span class="bslot-empty">none equipped</span>';
+    return `<div class="bloadout">
+      ${slot('WEAPON', lo.weapon, 'Bare Fists', wSub)}
+      ${slot('PET', lo.pet, 'No pet', pSub)}
+      <div class="bslot bslot-skills"><div class="bslot-lbl">SKILLS</div><div class="bslot-skilllist">${skills}</div></div>
+    </div>`;
+  }
+  function careerComic(stats) {
+    stats = stats || {};
+    const total = (stats.wins || 0) + (stats.losses || 0);
+    const winRate = total ? Math.round((stats.wins / total) * 100) : 0;
+    const cells = D.STAT_DEFS.map(d =>
+      `<div class="bcareer-cell"><span class="bcareer-num">${fmt(stats[d.key] || 0)}</span><span class="bcareer-key">${d.label}</span></div>`).join('');
+    return `<div class="bcareer">${cells}</div>
+      <div class="bcareer-foot">Total fights <b>${fmt(total)}</b> · Win rate <b>${winRate}%</b></div>`;
   }
 
   // compact "what's equipped" summary
@@ -293,26 +325,24 @@
   function legacyPayout(brute) { return Math.floor(Math.pow(brute.level, 1.35) + brute.wins * 0.5); }
 
   /* ---------------- idle training (claimable stat bank) ---------------- */
-  function renderTraining(bank, rate, onClaim) {
+  function renderTraining(banked, rate, cap, onClaim) {
     const el = $('#idle-rate');
     if (!el) return;
-    bank = bank || {};
-    const order = ['hp', 'strength', 'agility', 'speed'];
-    const banked = order.map(k => ({ k, n: Math.floor(bank[k] || 0) })).filter(x => x.n > 0);
-    const hasAny = banked.length > 0;
-    if (rate <= 0) {
-      el.innerHTML = `<p class="muted">Hire <b>Trainers</b> in the Shop and your brute trains its stats while you're away. Claim the banked gains here.</p>`;
-      return;
-    }
-    const chips = hasAny
-      ? banked.map(x => `<span class="train-chip">+${x.n} ${D.TRAINING.statLabel[x.k]}</span>`).join('')
-      : '<span class="muted small">banking… check back after some idle time</span>';
+    banked = Math.floor(banked || 0);
+    cap = Math.max(1, Math.floor(cap || 0));
+    const pct = Math.min(100, (banked / cap) * 100);
+    const full = banked >= cap;
+    const has = banked > 0;
     el.innerHTML = `
-      <p class="muted small">Training at <b>${rate}/sec</b> while idle or offline (capped at 8h). No XP, no popups — just claim the gains.</p>
-      <div class="train-bank">${chips}</div>
-      <button id="btn-claim-train" class="primary-btn" ${hasAny ? '' : 'disabled'}>CLAIM TRAINING</button>`;
+      <p class="muted small">Your brute trains while you're away, banking XP up to a cap. Claim it here. Hire <b>Trainers</b> in the Shop to bank faster and raise the cap.</p>
+      <div class="train-readout">
+        <div class="train-xp"><span class="train-xp-num">${fmt(banked)}</span><span class="train-xp-lbl">/ ${fmt(cap)} XP</span></div>
+        <span class="train-rate">${rate.toFixed(2)} XP/sec${full ? ' · FULL' : ''}</span>
+      </div>
+      <div class="train-bar"><div class="train-fill${full ? ' full' : ''}" style="width:${pct}%"></div></div>
+      <button id="btn-claim-train" class="primary-btn gaunt-climb" ${has ? '' : 'disabled'}>CLAIM ${fmt(banked)} XP</button>`;
     const b = $('#btn-claim-train');
-    if (b && hasAny) b.addEventListener('click', onClaim);
+    if (b && has) b.addEventListener('click', onClaim);
   }
 
   /* ---------------- forge: target crafting ---------------- */

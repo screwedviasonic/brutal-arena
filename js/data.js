@@ -108,8 +108,8 @@
       effect: 'Increases your maximum stamina by 1.' },
     { id: 'staminaRegen', name: 'Endurance Training', icon: '⏱️', desc: '-6s stamina regen time', max: 20, baseCost: 60, growth: 1.5,
       effect: 'Stamina refills faster.' },
-    { id: 'trainer', name: 'Hire Trainer', icon: '🏋️', desc: '+1 idle stat training/sec', max: 50, baseCost: 30, growth: 1.35,
-      effect: 'Trains your brute\'s stats while idle. Claim the banked gains in the Brute tab.' },
+    { id: 'trainer', name: 'Hire Trainer', icon: '🏋️', desc: '+idle XP rate & cap', max: 50, baseCost: 30, growth: 1.35,
+      effect: 'Banks more idle XP per second and raises the training cap. Claim it in the Brute tab.' },
     { id: 'goldFind', name: 'Looter', icon: '💰', desc: '+15% gold from fights', max: 20, baseCost: 80, growth: 1.5,
       effect: 'Win more gold from every victory.' },
     { id: 'xpBoost', name: 'War College', icon: '📚', desc: '+10% XP from fights', max: 20, baseCost: 90, growth: 1.5,
@@ -229,13 +229,15 @@
   };
 
   /* ---------------- IDLE TRAINING ----------------
-   * Idle/offline time banks small flat stat gains (per second, per Trainer
-   * owned). The player CLAIMS the bank in the Brute tab — no XP, no popups.
-   * Tuned so ~8h offline at max Trainers is a meaningful-but-not-crazy chunk.
+   * Idle/offline time banks XP up to a cap. The player CLAIMS the banked XP
+   * in the Brute tab (it feeds normal leveling). A small base rate always
+   * accrues; Trainers (Shop) raise both the rate and the cap.
    */
   const TRAINING = {
-    perTrainerSec: { hp: 0.00008, strength: 0.00002, agility: 0.00002, speed: 0.000015 },
-    statLabel: { hp: 'Max HP', strength: 'Strength', agility: 'Agility', speed: 'Speed' },
+    baseXpSec: 0.06,          // banked XP/sec with no Trainers
+    xpPerTrainerSec: 0.06,    // extra banked XP/sec per Trainer
+    capBase: 120,             // max banked XP with no Trainers
+    capPerTrainer: 120,       // extra cap per Trainer
   };
 
   /* ---------------- MASTERIES (per weapon category) ---------------- */

@@ -451,6 +451,58 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 .deriv { background: var(--ink); color: var(--paper2); border-radius: 4px; padding: 5px 10px; font-size: .82rem; font-weight: 700; }
 .deriv b { color: var(--pop-yellow); }
 
+/* ===== brute card (comic, matches arena/gauntlet/pvp) ===== */
+.brute-hero { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 14px; }
+.brute-hero-id { display: flex; align-items: center; gap: 16px; }
+.bh-power { display: flex; flex-direction: column; line-height: 1; }
+.bh-power-num { font-family: 'Bangers', sans-serif; font-size: 2.6rem; color: var(--pop-red); -webkit-text-stroke: 1px var(--ink); text-shadow: 2px 2px 0 #fff; }
+.bh-power-lbl { font-family: 'Anton', sans-serif; letter-spacing: 2px; font-size: .72rem; color: var(--muted); margin-top: 2px; }
+/* rank chip with a mini medal */
+.gaunt-chip.chip-rank .bc-medal { display: inline-flex; width: 26px; height: 26px; align-self: center; margin: 0 2px 0 9px; }
+.gaunt-chip.chip-rank .bc-medal .rankglyph { filter: none; }
+.gaunt-chip .gc-v.rank-v { font-size: 1rem; background: #ece4f7; color: var(--pop-purple); }
+
+/* cross-mode standings row */
+.brute-standings { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 4px; }
+
+/* core stat tiles */
+.brute-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+@media (max-width: 560px) { .brute-tiles { grid-template-columns: repeat(2, 1fr); } }
+.btile { display: flex; flex-direction: column; align-items: center; gap: 2px; background: var(--paper2); border: 3px solid var(--ink); border-radius: 8px; padding: 10px 6px; box-shadow: var(--shadow-sm); transform: rotate(-1deg); }
+.btile:nth-child(even) { transform: rotate(1deg); }
+.btile-v { font-family: 'Bangers', sans-serif; font-size: 1.6rem; line-height: 1; color: var(--ink); }
+.btile-k { font-family: 'Anton', sans-serif; letter-spacing: 1px; font-size: .7rem; color: var(--muted); }
+
+/* derived stat chips */
+.brute-deriv { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 4px; }
+.bderiv { display: inline-flex; align-items: baseline; gap: 5px; background: var(--ink); color: var(--paper2); border-radius: 5px; padding: 4px 9px; font-family: 'Anton', sans-serif; letter-spacing: .5px; font-size: .72rem; }
+.bderiv b { font-family: 'Bangers', sans-serif; font-size: 1rem; color: var(--pop-yellow); -webkit-text-stroke: .3px var(--ink); }
+
+/* section divider with a tag */
+.brute-sec { position: relative; border-top: 3px solid var(--ink); margin: 22px 0 14px; }
+.brute-sec-tag { position: absolute; top: -11px; left: 0; font-family: 'Anton', sans-serif; font-size: .66rem; letter-spacing: 1.5px; background: var(--ink); color: var(--paper); padding: 3px 10px; border-radius: 5px; }
+
+/* loadout slots */
+.bloadout { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+@media (max-width: 600px) { .bloadout { grid-template-columns: 1fr; } }
+.bslot { background: var(--paper2); border: 3px solid var(--ink); border-radius: 8px; padding: 9px 11px; box-shadow: var(--shadow-sm); }
+.bslot-lbl { font-family: 'Anton', sans-serif; font-size: .66rem; letter-spacing: 1.5px; color: var(--muted); margin-bottom: 4px; }
+.bslot-main { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.bslot-name { font-family: 'Anton', sans-serif; letter-spacing: .3px; font-size: 1rem; }
+.bslot-rar { font-family: 'Anton', sans-serif; font-size: .58rem; letter-spacing: 1px; color: #fff; border: 2px solid var(--ink); border-radius: 4px; padding: 2px 6px; -webkit-text-stroke: .3px var(--ink); }
+.bslot-empty { color: var(--muted); font-style: italic; }
+.bslot-sub { color: var(--muted); font-size: .8rem; margin-top: 3px; }
+.bslot-skilllist { display: flex; flex-wrap: wrap; gap: 5px; }
+.bskill { font-family: 'Anton', sans-serif; font-size: .74rem; letter-spacing: .3px; border: 2px solid; border-radius: 5px; padding: 3px 7px; background: #fff; }
+
+/* career record grid */
+.bcareer { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 9px; }
+.bcareer-cell { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; background: var(--paper2); border: 3px solid var(--ink); border-radius: 8px; padding: 9px 6px; box-shadow: 2px 2px 0 var(--ink); }
+.bcareer-num { font-family: 'Bangers', sans-serif; font-size: 1.35rem; line-height: 1; color: var(--ink); }
+.bcareer-key { font-family: 'Anton', sans-serif; font-size: .64rem; letter-spacing: .5px; color: var(--muted); }
+.bcareer-foot { margin-top: 10px; color: var(--muted); font-size: .85rem; }
+.bcareer-foot b { color: var(--ink); }
+
 .inv-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
 .inv-item { display: flex; gap: 11px; align-items: center; background: var(--paper2); border: 3px solid var(--ink); border-radius: 6px; padding: 9px 11px; box-shadow: 2px 2px 0 var(--ink); }
 .ii-ico { font-size: 1.5rem; }
@@ -753,12 +805,15 @@ h1, h2, h3, .brand, .tab, .primary-btn, .secondary-btn, .danger-btn, .buy-btn,
 }
 .levelup-btn:hover { filter: brightness(1.08); }
 
-/* idle training bank */
-.train-bank { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 14px; }
-.train-chip {
-  background: var(--paper2); border: 3px solid var(--ink); border-radius: 6px; padding: 6px 12px;
-  font-family: 'Anton', sans-serif; letter-spacing: .5px; box-shadow: 2px 2px 0 var(--ink);
-}
+/* idle training XP bank */
+.train-readout { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin: 12px 0 6px; }
+.train-xp { display: flex; align-items: baseline; gap: 7px; }
+.train-xp-num { font-family: 'Bangers', sans-serif; font-size: 2rem; line-height: 1; color: var(--pop-purple); -webkit-text-stroke: .5px var(--ink); }
+.train-xp-lbl { font-family: 'Anton', sans-serif; letter-spacing: 1px; font-size: .8rem; color: var(--muted); }
+.train-rate { font-family: 'Anton', sans-serif; letter-spacing: 1px; font-size: .76rem; color: var(--muted); }
+.train-bar { height: 18px; background: var(--paper2); border: 3px solid var(--ink); border-radius: 5px; overflow: hidden; box-shadow: 2px 2px 0 var(--ink); margin-bottom: 14px; }
+.train-fill { height: 100%; background: repeating-linear-gradient(45deg, var(--pop-purple) 0 10px, #6f2bd6 10px 20px); transition: width .4s; }
+.train-fill.full { background: repeating-linear-gradient(45deg, var(--pop-green, #1a8f5a) 0 10px, #14110d0a 10px 20px), var(--pop-green, #1a8f5a); }
 
 /* stamina cost icon on the fight button */
 .cost-ico { width: 24px; height: 24px; vertical-align: -6px; margin-left: 2px; filter: drop-shadow(1px 1px 0 var(--ink)); }
