@@ -156,7 +156,13 @@
       <h3 class="comic-title">${brute.name} <span class="ct-sub">LV ${brute.level}</span></h3>
       <div class="gaunt-top brute-hero">
         <div class="brute-hero-id">
-          ${bruteAvatarHtml(brute, 'lg')}
+          <div class="bh-avatar">
+            ${bruteAvatarHtml(brute, 'lg')}
+            <button id="btn-reroll-look" class="reroll-look" title="Randomize this brute's appearance">
+              <svg viewBox="0 0 24 24" class="rl-ico" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="4" fill="#fff" stroke="#14110d" stroke-width="2"/><circle cx="9" cy="9" r="1.7" fill="#14110d"/><circle cx="15" cy="9" r="1.7" fill="#14110d"/><circle cx="12" cy="12" r="1.7" fill="#14110d"/><circle cx="9" cy="15" r="1.7" fill="#14110d"/><circle cx="15" cy="15" r="1.7" fill="#14110d"/></svg>
+              RE-ROLL LOOK
+            </button>
+          </div>
           <div class="bh-power"><span class="bh-power-num">${fmt(power)}</span><span class="bh-power-lbl">POWER</span></div>
         </div>
         <div class="gaunt-stats">
@@ -493,7 +499,7 @@
       ${RANK_EMBLEM[d.emblem]}
     </svg>`;
   }
-  function renderGauntlet(g, onClimb, enabled, mutator, settings) {
+  function renderGauntlet(g, onClimb, enabled, settings) {
     const el = $('#gauntlet-content');
     if (!el) return;
     settings = settings || {};
@@ -509,9 +515,6 @@
              <span class="gaunt-pill boss-pill">${GICON.crown}<span>BOSS IN</span><b>${toBoss}</b></span>
              <span class="gaunt-pill mile-pill">${GICON.star}<span>MILESTONE IN</span><b>${toMilestone}</b></span>
            </div>`;
-    const mutHtml = mutator
-      ? `<div class="gaunt-mut">${GICON.bolt}<span class="gaunt-mut-tag">MODIFIER</span><b>${mutator.label}</b><span class="gm-desc">${mutator.desc}</span></div>`
-      : '';
     el.innerHTML = `
       <div class="gaunt-top">
         <div class="gaunt-floor">FLOOR <b>${g.floor}</b></div>
@@ -521,7 +524,6 @@
         </div>
       </div>
       ${bannerHtml}
-      ${mutHtml}
       <div class="gaunt-rules"><span class="gr-tag">HOW IT WORKS</span><p>The tower scales forever. Win to climb; fall and you drop to your last boss checkpoint. No stamina, your power is the only gate.</p></div>
       <div class="gaunt-controls">
         <button id="btn-climb" class="primary-btn gaunt-climb" ${enabled ? '' : 'disabled'}>${nextBoss ? 'FIGHT THE BOSS' : 'CLIMB FLOOR ' + g.floor}</button>
@@ -853,11 +855,11 @@
     if (startEv) (startEv.left || []).concat(startEv.right || []).forEach(u => { uName[u.id] = u.name; });
     const stripFx = s => (s || '').replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2190}-\u{21FF}\u{2B00}-\u{2BFF}\u{2300}-\u{23FF}\u{FE00}-\u{FE0F}]/gu, '').replace(/\s+/g, ' ').trim();
     const nm = uid => `<span class="cl-name ${teamOf(uid) === 'left' ? 'you' : 'foe'}">${uName[uid] || '?'}</span>`;
-    const dmgChip = (n, crit) => `<b class="cl-dmg${crit ? ' crit' : ''}">${n}</b>`;
-    // tag = the consistent comic "icon"; side colors the line by who acted
+    const dmgChip = (n, crit) => `<b class="cl-dmg${crit ? ' crit' : ''}">-${n}</b>`;
+    // tag = the consistent comic label; side colors the line by who acted
     function clog(tag, tagCls, html, srcUid, lineCls) {
       const side = srcUid ? (teamOf(srcUid) === 'left' ? 'cl-l' : 'cl-r') : '';
-      logLine(`<span class="cl-tag cl-${tagCls}">${tag}</span>${html}`, [lineCls || '', side].join(' ').trim());
+      logLine(`<span class="cl-tag cl-${tagCls}">${tag}</span><span class="cl-msg">${html}</span>`, [lineCls || '', side].join(' ').trim());
     }
 
     /* --- pet (non-rig) motion --- */

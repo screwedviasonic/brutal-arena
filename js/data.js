@@ -151,20 +151,6 @@
     bossEvery: 5,                 // every Nth floor is a boss
     milestoneEvery: 10,           // every Nth floor grants a Legacy milestone reward
     bossTitles: ['the Gatekeeper', 'the Bonelord', 'the Executioner', 'the Devourer', 'the Warlord', 'the Undying', 'the Titan', 'the Ruin'],
-    // Floor mutators: a non-boss floor rolls one of these (deterministically by
-    // floor number, so re-attempts are fair). They tweak the fight and/or rewards.
-    //   right     : stat bonuses applied to the ENEMY side
-    //   left      : extra stat bonuses applied to YOU (stacked on meta bonuses)
-    //   rewardMul : multipliers on { gold, dust, xp }
-    //   bonusDrop : guarantee a weapon drop this floor
-    mutators: [
-      { id: 'calm',     weight: 5 },
-      { id: 'frenzy',   weight: 2, icon: '🔥', label: 'Frenzy',       desc: 'Enemies hit +30% harder — but a drop is guaranteed', right: { dmgMul: 1.30 }, bonusDrop: true },
-      { id: 'golden',   weight: 2, icon: '💰', label: 'Golden Floor', desc: '+150% gold from this floor',                       rewardMul: { gold: 2.5 } },
-      { id: 'treasure', weight: 2, icon: '💎', label: 'Treasure',     desc: 'Guaranteed weapon drop • +100% dust',              bonusDrop: true, rewardMul: { dust: 2 } },
-      { id: 'overload', weight: 1, icon: '⚡', label: 'Overload',     desc: 'Everyone deals +25% damage • +75% XP',             right: { dmgMul: 1.25 }, left: { dmgMul: 1.25 }, rewardMul: { xp: 1.75 } },
-      { id: 'brittle',  weight: 2, icon: '🩸', label: 'Brittle Foes', desc: 'Enemies have 25% less HP',                         right: { hpMul: 0.75 } },
-    ],
   };
 
   /* ---------------- BOUNTIES (rotating goals) ----------------

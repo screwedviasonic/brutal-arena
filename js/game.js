@@ -446,56 +446,37 @@
   }
 
   /* ---------------- gauntlet ---------------- */
-  // Roll the mutator for a floor. Deterministic by floor number so a retry of
-  // the same floor always faces the same modifier. Boss floors are exempt.
-  function mutatorForFloor(floor) {
-    if (floor % D.GAUNTLET.bossEvery === 0) return null;
-    const rng = new RNG((Math.imul(floor, 2654435761) ^ 0x9e3779b9) >>> 0);
-    const m = rng.weighted(D.GAUNTLET.mutators.map(x => ({ item: x, weight: x.weight })));
-    return (m.id === 'calm') ? null : m;
-  }
-  // Multiply numeric bonus fields together; copy non-numeric (e.g. catDmg) as-is.
-  function mergeBonuses(a, b) {
-    const out = Object.assign({}, a);
-    if (b) for (const k in b) {
-      out[k] = (typeof b[k] === 'number' && typeof out[k] === 'number') ? out[k] * b[k] : b[k];
-    }
-    return out;
-  }
   function climbGauntlet(auto) {
     if (fightInProgress) return;
     // manual click resolves queued level-ups first; auto-climb leaves them queued
     if (!auto && pendingLevels > 0) { processLevelUps(() => {}); return; }
     fightInProgress = true;
     const floor = state.gauntlet.floor;
-    const mut = mutatorForFloor(floor);
     const opp = C.generateGauntletOpponent(floor, new RNG(randomSeed()));
     const result = global.Combat.simulateBattle(state.brute, opp, randomSeed(), {
-      leftBonuses: mergeBonuses(metaBonuses(), mut && mut.left),
-      rightBonuses: (mut && mut.right) || {},
+      leftBonuses: metaBonuses(),
     });
     const won = result.winner === 'left';
     renderAll();
     UI.replayBattle(result, state.brute, opp, state.settings.fastFight).then((finished) => {
       if (!finished) { fightInProgress = false; return; }
-      resolveGauntlet(won, floor, result, mut, auto);
+      resolveGauntlet(won, floor, result, auto);
     });
   }
-  function resolveGauntlet(won, floor, result, mut, auto) {
+  function resolveGauntlet(won, floor, result, auto) {
     const isBoss = floor % D.GAUNTLET.bossEvery === 0;
     const isMilestone = floor % D.GAUNTLET.milestoneEvery === 0;
-    const rMul = (mut && mut.rewardMul) || {};
     const earned = { gold: 0, dust: 0, xp: 0 };
     awardMastery(result.playerStats);
     syncCollection(state.brute);
     if (won) {
-      const xp = Math.round((20 + floor * 6) * xpMul() * (rMul.xp || 1));
-      const gold = Math.round((15 + floor * 7) * goldMul() * (rMul.gold || 1));
-      let dust = Math.round((3 + floor * 1.2) * (rMul.dust || 1)) + (isBoss ? 20 : 0) + (isMilestone ? 40 : 0);
+      const xp = Math.round((20 + floor * 6) * xpMul());
+      const gold = Math.round((15 + floor * 7) * goldMul());
+      let dust = Math.round(3 + floor * 1.2) + (isBoss ? 20 : 0) + (isMilestone ? 40 : 0);
       state.gold += gold; state.dust += dust;
       earned.gold = gold; earned.dust = dust; earned.xp = xp;
       let dropTxt = '';
-      const wantDrop = isBoss || (mut && mut.bonusDrop) || Math.random() < 0.28;
+      const wantDrop = isBoss || Math.random() < 0.28;
       if (wantDrop) { dropTxt = ' • ' + lootBadge(dropItem(Math.min(0.95, (isBoss ? 0.3 : 0.1) + floor * 0.04))); }
       if (isMilestone) { state.legacy += 1; dropTxt += ' • 🏆+1'; }
       state.gauntlet.floor = floor + 1;
@@ -624,6 +605,24 @@
       gauntletBest: (state.gauntlet && state.gauntlet.best) || 0,
       pvp: (global.PVP && global.PVP.myStats) ? global.PVP.myStats() : null,
     };
+  }
+  function renderBrute() {
+    if (!state.brute) return;
+    UI.renderBruteTab(state.brute, bruteCardData());
+    const rl = $('#btn-reroll-look');
+    if (rl) rl.onclick = rerollAppearance;
+  }
+  // re-roll the brute's looks (colors + procedural face seed); propagate everywhere
+  function rerollAppearance() {
+    if (!state.brute) return;
+    const rng = new RNG(randomSeed());
+    state.brute.appearance = C.randomAppearance(rng);
+    state.brute.seed = rng.int(1, 2000000000);
+    save();
+    renderAll();
+    if (UI.showIdleBrute) UI.showIdleBrute(state.brute);   // refresh the arena idle brute
+    if (global.PVP && global.PVP.publishDefense) global.PVP.publishDefense(true);  // update leaderboard snapshot
+    UI.toast('Rolled a fresh look!', 'good');
   }
 
   /* ---------------- fighting ---------------- */
@@ -832,7 +831,7 @@
     const navIco = $('#nav-brute-ico');
     if (navIco && global.Avatar) navIco.innerHTML = global.Avatar.svg(state.brute);
     UI.setMeta(metaBonuses());
-    UI.renderBruteTab(state.brute, bruteCardData());
+    renderBrute();
     UI.renderForge(state.brute, state.dust, state.gold, {
       upgrade: forgeUpgrade, reroll: forgeReroll, disenchant: forgeDisenchant, fuse: forgeFuse,
       equipWeapon: equipWeapon, equipPet: equipPet, toggleSkill: toggleSkill, skillSlots: skillSlots(),
@@ -840,7 +839,7 @@
     UI.renderCraft(state.shards, state.craftTarget, state.craftTarget ? craftCost(state.craftTarget) : 0,
       { setTarget: setCraftTarget, craft: forgeCraft });
     UI.renderArenaRank(arenaInfo());
-    UI.renderGauntlet(state.gauntlet, climbGauntlet, !fightInProgress, mutatorForFloor(state.gauntlet.floor), state.settings);
+    UI.renderGauntlet(state.gauntlet, climbGauntlet, !fightInProgress, state.settings);
     wireGauntletControls();
     ensureBounties();
     UI.renderBounties(state.bounties, { claim: claimBounty, reroll: rerollBounty, rerollDust: state.dust });
@@ -959,7 +958,7 @@
     metaBonuses: () => metaBonuses(),
     fast: () => !!(state && state.settings && state.settings.fastFight),
     activateTab: activateTab,
-    refreshBrute: () => { if (state && state.brute) UI.renderBruteTab(state.brute, bruteCardData()); },
+    refreshBrute: () => { renderBrute(); },
     arp: () => (state && state.arena && state.arena.arp) || 0,
     gauntletBest: () => (state && state.gauntlet && state.gauntlet.best) || 0,
     setBruteName: (n) => { if (state && state.brute && n) { state.brute.name = n; save(); renderAll(); } },
