@@ -549,7 +549,7 @@
       detail = `
         <div class="craft-target">
           <div class="craft-info"><div class="craft-name">${dict[target].name}</div>
-            <div class="muted small">Crafts at ${I.RARITY[D.CRAFT.minRarity].name}+ quality</div></div>
+            <div class="muted small">Crafts at ${(I.RARITY[D.CRAFT.minRarity] || I.RARITY.common).name}+ quality</div></div>
           <span class="craft-need">${costChip(cost, 'shard')}</span>
         </div>
         <div class="train-bar"><div class="train-fill craft-fill${ready ? ' full' : ''}" style="width:${pct}%"></div></div>

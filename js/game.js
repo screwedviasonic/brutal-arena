@@ -10,7 +10,7 @@
   const C = global.Character;
   const P = global.Progression;
   const SAVE_KEY = 'brutal_arena_save_v1';
-  const GAME_VERSION = '0.9.0';     // displayed on the About tab; bump on release
+  const GAME_VERSION = '0.9.1';     // displayed on the About tab; bump on release
   const STAMINA_BASE = 6;
   const STAMINA_REGEN_BASE = 45;   // seconds per point at 0 upgrades
   const OFFLINE_CAP_SEC = 8 * 3600;

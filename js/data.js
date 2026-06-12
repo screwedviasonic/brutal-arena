@@ -259,6 +259,7 @@
     shardBase: 10,
     shardPerTier: 6,
     luckBonus: 0.7,   // shifts the rarity center up vs a plain drop
+    minRarity: 'rare', // label shown in the forge ("Crafts at Rare+ quality")
   };
 
   /* ---------------- DROP RARITY (level-scaled) ----------------
